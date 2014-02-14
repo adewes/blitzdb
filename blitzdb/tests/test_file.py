@@ -88,8 +88,7 @@ def tmpdir(request):
 
     tmpdir = tempfile.mkdtemp()
     def finalizer():
-        print subprocess.check_output(["du","-h",tmpdir])
-#        subprocess.call(["rm","-rf",tmpdir])
+        subprocess.call(["rm","-rf",tmpdir])
     request.addfinalizer(finalizer)
     return tmpdir
 

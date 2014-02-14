@@ -19,20 +19,20 @@ class Movie(Object):
 class Actor(Object):
     pass
 
-the_godfather = Movie({'name': 'The Godfather','year':1972})
+the_godfather = Movie({'name': 'The Godfather','year':1972,'pk':1L})
 
-marlon_brando = Actor({'name':'Marlon Brando'})
-al_pacino = Actor({'name' : 'Al Pacino'})
+marlon_brando = Actor({'name':'Marlon Brando','pk':1L})
+al_pacino = Actor({'name' : 'Al Pacino','pk':1L})
 ```
 
-###Storing of objects in the database:
+###Storing objects in the database:
 
 ```python
 from blitzdb import FileBackend
 
 backend = FileBackend("/path/to/my/db")
 
-backend.register(Movie,{'collection':'movies','pk':1L})
+backend.register(Movie,{'collection':'movies'})
 backend.register(Actor,{'collection':'actors'})
 
 the_godfather.save(backend)
@@ -66,6 +66,7 @@ al_pacino.performances = [the_godfather]
 
 marlon_brando.save(backend)
 al_pacino.save(backend)
+the_godfather.save(backend)
 #Will store references to the movies within the documents in the DB
 ```
 
@@ -73,7 +74,7 @@ al_pacino.save(backend)
 
 ```python
 backend.create_index(Actor,'performances')
-#Will create an index for fast querying
+#Will create an index on the 'performances' field, for fast querying
 
 godfather_cast = backend.filter(Actor,{'movies' : the_godfather})
 #Will return 'Al Pacino' and 'Marlon Brando'
