@@ -41,7 +41,7 @@ class Backend(object):
         elif isinstance(obj,tuple):
             output_obj = tuple(map(lambda x:self.serialize(x),obj))
         elif isinstance(obj,Object):
-            collection = self.get_collection_name_for_obj(obj)
+            collection = self.get_collection_for_obj(obj)
             if obj.embed:
                 output_obj = {'_collection':collection,'_attributes':self.serialize(obj.attributes)}
             else:
@@ -78,23 +78,26 @@ class Backend(object):
         if 'constructor' in self.classes[cls]:
             obj = self.classes[cls]['constructor'](attributes,lazy = lazy)
         else:
-            obj = cls(attributes,lazy = lazy)
-        if lazy:
-            obj._lazy_backend = self
-
+            obj = cls(attributes,lazy = lazy,default_backend = self)
         return obj
 
-    def get_collection_name_for_obj(self,obj):
-        return self.get_collection_name_for_cls(obj.__class__)
+    def get_collection_for_obj(self,obj):
+        return self.get_collection_for_cls(obj.__class__)
 
-    def get_collection_name_for_cls(self,cls):
+    def get_collection_for_cls(self,cls):
         if not cls in self.classes:
             if issubclass(cls,Object):
                 self.autoregister(cls)
             else:
                 raise AttributeError("Unknown object type: %s" % cls.__name__)
-        collection_name = self.classes[cls]['collection']
-        return collection_name
+        collection = self.classes[cls]['collection']
+        return collection
+
+    def get_cls_for_collection(self,collection):
+        for cls,params in self.classes.items():
+            if params['collection'] == collection:
+                return cls
+        raise AttributeError("Unknown collection: %s" % collection)
 
     def compile_query(self,query_dict):
 
@@ -112,7 +115,7 @@ class Backend(object):
             splitted_key = key.split(".")
             accessor = lambda d,path = splitted_key : access_path(d,path = path)
             if isinstance(value,Object):
-                value = {'_collection' : self.get_collection_name_for_obj(value),'_pk':value.pk}
+                value = {'_collection' : self.get_collection_for_obj(value),'_pk':value.pk}
             compiled_query.append((key,accessor,value))
         return compiled_query 
 

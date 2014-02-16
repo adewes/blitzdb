@@ -4,11 +4,12 @@ class Object(object):
     """
     """
 
-    def __init__(self,attributes = None,lazy = False):
+    def __init__(self,attributes = None,lazy = False,default_backend = None):
         if not attributes:
             attributes = {}
         self.__dict__['_attributes'] = attributes
         self.__dict__['embed'] = False
+        self._default_backend = default_backend
 
         if not 'pk' in attributes:
             self.pk = None
@@ -32,12 +33,9 @@ class Object(object):
 
             if not 'pk' in self._attributes or not self._attributes['pk']:
                 raise AttributeError("No primary key given!")
-            if not hasattr(self,'_lazy_backend'):
+            if not self._default_backend:
                 raise AttributeError("No backend for lazy loading given!")
-
-            obj = self._lazy_backend.get(self.__class__,{'pk':self._attributes['pk']})
-            del self._lazy_backend
-
+            obj = self._default_backend.get(self.__class__,{'pk':self._attributes['pk']})
             self._attributes = obj.attributes
             self.initialize()
 
@@ -65,12 +63,19 @@ class Object(object):
     def attributes(self):
         return self._attributes
 
-    def save(self,backend):
+    def save(self,backend = None):
+        if not backend:
+            if not self._default_backend:
+                raise AttributeError("No default backend defined!")
+            return self._default_backend.save(self)
         return backend.save(self)
 
-    def delete(self,backend):
+    def delete(self,backend = None):
+        if not backend:
+            if not self._default_backend:
+                raise AttributeError("No default backend defined!")
+            return self._default_backend.delete(self)
         backend.delete(self)
-        self.pk = None
 
     def __copy__(self):
         d = self.__class__(**self.attributes.copy())
