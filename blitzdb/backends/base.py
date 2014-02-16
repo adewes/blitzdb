@@ -18,6 +18,19 @@ class Backend(object):
             self.collections[cls.__name__.lower()] = cls
             self.classes[cls]['collection'] = cls.__name__.lower()
 
+    def autoregister(self,cls):
+        def get_user_attributes(cls):
+            boring = dir(type('dummy', (object,), {}))
+            return [item
+                    for item in inspect.getmembers(cls)
+                    if item[0] not in boring]
+        
+        if hasattr(cls,'Meta'):
+            params = get_user_attributes(cls.Meta)
+        else:
+            params = {}
+        return self.register(cls,params)
+
     def serialize(self,obj):
         if isinstance(obj,dict):
             output_obj = {}
@@ -28,9 +41,7 @@ class Backend(object):
         elif isinstance(obj,tuple):
             output_obj = tuple(map(lambda x:self.serialize(x),obj))
         elif isinstance(obj,Object):
-            if not obj.__class__ in self.classes:
-                raise AttributeError("Unknown object type: %s" % obj.__class__.__name__)
-            collection = self.classes[obj.__class__]['collection']
+            collection = self.get_collection_name_for_obj(obj)
             if obj.embed:
                 output_obj = {'_collection':collection,'_attributes':self.serialize(obj.attributes)}
             else:
@@ -78,7 +89,10 @@ class Backend(object):
 
     def get_collection_name_for_cls(self,cls):
         if not cls in self.classes:
-            raise AttributeError("Unknown object type: %s" % cls.__name__)
+            if issubclass(cls,Object):
+                self.autoregister(cls)
+            else:
+                raise AttributeError("Unknown object type: %s" % cls.__name__)
         collection_name = self.classes[cls]['collection']
         return collection_name
 

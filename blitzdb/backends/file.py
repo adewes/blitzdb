@@ -81,6 +81,8 @@ class Index(object):
         self._index = defaultdict(lambda : set())
         for key,values in data:
             self._index[key] = set(values)
+            for value in values:
+                self._reverse_index[value].add(key)
 
     def get_hash_for(self,value):
         if isinstance(value,dict):
@@ -100,10 +102,10 @@ class Index(object):
             return
         #We remove old values
         self.remove_key(storage_key)
-        if not isinstance(value,list):
-            values = [value]
-        else:
+        if isinstance(value,list):
             values = value
+        else:
+            values = [value]
         for value in values:
             hash_value = self.get_hash_for(value)
             self._index[hash_value].add(storage_key)
@@ -137,8 +139,11 @@ class QuerySet(object):
 
     def delete(self):
         for i in range(0,len(self.keys)):
-            obj = self[i]
-            self.backend.delete(obj)
+            try:
+                obj = self[i]
+                self.backend.delete(obj)
+            except AttributeError:
+                pass
         self.keys = []
         self.objects = {}
 
@@ -182,6 +187,9 @@ class Backend(BaseBackend):
     def rebuild_indexes(self):
         for collection,storage in self.storages.items():
             indexes = self.indexes[collection]
+
+    def __del__(self):
+        self.save_indexes()
 
     def save_indexes(self):
         for collection,indexes in self.indexes.items():
@@ -228,7 +236,10 @@ class Backend(BaseBackend):
     def get_object(self,cls,key):
         collection = self.get_collection_name_for_cls(cls)
         storage = self.get_storage_for_collection(collection)
-        data = self.deserialize(self.decode_attributes(storage.get_blob(key)))
+        try:
+            data = self.deserialize(self.decode_attributes(storage.get_blob(key)))
+        except IOError:
+            raise AttributeError("Object does not exist!")
         obj = self.create_instance(cls,data)
         return obj
 
@@ -238,11 +249,16 @@ class Backend(BaseBackend):
         storage = self.get_storage_for_collection(collection)
 
         if obj.pk == None:
-            obj.pk = uuid.uuid4().hex            
+            obj.pk = uuid.uuid4().hex 
 
         serialized_attributes = self.serialize(obj.attributes)
         data = self.encode_attributes(serialized_attributes)
-        storage_key = str(obj.pk)
+    
+        try:
+            storage_key = indexes['pk'].get_keys_for(obj.pk).pop()
+        except KeyError:
+            storage_key = uuid.uuid4().hex
+    
         storage.store_blob(data,storage_key)
 
         for key,index in indexes.items():
@@ -257,14 +273,21 @@ class Backend(BaseBackend):
         return json.loads(data)
 
     def delete(self,obj):
+        
         collection = self.get_collection_name_for_obj(obj)
         storage = self.get_storage_for_collection(collection)
         indexes = self.get_indexes_for_collection(collection)
+        
         storage_keys = indexes['pk'].get_keys_for(obj.pk)
+        
         for storage_key in storage_keys:
-            storage.delete_blob(storage_key)
+            try:
+                storage.delete_blob(storage_key)
+            except IOError:
+                pass
             for index in indexes.values():
                 index.remove_key(storage_key)
+
         obj.pk = None
                 
     def get(self,cls,query):
@@ -301,19 +324,29 @@ class Backend(BaseBackend):
         else:
             keys = indexes['pk'].get_all_keys()
 
+
         for accessor,value in unindexed_queries:
             keys_to_remove = set()
             for key in keys:
-                attributes = self.decode_attributes(storage.get_blob(key))
                 try:
-                    if callable(value): 
+                    attributes = self.decode_attributes(storage.get_blob(key))
+                except IOError:
+                    raise
+                    raise Exception("Index is corrupt!")
+                try:
+                    if callable(value):
                         if not value(accessor(attributes)):
                             keys_to_remove.add(key)
-                    elif accessor(attributes) != value:
-                        keys_to_remove.add(key)
+                    else:
+                        accessed_value = accessor(attributes)
+                        if isinstance(accessed_value,list):
+                            if value not in accessed_value: 
+                                keys_to_remove.add(key)
+                        elif accessed_value != value:
+                            keys_to_remove.add(key) 
                 except (KeyError,IndexError):
                     keys_to_remove.add(key)
-
             keys -= keys_to_remove
+
         return QuerySet(self,storage,cls,keys)
 

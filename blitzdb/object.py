@@ -4,85 +4,71 @@ class Object(object):
     """
     """
 
-    def __init__(self,attributes = {},lazy = False):
+    def __init__(self,attributes = None,lazy = False):
+        if not attributes:
+            attributes = {}
         self.__dict__['_attributes'] = attributes
         self.__dict__['embed'] = False
-
-        self._lazy = lazy
 
         if not 'pk' in attributes:
             self.pk = None
 
-        if not self._lazy:
+        if not lazy:
             self.initialize()
+        else:
+            self._lazy = True
+
 
     def initialize(self):
         pass
 
-    def _lazily_load(self):
+    def __getattribute__(self,key):
+        try:
+            lazy = super(Object,self).__getattribute__('_lazy')
+        except AttributeError:
+            lazy = False
+        if lazy:
+            self._lazy = False
 
-        self._lazy = False
+            if not 'pk' in self._attributes or not self._attributes['pk']:
+                raise AttributeError("No primary key given!")
+            if not hasattr(self,'_lazy_backend'):
+                raise AttributeError("No backend for lazy loading given!")
 
-        if not 'pk' in self._attributes or not self._attributes['pk']:
-            raise AttributeError("No primary key given!")
-        if not hasattr(self,'_lazy_backend'):
-            raise AttributeError("No backend for lazy loading given!")
+            obj = self._lazy_backend.get(self.__class__,{'pk':self._attributes['pk']})
+            del self._lazy_backend
 
-        obj = self._lazy_backend.get(self.__class__,{'pk':self._attributes['pk']})
-        del self._lazy_backend
+            self._attributes = obj.attributes
+            self.initialize()
 
-        self._attributes = obj.attributes
-        self.initialize()
+        return super(Object,self).__getattribute__(key)
 
     def __getattr__(self,key):
-
-        if key.startswith('_'):
-            return super(Object,self).__getattr__(key)
-        else:
-            if self._lazy:
-                self._lazily_load()
+        try:
+            super(Object,self).__getattr__(key)
+        except AttributeError:
             return self._attributes[key]
 
     def __setattr__(self,key,value):
-
         if key.startswith('_'):
             return super(Object,self).__setattr__(key,value)
         else:
-            if self._lazy:
-                self._lazily_load()
             self._attributes[key] = value
 
     def __delattr__(self,key):
-
         if key.startswith('_'):
             return super(Object,self).__delattr__(key)
-        else:
-            if self._lazy:
-                self._lazily_load()
-
-            if key in self._attributes:
+        elif key in self._attributes:
                 del self._attributes[key]
 
     @property
     def attributes(self):
-
-        if self._lazy:
-            self._lazily_load()
-
         return self._attributes
 
     def save(self,backend):
-
-        if self._lazy:
-            self._lazily_load()
-
         return backend.save(self)
 
     def delete(self,backend):
-
-        if self._lazy:
-            self._lazily_load()
-
         backend.delete(self)
         self.pk = None
 
@@ -125,9 +111,6 @@ class Object(object):
             else:
                 return d
 
-        if self._lazy:
-            return self.__class__.__name__+"("+str(truncate_dict(self._attributes))+", lazy = True)"
-        else:
-            return self.__class__.__name__+"("+str(truncate_dict(self._attributes))+")"
+        return self.__class__.__name__+"("+str(truncate_dict(self._attributes))+")"
 
     __str__ = __repr__ = _represent
