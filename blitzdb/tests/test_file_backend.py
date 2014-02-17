@@ -6,7 +6,7 @@ import time
 import math
 import faker #https://github.com/joke2k/faker
 
-from blitzdb.backends.file import Backend
+from blitzdb.backends.file import Backend,CompressedStore
 from blitzdb import Object
 
 class Movie(Object):
@@ -26,15 +26,24 @@ def large_test_data(request,backend):
     return generate_test_data(request,backend,100)
 
 @pytest.fixture(scope = "function")
+def large_test_data(request,backend):
+    return generate_test_data(request,backend,100)
+
+@pytest.fixture(scope = "function")
 def small_test_data(request,backend):
     return generate_test_data(request,backend,20)
 
 def generate_test_data(request,backend,n):
     fake = faker.Faker()
 
+
     actors = []
     movies = []
     directors = []
+
+    backend.filter(Movie,{}).delete()
+    backend.filter(Actor,{}).delete()
+    backend.filter(Director,{}).delete()
 
     for i in range(0,n):
         movie = Movie(
@@ -265,10 +274,13 @@ def test_positional_query(backend,small_test_data):
     assert actor in backend.filter(Actor,{'movies.%d' % index : movie})
 
 def test_reloading(backend,tmpdir):
+
     reloaded_backend = Backend(tmpdir)
 
     for cls,params in backend.classes.items():
         reloaded_backend.register(cls,params)
+
+    backend.commit()
 
     assert reloaded_backend.indexes.keys() == backend.indexes.keys()
 

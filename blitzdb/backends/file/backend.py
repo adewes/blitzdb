@@ -1,10 +1,14 @@
-from blitzdb.backends.base import Backend as BaseBackend
 from blitzdb.queryset import QuerySet
+from blitzdb.backends.file.store import TransactionalCompressedStore,TransactionalStore,Store
+from blitzdb.backends.file.index import TransactionalIndex,Index
+from blitzdb.backends.file.utils import JsonEncoder
+from blitzdb.backends.base import Backend as BaseBackend
 
 import os
 import os.path
 
 import json
+import gzip
 import hashlib
 import datetime
 import uuid
@@ -12,222 +16,13 @@ import copy
 
 from collections import defaultdict
 
-"""
-Database transactions:
-
--Keep a log of all raw DB transactions in the cache
--When the transaction is complete, perform the actions and write indexes to disk.
--Affected transaction type: delete, save/update
-
-Both things can be implemented by subclassing or altering the Index and Store classes.
-
-"""
-
-class JsonEncoder(json.JSONEncoder):
-    
-    def default(self, obj):
-        if isinstance(obj,set):
-            return list(obj)
-        elif isinstance(obj,datetime.datetime):
-            return obj.ctime()
-        return json.JSONEncoder.default(self, obj)
-
-
-class Store(object):
-
-    """
-    A store object stores and retrieves blobs.
-    """
-
-    def __init__(self,properties):
-        self._properties = properties
-
-        if not 'path' in properties:
-            raise AttributeError("You must specify a path when creating a Store!")
-
-        if not os.path.exists(properties['path']):
-            os.makedirs(properties['path'])
-
-    def _get_path_for_key(self,key):
-        return self._properties['path']+'/'+key
-
-    def store_blob(self,blob,key):
-        with open(self._properties['path']+"/"+key,"w") as output_file:
-            output_file.write(blob)
-        return key
-
-    def delete_blob(self,key):
-        filepath = self._get_path_for_key(key)
-        if os.path.exists(filepath):
-            os.unlink(filepath)
-
-    def get_blob(self,key):
-        with open(self._properties['path']+"/"+key,"r") as input_file:
-            return input_file.read()
-
-    def has_blob(self,key):
-        if os.path.exists(self._properties['path']+"/"+key):
-            return True
-        return False
-
-class TransactionalStore(Store):
-
-    def __init__(self,properties):
-        super(TransactionalStore,self).__init__(properties)
-        self.begin()
-
-    def begin(self):
-        self._delete_cache = set()
-        self._update_cache = {}
-
-    def commit(self):
-        for store_key in self._delete_cache:
-            super(TransactionalStore,self).delete_blob(store_key)
-        for store_key,blob in self._update_cache.items():
-            super(TransactionalStore,self).store_blob(blob,store_key)
-
-    def has_blob(self,key):
-        if key in self._delete_cache:
-            return False
-        if key in self._update_cache:
-            return True
-        return super(TransactionalStore,self).has_blob(key)
-
-    def get_blob(self,key):
-        if key in self._update_cache:
-            return self._update_cache[key]
-        return super(TransactionalStore,self).get_blob(key)
-
-    def store_blob(self,blob,key):
-        if key in self._delete_cache:
-            self._delete_cache.remove(key)
-        self._update_cache[key] = copy.copy(blob)
-        return key
-
-    def delete_blob(self,key):
-        self._delete_cache.add(key)
-        if key in self._update_cache:
-            del self._update_cache[key]
-
-    def rollback(self):
-        self._delete_cache = set()
-        self._update_cache = {}
-
-class Index(object):
-
-    """
-    An index accepts key/value pairs and stores them so that they can be 
-    efficiently retrieved.
-    """
-
-    def __init__(self,params,store = None):
-        self._params = params
-        self._store = store
-        self._index = defaultdict(lambda : set())
-        self._reverse_index = defaultdict(lambda : set())
-        self._splitted_key = self.key.split(".")
-
-        if store:
-            self.loaded = self.load_from_store()
-
-    @property
-    def key(self):
-        return self._params['key']
-
-    def get_value(self,attributes):
-        v = attributes
-        for element in self._splitted_key:
-            v = v[element]
-        return v
-
-    def save_to_store(self):
-        if not self._store:
-            raise AttributeError("No datastore defined!")
-        data =json.dumps(self.save_to_data())
-        self._store.store_blob(data,'all_keys')
-
-    def get_all_keys(self):
-        return reduce(lambda x,y:x | y,self._index.values(),set())
-
-    def load_from_store(self):
-        if not self._store:
-            raise AttributeError("No datastore defined!")
-        if not self._store.has_blob('all_keys'):
-            return False
-        data = json.loads(self._store.get_blob('all_keys'))
-        self.load_from_data(data)
-        return True
-
-    def save_to_data(self):
-        return [(x[0],list(x[1])) for x in self._index.items()]
-
-    def load_from_data(self,data):
-        self._index = defaultdict(lambda : set())
-        self._reverse_index = defaultdict(lambda : set())
-        for key,values in data:
-            self._index[key] = set(values)
-            for value in values:
-                self._reverse_index[value].add(key)
-
-    def get_hash_for(self,value):
-        if isinstance(value,dict):
-            return hash(frozenset(value.items()))
-        return value
-
-    def get_keys_for(self,value):
-        if callable(value):
-            return reduce(lambda x,y:x | y,[v[1] for v in self._index.items() if value(v[0])])
-        hash_value = self.get_hash_for(value)
-        return self._index[hash_value].copy()
-
-    #The following two operations change the value of the index
-
-    def add_key(self,attributes,store_key):
-        try:
-            value = self.get_value(attributes)
-        except (KeyError,IndexError):
-            return
-        #We remove old values
-        self.remove_key(store_key)
-        if isinstance(value,list):
-            values = value
-        else:
-            values = [value]
-        for value in values:
-            hash_value = self.get_hash_for(value)
-            self._index[hash_value].add(store_key)
-            self._reverse_index[store_key].add(hash_value)
-
-    def remove_key(self,store_key):
-        if store_key in self._reverse_index:
-            for v in self._reverse_index[store_key]:
-                self._index[v].remove(store_key)
-            del self._reverse_index[store_key]
-
-class TransactionalIndex(Index):
-
-    def __init__(self,params,store = None):
-        super(TransactionalIndex,self).__init__(params,store = store)
-        self.begin()
-
-    def begin(self):
-        self._cached_index = self.save_to_data()
-
-    def commit(self):
-        self.save_to_store()
-
-    def rollback(self):
-        self.load_from_data(self._cached_index)
-
 class Backend(BaseBackend):
 
     """
-    A backend stores and retrieves objects from the database.
-
-    To Do:
-
+    A backend stores and retrieves objects in files.
     """
 
+    #The default store & index classes that we will use
     CollectionStore = TransactionalStore
     Index = TransactionalIndex
     IndexStore = Store
@@ -322,30 +117,40 @@ class Backend(BaseBackend):
         self.begin()
 
     def init_indexes(self,collection):
+        indexes_to_rebuild = []
         if collection in self._config['indexes']:
             for index_params in self._config['indexes'][collection].values():
-                self.create_index(collection,index_params)
+                index = self.create_index(collection,index_params)
+                if not index.loaded:
+                    indexes_to_rebuild.append(index)
         self.create_index(collection,{'key':'pk'})
+        for index in indexes_to_rebuild:
+            self.rebuild_index(collection,index.key)
+
+        
+    def rebuild_index(self,collection,key):
+        index = self.indexes[collection][key]
+        all_objects = self.filter(collection,{})
+        for obj in all_objects:
+            serialized_attributes = self.serialize(obj.attributes)#optimize this!
+            index.add_key(serialized_attributes,obj._store_key)
+        if self.autocommit:
+            self.commit()
 
     def create_index(self,cls_or_collection,params):
-
         if not isinstance(params,dict):
             params = {'key' : params}
-
         if not isinstance(cls_or_collection,str) and not isinstance(cls_or_collection,unicode):
             collection = self.get_collection_for_cls(cls_or_collection)
         else:
             collection = cls_or_collection
-
         if params['key'] in self.indexes[collection]:
             return #Index already exists
-
         if not 'id' in params:
             params['id'] = uuid.uuid4().hex 
 
         index_store = self.get_index_store(collection,params['id'])
         index = self.Index(params,index_store)
-
         self.indexes[collection][params['key']] = index
 
         if not collection in self._config['indexes']:
@@ -353,18 +158,7 @@ class Backend(BaseBackend):
 
         self._config['indexes'][collection][params['key']] = params
         self.save_config()
-
-        if index.loaded:
-            return
-
-        #Now for the hard part: We add all objects in the database to the index...
-        all_objects = self.filter(collection,{})
-        for obj in all_objects:
-            serialized_attributes = self.serialize(obj.attributes)#optimize this!
-            index.add_key(serialized_attributes,obj._store_key)
-
-        if self.autocommit:
-            self.commit()
+        return index
 
     def get_collection_indexes(self,collection):
         return self.indexes[collection] if collection in self.indexes else {}
@@ -482,7 +276,6 @@ class Backend(BaseBackend):
                 try:
                     attributes = self.decode_attributes(store.get_blob(key))
                 except IOError:
-                    raise
                     raise Exception("Index is corrupt!")
                 try:
                     if callable(value):
