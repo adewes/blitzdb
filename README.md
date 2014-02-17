@@ -1,12 +1,11 @@
-
 #Blitz-DB
 
 Blitzdb (or simply blitz) is a document-oriented database for Python. It can be used either as a  **stand-alone, flat-file database** or in conjunction with another database backend such as **MongoDB** or **MySQL**.
 
 Blitz supports document indexing and provides powerful query mechanism similar to MongoDB.
 
-* [Use Cases](#Use Cases)
-* [Features](#Features)
+* [Use Cases](#use-cases)
+* [Features](#features)
 
 ##Use Cases
 
