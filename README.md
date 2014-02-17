@@ -2,23 +2,17 @@
 
 Blitzdb (or simply blitz) is a document-oriented database for Python. It can be used either as a  **stand-alone, flat-file database** or in conjunction with another database backend such as **MongoDB** or **MySQL**.
 
-Blitz supports document indexing and provides powerful query mechanism similar to MongoDB.
-
-* [Use Cases](#use-cases)
-* [Features](#features)
-
-##Use Cases
-
-Blitz can be used as a standalone document store for client application. Originally blitz was designed for use with the checkmate Python code analysis toolkit, where it stores statistical data. Since blitz stores all documents as single JSON files, it is possible to put the whole database under version-control.
-
-###Features###
+##Features
 
 * multiple database backends (flat files, Mongo, ...)
 * database transactions & operation caching
 * automatic object references
 * flexible querying syntax
 * deep-key indexing
-* ...
+
+##Use Cases
+
+Blitz can be used as a standalone document store for client application. Originally blitz was designed for use with the checkmate Python code analysis toolkit, where it stores statistical data. Since blitz stores all documents as single JSON files, it is possible to put the whole database under version-control.
 
 ##Examples
 
