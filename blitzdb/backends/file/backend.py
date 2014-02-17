@@ -117,15 +117,20 @@ class Backend(BaseBackend):
         self.begin()
 
     def init_indexes(self,collection):
-        indexes_to_rebuild = []
+        print collection
         if collection in self._config['indexes']:
-            for index_params in self._config['indexes'][collection].values():
+            print self._config['indexes'][collection]
+
+            #If not pk index is present, we create one on the fly...
+            if not [idx for idx in self._config['indexes'][collection].values() if idx['key'] == 'pk']:
+                self.create_index(collection,{'key':'pk'})
+            
+            #We sort the indexes such that pk is always created first...
+            for index_params in sorted(self._config['indexes'][collection].values(),key = lambda x: 0 if x['key'] == 'pk' else 1):
                 index = self.create_index(collection,index_params)
-                if not index.loaded:
-                    indexes_to_rebuild.append(index)
-        self.create_index(collection,{'key':'pk'})
-        for index in indexes_to_rebuild:
-            self.rebuild_index(collection,index.key)
+        else:
+            #If no indexes are given, we just create a primary key index...
+            self.create_index(collection,{'key':'pk'})
 
         
     def rebuild_index(self,collection,key):
@@ -158,6 +163,10 @@ class Backend(BaseBackend):
 
         self._config['indexes'][collection][params['key']] = params
         self.save_config()
+
+        if not index.loaded:#If the index failed to load, we rebuild it...
+            self.rebuild_index(collection,index.key)
+
         return index
 
     def get_collection_indexes(self,collection):
@@ -268,6 +277,7 @@ class Backend(BaseBackend):
                 else:
                     keys &= index.get_keys_for(value)
         else:
+            #We fetch ALL keys from the primary index. If it is not present we're in trouble!
             keys = self.get_pk_index(collection).get_all_keys()
 
         for accessor,value in unindexed_queries:
