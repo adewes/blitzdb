@@ -128,7 +128,7 @@ class Index(object):
         self._splitted_key = self.key.split(".")
 
         if store:
-            self.load_from_store()
+            self.loaded = self.load_from_store()
 
     @property
     def key(self):
@@ -153,9 +153,10 @@ class Index(object):
         if not self._store:
             raise AttributeError("No datastore defined!")
         if not self._store.has_blob('all_keys'):
-            return
+            return False
         data = json.loads(self._store.get_blob('all_keys'))
         self.load_from_data(data)
+        return True
 
     def save_to_data(self):
         return [(x[0],list(x[1])) for x in self._index.items()]
@@ -263,9 +264,6 @@ class Backend(BaseBackend):
         with open(config_file,"wb") as config_file:
             config_file.write(json.dumps(self._config))
         
-    def __del__(self):
-        self.commit()
-
     @property
     def path(self):
         return self._path
@@ -325,9 +323,8 @@ class Backend(BaseBackend):
 
     def init_indexes(self,collection):
         if collection in self._config['indexes']:
-            for index_params in self._config['indexes'][collection]:
+            for index_params in self._config['indexes'][collection].values():
                 self.create_index(collection,index_params)
-
         self.create_index(collection,{'key':'pk'})
 
     def create_index(self,cls_or_collection,params):
@@ -340,22 +337,25 @@ class Backend(BaseBackend):
         else:
             collection = cls_or_collection
 
+        if params['key'] in self.indexes[collection]:
+            return #Index already exists
+
         if not 'id' in params:
             params['id'] = uuid.uuid4().hex 
-
-        for index in self.indexes[collection].values():
-            if index.key == params['key']:
-                return #Index already exists
 
         index_store = self.get_index_store(collection,params['id'])
         index = self.Index(params,index_store)
 
-        self.indexes[collection][params['id']] = index
+        self.indexes[collection][params['key']] = index
 
         if not collection in self._config['indexes']:
-            self._config['indexes'][collection] = []
-        self._config['indexes'][collection].append(params)
+            self._config['indexes'][collection] = {}
+
+        self._config['indexes'][collection][params['key']] = params
         self.save_config()
+
+        if index.loaded:
+            return
 
         #Now for the hard part: We add all objects in the database to the index...
         all_objects = self.filter(collection,{})
@@ -412,7 +412,7 @@ class Backend(BaseBackend):
         return obj
 
     def get_pk_index(self,collection):
-        return [idx for idx in self.indexes[collection].values() if idx.key == 'pk'][0]
+        return self.indexes[collection]['pk']
 
     def delete(self,obj):
         

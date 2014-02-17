@@ -86,7 +86,7 @@ class Backend(object):
 
     def get_collection_for_cls(self,cls):
         if not cls in self.classes:
-            if issubclass(cls,Object):
+            if issubclass(cls,Object) and not cls in self.classes:
                 self.autoregister(cls)
             else:
                 raise AttributeError("Unknown object type: %s" % cls.__name__)
