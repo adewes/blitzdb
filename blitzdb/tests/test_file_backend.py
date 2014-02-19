@@ -153,6 +153,15 @@ def test_indexed_delete(backend,small_test_data):
     for actor in backend.filter(Actor,{}):
         assert actor.movies == []
 
+def test_indexed_delete(backend):
+
+    movie = Movie({'name' : 'The Godfather'})
+    actor = Actor({'name' : 'Marlon Brando'})
+    actor.performances = [movie]
+    movie.cast = {'Don Corleone' : actor}
+
+    movie.save(backend)
+
 def test_non_indexed_delete(backend,small_test_data):
 
     (movies,actors,directors) = small_test_data

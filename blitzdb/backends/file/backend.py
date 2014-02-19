@@ -117,10 +117,7 @@ class Backend(BaseBackend):
         self.begin()
 
     def init_indexes(self,collection):
-        print collection
         if collection in self._config['indexes']:
-            print self._config['indexes'][collection]
-
             #If not pk index is present, we create one on the fly...
             if not [idx for idx in self._config['indexes'][collection].values() if idx['key'] == 'pk']:
                 self.create_index(collection,{'key':'pk'})
@@ -277,7 +274,7 @@ class Backend(BaseBackend):
                 else:
                     keys &= index.get_keys_for(value)
         else:
-            #We fetch ALL keys from the primary index. If it is not present we're in trouble!
+            #We fetch ALL keys from the primary index.
             keys = self.get_pk_index(collection).get_all_keys()
 
         for accessor,value in unindexed_queries:

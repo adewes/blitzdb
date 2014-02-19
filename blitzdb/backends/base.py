@@ -46,7 +46,7 @@ class Backend(object):
                 output_obj = {'_collection':collection,'_attributes':self.serialize(obj.attributes)}
             else:
                 if obj.pk == None:
-                    raise AttributeError("Object not saved:"+str(obj))
+                    obj.save(self)
                 output_obj = {'_pk':obj.pk,'_collection':self.classes[obj.__class__]['collection']}
         else:
             output_obj = obj
