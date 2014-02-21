@@ -33,6 +33,9 @@ class QuerySet(object):
         self.keys = []
         self.objects = {}
 
+    def filter(self,*args,**kwargs):
+        return self.backend.filter(self.cls,*args,initial_keys = self.keys,**kwargs)
+
     def __len__(self):
         return len(self.keys)
 

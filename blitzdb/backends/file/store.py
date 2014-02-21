@@ -1,7 +1,6 @@
 import os
 import os.path
 
-import json
 import gzip
 import hashlib
 import datetime
@@ -9,13 +8,17 @@ import uuid
 import copy
 
 from collections import defaultdict
-from blitzdb.backends.file.utils import JsonEncoder
+from serializers import PickleSerializer as Serializer
 
 """
 """
 
 
 class Store(object):
+
+    """
+    This class stores binary data in files.
+    """
 
     def __init__(self,properties):
         self._properties = properties
@@ -30,7 +33,7 @@ class Store(object):
         return self._properties['path']+'/'+key
 
     def store_blob(self,blob,key):
-        with gzip.open(self._properties['path']+"/"+key,"w") as output_file:
+        with open(self._properties['path']+"/"+key,"w") as output_file:
             output_file.write(blob)
         return key
 
@@ -41,7 +44,7 @@ class Store(object):
 
     def get_blob(self,key):
         try:
-            with gzip.open(self._properties['path']+"/"+key,"r") as input_file:
+            with open(self._properties['path']+"/"+key,"r") as input_file:
                 return input_file.read()
         except IOError:
             raise KeyError("Key %s not found!" % key)
@@ -90,7 +93,7 @@ class CompressedStore(Store):
         map_filename = self._map_filename()
         if os.path.exists(map_filename):
             with open(map_filename,"rb") as map_file:
-                self._map = json.loads(map_file.read())
+                self._map = Serializer.deserialize(map_file.read())
 
             for store_key,(blob_key,start,stop) in self._map.items():
                 print blob_key,start,stop
@@ -113,7 +116,7 @@ class CompressedStore(Store):
     def write_map_file(self):
         map_filename = self._map_filename()
         with open(map_filename,"wb") as map_file:
-            map_file.write(json.dumps(self._map))
+            map_file.write(Serializer.serialize(self._map))
 
     def _get_path_for_key(self,blob_key):
         return self._properties['path']+'/'+blob_key
@@ -128,7 +131,7 @@ class CompressedStore(Store):
         start = self._blob_sizes[blob_key]
         stop = start+len(blob)
 
-        with gzip.open(self._get_path_for_key(blob_key),"a") as output_file:
+        with open(self._get_path_for_key(blob_key),"a") as output_file:
             output_file.write(blob)
 
         self._map[key] = (blob_key,start,stop)
@@ -167,7 +170,7 @@ class CompressedStore(Store):
     def get_blob(self,key):
         blob_key,start,stop = self._map[key]
         filepath = self._get_path_for_key(blob_key)
-        with gzip.open(filepath,"r") as input_file:
+        with open(filepath,"r") as input_file:
             input_file.seek(start)
             content = input_file.read(stop-start)
             return content
@@ -178,6 +181,10 @@ class CompressedStore(Store):
         return False
 
 class TransactionalStore(Store):
+
+    """
+    This class adds transaction support to the Store class.
+    """
 
     def __init__(self,properties):
         super(TransactionalStore,self).__init__(properties)
@@ -238,5 +245,6 @@ class TransactionalStore(Store):
 
 class TransactionalCompressedStore(TransactionalStore,CompressedStore):
 
-    pass
-
+    """
+    Exactly what the name says.
+    """

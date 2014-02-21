@@ -10,7 +10,9 @@ class Backend(object):
         self.classes = {}
         self.collections = {}
 
-    def register(self,cls,parameters):
+    def register(self,cls,parameters = None):
+        if not parameters:
+            parameters = {}
         self.classes[cls] = parameters
         if 'collection' in parameters:
             self.collections[parameters['collection']] = cls

@@ -1,14 +1,12 @@
 from blitzdb.queryset import QuerySet
 from blitzdb.backends.file.store import TransactionalCompressedStore,TransactionalStore,Store
 from blitzdb.backends.file.index import TransactionalIndex,Index
-from blitzdb.backends.file.utils import JsonEncoder
 from blitzdb.backends.base import Backend as BaseBackend
+from blitzdb.backends.file.serializers import PickleSerializer as Serializer
 
 import os
 import os.path
 
-import json
-import gzip
 import hashlib
 import datetime
 import uuid
@@ -19,10 +17,10 @@ from collections import defaultdict
 class Backend(BaseBackend):
 
     """
-    A backend stores and retrieves objects in files.
+    The file backend that stores and retrieves DB objects in files.
     """
 
-    #The default store & index classes that we will use
+    #The default store & index classes that the backend uses
     CollectionStore = TransactionalStore
     Index = TransactionalIndex
     IndexStore = Store
@@ -47,7 +45,7 @@ class Backend(BaseBackend):
         config_file = self._path+"/config.json"
         if os.path.exists(config_file):
             with open(config_file,"rb") as config_file:
-                self._config = json.loads(config_file.read())
+                self._config = Serializer.deserialize(config_file.read())
         else:
             self._config = {
                 'indexes' : {}
@@ -57,7 +55,7 @@ class Backend(BaseBackend):
     def save_config(self):
         config_file = self._path+"/config.json"
         with open(config_file,"wb") as config_file:
-            config_file.write(json.dumps(self._config))
+            config_file.write(Serializer.serialize(self._config))
         
     @property
     def path(self):
@@ -73,7 +71,7 @@ class Backend(BaseBackend):
             self.index_stores[collection][store_key] = self.IndexStore({'path':self.path+"/"+collection+"/indexes/"+store_key})
         return self.index_stores[collection][store_key]
 
-    def register(self,cls,parameters):
+    def register(self,cls,parameters = None):
         super(Backend,self).register(cls,parameters)
         self.init_indexes(self.get_collection_for_cls(cls))
 
@@ -109,8 +107,8 @@ class Backend(BaseBackend):
         """
         for collection in self.collections:
             store = self.get_collection_store(collection)
-            indexes = self.get_collection_indexes(collection)
             store.commit()
+            indexes = self.get_collection_indexes(collection)
             for index in indexes.values():
                 index.commit()
         self.in_transaction = False
@@ -170,10 +168,10 @@ class Backend(BaseBackend):
         return self.indexes[collection] if collection in self.indexes else {}
 
     def encode_attributes(self,attributes):
-        return json.dumps(attributes,cls = JsonEncoder)
+        return Serializer.serialize(attributes)
 
     def decode_attributes(self,data):
-        return json.loads(data)
+        return Serializer.deserialize(data)
 
     def get_object(self,cls,key):
         collection = self.get_collection_for_cls(cls)
@@ -198,7 +196,7 @@ class Backend(BaseBackend):
     
         try:
             store_key = self.get_pk_index(collection).get_keys_for(obj.pk).pop()
-        except KeyError:
+        except IndexError:
             store_key = uuid.uuid4().hex
     
         store.store_blob(data,store_key)
@@ -239,7 +237,7 @@ class Backend(BaseBackend):
             raise AttributeError
         return objects[0]
         
-    def filter(self,cls_or_collection,query,sort_by = None,limit = None,offset = None):
+    def filter(self,cls_or_collection,query,sort_by = None,limit = None,offset = None,initial_keys = None):
 
         if not isinstance(query,dict):
             raise AttributeError("Query parameters must be dict!")
@@ -268,17 +266,21 @@ class Backend(BaseBackend):
 
         if indexed_queries:
             keys = None
+            if initial_keys:
+                keys = copy.copy(initial_keys)
             for index,value in indexed_queries:
                 if not keys:
                     keys = index.get_keys_for(value)
                 else:
-                    keys &= index.get_keys_for(value)
+                    keys = [key for key in keys if key in index.get_keys_for(value)]
+        elif initial_keys:
+            keys = copy.copy(initial_keys)
         else:
             #We fetch ALL keys from the primary index.
             keys = self.get_pk_index(collection).get_all_keys()
 
         for accessor,value in unindexed_queries:
-            keys_to_remove = set()
+            keys_to_remove = []
             for key in keys:
                 try:
                     attributes = self.decode_attributes(store.get_blob(key))
@@ -287,17 +289,21 @@ class Backend(BaseBackend):
                 try:
                     if callable(value):
                         if not value(accessor(attributes)):
-                            keys_to_remove.add(key)
+                            if not key in keys_to_remove:
+                                keys_to_remove.append(key)
                     else:
                         accessed_value = accessor(attributes)
                         if isinstance(accessed_value,list):
                             if value not in accessed_value: 
-                                keys_to_remove.add(key)
+                                if not key in keys_to_remove:
+                                    keys_to_remove.append(key)
                         elif accessed_value != value:
-                            keys_to_remove.add(key) 
+                            if not key in keys_to_remove:
+                                keys_to_remove.append(key) 
                 except (KeyError,IndexError):
-                    keys_to_remove.add(key)
-            keys -= keys_to_remove
+                    if not key in keys_to_remove:
+                        keys_to_remove.append(key)
+            keys = [key for key in keys if not key in keys_to_remove]
 
         return QuerySet(self,store,cls,keys)
 

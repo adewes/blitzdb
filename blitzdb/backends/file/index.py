@@ -1,6 +1,8 @@
 from collections import defaultdict
-import json
+import copy
 from blitzdb.backends.file.utils import JsonEncoder
+from serializers import PickleSerializer as Serializer
+import time
 
 class Index(object):
 
@@ -12,8 +14,8 @@ class Index(object):
     def __init__(self,params,store = None):
         self._params = params
         self._store = store
-        self._index = defaultdict(lambda : set())
-        self._reverse_index = defaultdict(lambda : set())
+        self._index = defaultdict(lambda : [])
+        self._reverse_index = defaultdict(lambda : [])
         self._splitted_key = self.key.split(".")
 
         if store:
@@ -32,31 +34,33 @@ class Index(object):
     def save_to_store(self):
         if not self._store:
             raise AttributeError("No datastore defined!")
-        data =json.dumps(self.save_to_data())
+        saved_data = self.save_to_data(in_place = True)
+        data = Serializer.serialize(saved_data)
         self._store.store_blob(data,'all_keys')
-
+        
     def get_all_keys(self):
-        return reduce(lambda x,y:x | y,self._index.values(),set())
+        all_keys = []
+        [all_keys.extend(l) for l in self._index.values()]
+        return all_keys
 
     def load_from_store(self):
         if not self._store:
             raise AttributeError("No datastore defined!")
         if not self._store.has_blob('all_keys'):
             return False
-        data = json.loads(self._store.get_blob('all_keys'))
+        data = Serializer.deserialize(self._store.get_blob('all_keys'))
         self.load_from_data(data)
         return True
 
-    def save_to_data(self):
-        return [(x[0],list(x[1])) for x in self._index.items()]
+    def save_to_data(self,in_place = False):
+        if in_place:
+            return self._index.items()
+        return [(key,values[:]) for key,values in self._index.items()]
 
     def load_from_data(self,data):
-        self._index = defaultdict(lambda : set())
-        self._reverse_index = defaultdict(lambda : set())
-        for key,values in data:
-            self._index[key] = set(values)
-            for value in values:
-                self._reverse_index[value].add(key)
+        self._index = defaultdict(list,data)
+        self._reverse_index = defaultdict(list)
+        [self._reverse_index[value].append(key) for key,values in self._index.items() for value in values]
 
     def get_hash_for(self,value):
         if isinstance(value,dict):
@@ -65,9 +69,11 @@ class Index(object):
 
     def get_keys_for(self,value):
         if callable(value):
-            return reduce(lambda x,y:x | y,[v[1] for v in self._index.items() if value(v[0])])
+            all_keys = []
+            [all_keys.extend(l) for l in [v[1] for v in self._index.items() if value(v[0])]]
+            return all_keys
         hash_value = self.get_hash_for(value)
-        return self._index[hash_value].copy()
+        return self._index[hash_value][:]
 
     #The following two operations change the value of the index
 
@@ -84,8 +90,10 @@ class Index(object):
             values = [value]
         for value in values:
             hash_value = self.get_hash_for(value)
-            self._index[hash_value].add(store_key)
-            self._reverse_index[store_key].add(hash_value)
+            if not store_key in self._index[hash_value]:
+                self._index[hash_value].append(store_key)
+            if not hash_value in self._reverse_index[store_key]:
+                self._reverse_index[store_key].append(hash_value)
 
     def remove_key(self,store_key):
         if store_key in self._reverse_index:
@@ -94,6 +102,10 @@ class Index(object):
             del self._reverse_index[store_key]
 
 class TransactionalIndex(Index):
+
+    """
+    This class adds transaction support to the Index class.
+    """
 
     def __init__(self,params,store = None):
         super(TransactionalIndex,self).__init__(params,store = store)
@@ -107,3 +119,4 @@ class TransactionalIndex(Index):
 
     def rollback(self):
         self.load_from_data(self._cached_index)
+

@@ -297,7 +297,7 @@ def test_reloading(backend,tmpdir):
         assert reloaded_backend.indexes[collection].keys() == backend.indexes[collection].keys()
         assert set([idx.key for idx in reloaded_backend.indexes[collection].values()]) == set([idx.key for idx in reloaded_backend.indexes[collection].values()])
         for index_1,index_2 in zip(backend.indexes[collection].values(),reloaded_backend.indexes[collection].values()):
-            assert index_1.get_all_keys() == index_2.get_all_keys()
+            assert set(index_1.get_all_keys()) == set(index_2.get_all_keys())
 
 def test_querying_efficiency(backend,large_test_data):
     (movies,actors,directors) = large_test_data
