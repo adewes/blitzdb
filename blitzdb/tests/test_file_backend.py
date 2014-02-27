@@ -1,29 +1,10 @@
 import pytest
 import tempfile
 import subprocess
-import random
 import time
-import math
-import faker #https://github.com/joke2k/faker
 
 from blitzdb.backends.file import Backend,CompressedStore
-from blitzdb import Object
-
-class Movie(Object):
-    pass
-
-class Actor(Object):
-    pass
-
-class Role(Object):
-    pass
-
-class Director(Object):
-    pass
-
-@pytest.fixture(scope = "function")
-def large_test_data(request,backend):
-    return generate_test_data(request,backend,100)
+from blitzdb.tests.helpers.movie_data import Actor,Director,Movie,generate_test_data
 
 @pytest.fixture(scope = "function")
 def large_test_data(request,backend):
@@ -32,69 +13,6 @@ def large_test_data(request,backend):
 @pytest.fixture(scope = "function")
 def small_test_data(request,backend):
     return generate_test_data(request,backend,20)
-
-def generate_test_data(request,backend,n):
-    fake = faker.Faker()
-
-
-    actors = []
-    movies = []
-    directors = []
-
-    backend.filter(Movie,{}).delete()
-    backend.filter(Actor,{}).delete()
-    backend.filter(Director,{}).delete()
-
-    for i in range(0,n):
-        movie = Movie(
-                {
-                    'name' : fake.company(),
-                    'year' : fake.year(),
-                    'pk' : i,
-                    'cast' : [],
-                }
-            )
-        movies.append(movie)
-        movie.save(backend)
-
-
-    for i in range(0,n*4):
-        actor = Actor(
-            {
-                'name' : fake.name(),
-                'pk' : i,
-                'movies' : []
-            }            
-            )
-        n_movies = 1+int((1.0-math.log(random.randint(1,1000))/math.log(1000.0))*5)
-        actor_movies = random.sample(movies,n_movies)
-        for movie in actor_movies:
-            actor.movies.append(movie)
-            movie.cast.append({'actor':actor,'character':fake.name()})
-            movie.save(backend)
-        actors.append(actor)
-        actor.save(backend)
-
-    for i in range(0,n/10):
-        director = Director(
-                {
-                    'name' : fake.name(),
-                    'pk' : i,
-                    'movies' : [],
-                }
-            )
-        n_movies = 1+int((1.0-math.log(random.randint(1,1000))/math.log(1000.0))*10)
-        director_movies = random.sample(movies,n_movies)
-        for movie in director_movies:
-            movie.director = director
-            movie.save(backend)
-            director.movies.append(movie)
-        directors.append(director)
-        director.save(backend)
-    
-    backend.commit()
-
-    return (movies,actors,directors)
 
 @pytest.fixture(scope = "module")
 def tmpdir(request):
@@ -191,7 +109,7 @@ def test_default_backend(backend,small_test_data):
     movie = movies[0]
     movie.delete()
 
-    with pytest.raises(AttributeError):
+    with pytest.raises(Movie.DoesNotExist):
         backend.get(Movie,{'pk' : movie.pk})
 
     assert old_len == len(backend.filter(Movie,{}))+1
@@ -228,7 +146,7 @@ def test_advanced_transaction(backend):
     movie.name = 'Star Wars IV'
     movie.save(backend)
 
-    with pytest.raises(AttributeError):
+    with pytest.raises(Movie.DoesNotExist):
         backend.get(Movie,{'name' : 'The Godfather','year' : 1979,'type' : 'US'})
 
     backend.rollback()
@@ -248,7 +166,7 @@ def test_autocommit_transaction(backend):
         movie.name = 'Star Wars IV'
         movie.save(backend)
 
-        with pytest.raises(AttributeError):
+        with pytest.raises(Movie.DoesNotExist):
             backend.get(Movie,{'name' : 'The Godfather','year' : 1979,'type' : 'US'})
 
         assert backend.get(Movie,{'name' : 'Star Wars IV','year' : 1979}) == movie
@@ -308,9 +226,7 @@ def test_querying_efficiency(backend,large_test_data):
         return time.time()-start
 
     time_without_index = benchmark_query()
-
     backend.create_index(Movie,'year')
-
     time_with_index = benchmark_query()
 
     assert time_with_index*10 < time_without_index 

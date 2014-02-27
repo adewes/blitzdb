@@ -1,7 +1,25 @@
 import abc
+import inspect
 
 from blitzdb.object import Object
+
+class DoesNotExist(BaseException):
+    pass
+
+class MultipleObjectsReturned(BaseException):
+    pass
+
+class NotInTransaction(BaseException):
+    pass
+
+class DatabaseIndexError(BaseException):
+    pass
     
+def attach_exceptions(cls):
+    cls.DoesNotExist = DoesNotExist
+    cls.MultipleObjectsReturned = MultipleObjectsReturned
+    return cls
+
 class Backend(object):
 
     __metaclass__ = abc.ABCMeta
@@ -9,23 +27,24 @@ class Backend(object):
     def __init__(self):
         self.classes = {}
         self.collections = {}
+        self.primary_key_name = 'pk'
 
     def register(self,cls,parameters = None):
         if not parameters:
             parameters = {}
         self.classes[cls] = parameters
         if 'collection' in parameters:
-            self.collections[parameters['collection']] = cls
+            self.collections[parameters['collection']] = attach_exceptions(cls)
         else:
-            self.collections[cls.__name__.lower()] = cls
+            self.collections[cls.__name__.lower()] = attach_exceptions(cls)
             self.classes[cls]['collection'] = cls.__name__.lower()
 
     def autoregister(self,cls):
         def get_user_attributes(cls):
             boring = dir(type('dummy', (object,), {}))
-            return [item
+            return dict([item
                     for item in inspect.getmembers(cls)
-                    if item[0] not in boring]
+                    if item[0] not in boring])
         
         if hasattr(cls,'Meta'):
             params = get_user_attributes(cls.Meta)
@@ -49,7 +68,7 @@ class Backend(object):
             else:
                 if obj.pk == None:
                     obj.save(self)
-                output_obj = {'_pk':obj.pk,'_collection':self.classes[obj.__class__]['collection']}
+                output_obj = {self.primary_key_name:obj.pk,'_collection':self.classes[obj.__class__]['collection']}
         else:
             output_obj = obj
         return output_obj
@@ -57,8 +76,8 @@ class Backend(object):
 
     def deserialize(self,obj):
         if isinstance(obj,dict):
-            if '_collection' in obj and '_pk' in obj and obj['_collection'] in self.collections:
-                output_obj = self.create_instance(obj['_collection'],{'pk' : obj['_pk']},lazy = True)
+            if '_collection' in obj and self.primary_key_name in obj and obj['_collection'] in self.collections:
+                output_obj = self.create_instance(obj['_collection'],{self.primary_key_name : obj[self.primary_key_name]},lazy = True)
             else:
                 output_obj = {}
                 for (key,value) in obj.items():
@@ -100,26 +119,6 @@ class Backend(object):
             if params['collection'] == collection:
                 return cls
         raise AttributeError("Unknown collection: %s" % collection)
-
-    def compile_query(self,query_dict):
-
-        def access_path(d,path):
-            v = d
-            for elem in path:
-                if isinstance(v,list):
-                    v = v[int(elem)]
-                else:
-                    v = v[elem]
-            return v
-
-        compiled_query = []
-        for key,value in query_dict.items():
-            splitted_key = key.split(".")
-            accessor = lambda d,path = splitted_key : access_path(d,path = path)
-            if isinstance(value,Object):
-                value = {'_collection' : self.get_collection_for_obj(value),'_pk':value.pk}
-            compiled_query.append((key,accessor,value))
-        return compiled_query 
 
     @abc.abstractmethod
     def save(self,obj,cache = None):

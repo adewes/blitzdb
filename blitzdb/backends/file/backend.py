@@ -1,7 +1,7 @@
-from blitzdb.queryset import QuerySet
+from blitzdb.backends.file.queryset import QuerySet
 from blitzdb.backends.file.store import TransactionalCompressedStore,TransactionalStore,Store
 from blitzdb.backends.file.index import TransactionalIndex,Index
-from blitzdb.backends.base import Backend as BaseBackend
+from blitzdb.backends.base import Backend as BaseBackend,NotInTransaction,DatabaseIndexError
 from blitzdb.backends.file.serializers import PickleSerializer as Serializer
 
 import os
@@ -93,7 +93,7 @@ class Backend(BaseBackend):
         Rolls back a transaction
         """
         if not self.in_transaction:
-            raise Exception("Not in a transaction!")
+            raise NotInTransaction
         for collection,store in self.stores.items():
             store.rollback()
             indexes = self.indexes[collection]
@@ -117,15 +117,15 @@ class Backend(BaseBackend):
     def init_indexes(self,collection):
         if collection in self._config['indexes']:
             #If not pk index is present, we create one on the fly...
-            if not [idx for idx in self._config['indexes'][collection].values() if idx['key'] == 'pk']:
-                self.create_index(collection,{'key':'pk'})
+            if not [idx for idx in self._config['indexes'][collection].values() if idx['key'] == self.primary_key_name]:
+                self.create_index(collection,{'key':self.primary_key_name})
             
             #We sort the indexes such that pk is always created first...
-            for index_params in sorted(self._config['indexes'][collection].values(),key = lambda x: 0 if x['key'] == 'pk' else 1):
+            for index_params in sorted(self._config['indexes'][collection].values(),key = lambda x: 0 if x['key'] == self.primary_key_name else 1):
                 index = self.create_index(collection,index_params)
         else:
             #If no indexes are given, we just create a primary key index...
-            self.create_index(collection,{'key':'pk'})
+            self.create_index(collection,{'key':self.primary_key_name})
 
         
     def rebuild_index(self,collection,key):
@@ -179,7 +179,7 @@ class Backend(BaseBackend):
         try:
             data = self.deserialize(self.decode_attributes(store.get_blob(key)))
         except IOError:
-            raise AttributeError("Object does not exist!")
+            raise cls.DoesNotExist
         obj = self.create_instance(cls,data)
         return obj
 
@@ -210,7 +210,7 @@ class Backend(BaseBackend):
         return obj
 
     def get_pk_index(self,collection):
-        return self.indexes[collection]['pk']
+        return self.indexes[collection][self.primary_key_name]
 
     def delete(self,obj):
         
@@ -233,9 +233,31 @@ class Backend(BaseBackend):
 
     def get(self,cls,query):
         objects = self.filter(cls,query,limit = 1)
-        if len(objects) == 0 or len(objects) > 1:
-            raise AttributeError
+        if len(objects) == 0:
+            raise cls.DoesNotExist
+        elif len(objects) > 1:
+            return cls.MultipleObjectsReturned
         return objects[0]
+
+    def compile_query(self,query_dict):
+
+        def access_path(d,path):
+            v = d
+            for elem in path:
+                if isinstance(v,list):
+                    v = v[int(elem)]
+                else:
+                    v = v[elem]
+            return v
+
+        serialized_query_dict = self.serialize(query_dict)
+
+        compiled_query = []
+        for key,value in serialized_query_dict.items():
+            splitted_key = key.split(".")
+            accessor = lambda d,path = splitted_key : access_path(d,path = path)
+            compiled_query.append((key,accessor,value))
+        return compiled_query
         
     def filter(self,cls_or_collection,query,sort_by = None,limit = None,offset = None,initial_keys = None):
 
@@ -285,7 +307,7 @@ class Backend(BaseBackend):
                 try:
                     attributes = self.decode_attributes(store.get_blob(key))
                 except IOError:
-                    raise Exception("Index is corrupt!")
+                    raise DatabaseIndexError
                 try:
                     if callable(value):
                         if not value(accessor(attributes)):
@@ -305,5 +327,5 @@ class Backend(BaseBackend):
                         keys_to_remove.append(key)
             keys = [key for key in keys if not key in keys_to_remove]
 
-        return QuerySet(self,store,cls,keys)
+        return QuerySet(self,cls,store,keys)
 

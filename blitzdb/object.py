@@ -2,7 +2,17 @@
 class Object(object):
 
     """
+    Handling primary keys:
+
+    -Value of primary key should be stored in attributes
+    -User should be able to choose which attribute is the primary key
+    -Backend automatically provides a default primary key if none is specified and does the conversion
+     to the backends internal format if necessary.
+    -User can reference primary key in queries by "pk" parameter.
     """
+
+    class Meta:
+        primary_key = "pk"
 
     def __init__(self,attributes = None,lazy = False,default_backend = None):
         if not attributes:
@@ -11,7 +21,7 @@ class Object(object):
         self.__dict__['embed'] = False
         self._default_backend = default_backend
 
-        if not 'pk' in attributes:
+        if not self.pk:
             self.pk = None
 
         if not lazy:
@@ -23,6 +33,16 @@ class Object(object):
     def initialize(self):
         pass
 
+    @property
+    def pk(self):
+        if self.Meta.primary_key in self._attributes:
+            return self._attributes[self.Meta.primary_key]
+        return None
+
+    @pk.setter
+    def pk(self, value):
+        self._attributes[self.Meta.primary_key] = value    
+
     def __getattribute__(self,key):
         try:
             lazy = super(Object,self).__getattribute__('_lazy')
@@ -31,11 +51,11 @@ class Object(object):
         if lazy:
             self._lazy = False
 
-            if not 'pk' in self._attributes or not self._attributes['pk']:
+            if self.pk == None:
                 raise AttributeError("No primary key given!")
             if not self._default_backend:
                 raise AttributeError("No backend for lazy loading given!")
-            obj = self._default_backend.get(self.__class__,{'pk':self._attributes['pk']})
+            obj = self._default_backend.get(self.__class__,{'pk':self.pk})
             self._attributes = obj.attributes
             self.initialize()
 
