@@ -1,12 +1,12 @@
 import abc
 import inspect
 
-from blitzdb.object import Object
+from blitzdb.object import Document
 
 class DoesNotExist(BaseException):
     pass
 
-class MultipleObjectsReturned(BaseException):
+class MultipleDocumentsReturned(BaseException):
     pass
 
 class NotInTransaction(BaseException):
@@ -17,10 +17,14 @@ class DatabaseIndexError(BaseException):
     
 def attach_exceptions(cls):
     cls.DoesNotExist = DoesNotExist
-    cls.MultipleObjectsReturned = MultipleObjectsReturned
+    cls.MultipleDocumentsReturned = MultipleDocumentsReturned
     return cls
 
 class Backend(object):
+
+    class Meta(object):
+        supports_indexes = False
+        supports_transactions = False
 
     __metaclass__ = abc.ABCMeta
 
@@ -52,19 +56,19 @@ class Backend(object):
             params = {}
         return self.register(cls,params)
 
-    def serialize(self,obj):
+    def serialize(self,obj,convert_keys_to_str = False):
         if isinstance(obj,dict):
             output_obj = {}
-            for (key,value) in obj.items():
-                output_obj[key] = self.serialize(value)
+            for key,value in obj.items():
+                output_obj[str(key) if convert_keys_to_str else key] = self.serialize(value,convert_keys_to_str = convert_keys_to_str)
         elif isinstance(obj,list):
-            output_obj = map(lambda x:self.serialize(x),obj)
+            output_obj = map(lambda x:self.serialize(x,convert_keys_to_str = convert_keys_to_str),obj)
         elif isinstance(obj,tuple):
-            output_obj = tuple(map(lambda x:self.serialize(x),obj))
-        elif isinstance(obj,Object):
+            output_obj = tuple(map(lambda x:self.serialize(x,convert_keys_to_str = convert_keys_to_str),obj))
+        elif isinstance(obj,Document):
             collection = self.get_collection_for_obj(obj)
             if obj.embed:
-                output_obj = {'_collection':collection,'_attributes':self.serialize(obj.attributes)}
+                output_obj = {'_collection':collection,'_attributes':self.serialize(obj.attributes,convert_keys_to_str = convert_keys_to_str)}
             else:
                 if obj.pk == None:
                     obj.save(self)
@@ -107,7 +111,7 @@ class Backend(object):
 
     def get_collection_for_cls(self,cls):
         if not cls in self.classes:
-            if issubclass(cls,Object) and not cls in self.classes:
+            if issubclass(cls,Document) and not cls in self.classes:
                 self.autoregister(cls)
             else:
                 raise AttributeError("Unknown object type: %s" % cls.__name__)

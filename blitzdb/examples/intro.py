@@ -1,9 +1,9 @@
-from blitzdb import Object
+from blitzdb import Document
 
-class Movie(Object):
+class Movie(Document):
     pass
 
-class Actor(Object):
+class Actor(Document):
     pass
 
 the_godfather = Movie({'name': 'The Godfather','year':1972,'pk':1L})
@@ -35,7 +35,7 @@ movies_from_1972 = backend.filter(Movie,{'year' : 1972})
 
 the_godfather.cast = {'Don Vito Corleone' : marlon_brando, 'Michael Corleone' : al_pacino}
 
-#Objects stored within other objects will be automatically converted to database references.
+#Documents stored within other objects will be automatically converted to database references.
 
 marlon_brando.performances = [the_godfather]
 al_pacino.performances = [the_godfather]

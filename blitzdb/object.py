@@ -1,14 +1,7 @@
 
-class Object(object):
+class Document(object):
 
     """
-    Handling primary keys:
-
-    -Value of primary key should be stored in attributes
-    -User should be able to choose which attribute is the primary key
-    -Backend automatically provides a default primary key if none is specified and does the conversion
-     to the backends internal format if necessary.
-    -User can reference primary key in queries by "pk" parameter.
     """
 
     class Meta:
@@ -45,7 +38,7 @@ class Object(object):
 
     def __getattribute__(self,key):
         try:
-            lazy = super(Object,self).__getattribute__('_lazy')
+            lazy = super(Document,self).__getattribute__('_lazy')
         except AttributeError:
             lazy = False
         if lazy:
@@ -59,23 +52,23 @@ class Object(object):
             self._attributes = obj.attributes
             self.initialize()
 
-        return super(Object,self).__getattribute__(key)
+        return super(Document,self).__getattribute__(key)
 
     def __getattr__(self,key):
         try:
-            super(Object,self).__getattr__(key)
+            super(Document,self).__getattr__(key)
         except AttributeError:
             return self._attributes[key]
 
     def __setattr__(self,key,value):
         if key.startswith('_'):
-            return super(Object,self).__setattr__(key,value)
+            return super(Document,self).__setattr__(key,value)
         else:
             self._attributes[key] = value
 
     def __delattr__(self,key):
         if key.startswith('_'):
-            return super(Object,self).__delattr__(key)
+            return super(Document,self).__delattr__(key)
         elif key in self._attributes:
                 del self._attributes[key]
 
@@ -131,7 +124,7 @@ class Object(object):
                 return dict([(key,truncate_dict(value,n-1)) for key,value in d.items()])
             elif isinstance(d,list) or isinstance(d,set):
                 return [truncate_dict(v,n-1) for v in d]
-            elif isinstance(d,Object):
+            elif isinstance(d,Document):
                 return d._represent(n-1)
             else:
                 return d

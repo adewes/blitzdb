@@ -1,2 +1,2 @@
-from object import Object
+from object import Document
 from backends.file import Backend as FileBackend

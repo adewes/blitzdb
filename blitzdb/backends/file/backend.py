@@ -20,6 +20,10 @@ class Backend(BaseBackend):
     The file backend that stores and retrieves DB objects in files.
     """
 
+    class Meta(object):
+        supports_indexes = True
+        supports_transactions = True
+
     #The default store & index classes that the backend uses
     CollectionStore = TransactionalStore
     Index = TransactionalIndex
@@ -236,7 +240,7 @@ class Backend(BaseBackend):
         if len(objects) == 0:
             raise cls.DoesNotExist
         elif len(objects) > 1:
-            return cls.MultipleObjectsReturned
+            return cls.MultipleDocumentsReturned
         return objects[0]
 
     def compile_query(self,query_dict):

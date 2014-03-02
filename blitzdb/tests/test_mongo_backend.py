@@ -6,7 +6,7 @@ import time
 import pymongo
 
 from blitzdb.backends.mongo import Backend
-from blitzdb import Object
+from blitzdb import Document
 from blitzdb.tests.helpers.movie_data import Actor,Director,Movie,generate_test_data
 
 @pytest.fixture(scope = "function")
@@ -29,10 +29,10 @@ def backend(request):
     backend = Backend(db)
 
     for idx in ['name','director']:
-        backend.ensure_index(Movie,idx)
+        backend.create_index(Movie,idx)
 
-    backend.ensure_index(Actor,'name')
-    backend.ensure_index(Actor,'movies')
+    backend.create_index(Actor,'name')
+    backend.create_index(Actor,'movies')
 
     return backend
 

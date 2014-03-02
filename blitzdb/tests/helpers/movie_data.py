@@ -2,18 +2,18 @@ import math
 import faker #https://github.com/joke2k/faker
 import random
 
-from blitzdb import Object
+from blitzdb import Document
 
-class Movie(Object):
+class Movie(Document):
     pass
 
-class Actor(Object):
+class Actor(Document):
     pass
 
-class Role(Object):
+class Role(Document):
     pass
 
-class Director(Object):
+class Director(Document):
     pass
 
 def generate_test_data(request,backend,n):
