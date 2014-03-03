@@ -1,6 +1,6 @@
 import abc
 
-from blitzdb.object import Document
+from blitzdb.document import Document
 from blitzdb.backends.base import Backend as BaseBackend
 from blitzdb.backends.mongo.queryset import QuerySet
 import uuid

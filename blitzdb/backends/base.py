@@ -1,7 +1,7 @@
 import abc
 import inspect
 
-from blitzdb.object import Document
+from blitzdb.document import Document
 
 class DoesNotExist(BaseException):
     pass
