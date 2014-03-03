@@ -9,7 +9,6 @@ class QuerySet(BaseQuerySet):
     def __init__(self,backend,cls,cursor):
         super(QuerySet,self).__init__(backend,cls)
         self._cursor = cursor
-        self._objects = {}
         
     def __iter__(self):
         return self
@@ -22,18 +21,18 @@ class QuerySet(BaseQuerySet):
 
     def next(self):
         json_attributes = self._cursor.next()
-        return self._create_object_for(json_attributes)
+        obj = self._create_object_for(json_attributes)
+        return obj
 
     def __getitem__(self,key):
         if isinstance(key,slice):
             return self.__class__(self.backend,self.cls,self._cursor.__getitem__(key))
         json_attributes = self._cursor[key]
         obj = self._create_object_for(json_attributes)
-
-        if not key in self._objects:
-            self._objects[key] = obj
-
         return self._objects[key]
+
+    def rewind(self):
+        self._cursor.rewind()
 
     def delete(self):
         self._cursor.collection.remove({'_id' : {'$in' : self._cursor.distinct('_id') }})

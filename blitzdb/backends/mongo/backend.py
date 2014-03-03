@@ -60,7 +60,6 @@ class Backend(BaseBackend):
         if obj.pk == None:
             obj.pk = uuid.uuid4().hex
         serialized_attributes = self.serialize(obj.attributes,convert_keys_to_str = True)
-        print serialized_attributes
         serialized_attributes['_id'] = obj.pk
         self.db[collection].save(serialized_attributes)
 

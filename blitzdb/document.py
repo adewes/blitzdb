@@ -131,7 +131,7 @@ class Document(object):
             return True
         return False
 
-    def _represent(self,n = 3):
+    def _represent(self,n = 1):
 
         if n < 0:
             return self.__class__.__name__+"({...})"
