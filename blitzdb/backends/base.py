@@ -3,23 +3,12 @@ import inspect
 
 from blitzdb.document import Document
 
-class DoesNotExist(BaseException):
-    pass
-
-class MultipleDocumentsReturned(BaseException):
-    pass
-
 class NotInTransaction(BaseException):
     pass
 
 class DatabaseIndexError(BaseException):
     pass
     
-def attach_exceptions(cls):
-    cls.DoesNotExist = DoesNotExist
-    cls.MultipleDocumentsReturned = MultipleDocumentsReturned
-    return cls
-
 class Backend(object):
 
     class Meta(object):
@@ -38,9 +27,9 @@ class Backend(object):
             parameters = {}
         self.classes[cls] = parameters
         if 'collection' in parameters:
-            self.collections[parameters['collection']] = attach_exceptions(cls)
+            self.collections[parameters['collection']] = cls
         else:
-            self.collections[cls.__name__.lower()] = attach_exceptions(cls)
+            self.collections[cls.__name__.lower()] = cls
             self.classes[cls]['collection'] = cls.__name__.lower()
 
     def autoregister(self,cls):
