@@ -29,7 +29,7 @@ class QuerySet(BaseQuerySet):
             return self.__class__(self.backend,self.cls,self._cursor.__getitem__(key))
         json_attributes = self._cursor[key]
         obj = self._create_object_for(json_attributes)
-        return self._objects[key]
+        return obj
 
     def rewind(self):
         self._cursor.rewind()

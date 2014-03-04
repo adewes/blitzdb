@@ -45,19 +45,24 @@ class Backend(object):
             params = {}
         return self.register(cls,params)
 
-    def serialize(self,obj,convert_keys_to_str = False):
+    def serialize(self,obj,convert_keys_to_str = False,embed_level = 0):        
+
+        serialize_with_opts = lambda value,*args,**kwargs : self.serialize(value,*args,convert_keys_to_str = convert_keys_to_str,**kwargs)
+
         if isinstance(obj,dict):
             output_obj = {}
             for key,value in obj.items():
-                output_obj[str(key) if convert_keys_to_str else key] = self.serialize(value,convert_keys_to_str = convert_keys_to_str)
+                output_obj[str(key) if convert_keys_to_str else key] = serialize_with_opts(value,embed_level = embed_level)
         elif isinstance(obj,list):
-            output_obj = map(lambda x:self.serialize(x,convert_keys_to_str = convert_keys_to_str),obj)
+            output_obj = map(lambda x:serialize_with_opts(x,embed_level = embed_level),obj)
         elif isinstance(obj,tuple):
-            output_obj = tuple(map(lambda x:self.serialize(x,convert_keys_to_str = convert_keys_to_str),obj))
+            output_obj = tuple(map(lambda x:serialize_with_opts(x,embed_level = embed_level),obj))
         elif isinstance(obj,Document):
             collection = self.get_collection_for_obj(obj)
-            if obj.embed:
-                output_obj = {'_collection':collection,'_attributes':self.serialize(obj.attributes,convert_keys_to_str = convert_keys_to_str)}
+            if embed_level > 0:
+                output_obj = serialize_with_opts(obj.attributes,embed_level = embed_level-1)
+            elif obj.embed:
+                output_obj = {'_collection':collection,'_attributes':serialize_with_opts(obj.attributes)}
             else:
                 if obj.pk == None:
                     obj.save(self)

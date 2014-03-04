@@ -1,5 +1,5 @@
 
-class DocumentCreator(type):
+class MetaDocument(type):
 
     """
     Here we inject class-dependent exceptions into the Document class.
@@ -19,9 +19,10 @@ class DocumentCreator(type):
 class Document(object):
 
     """
+    The base class for all documents stored in the database.
     """
 
-    __metaclass__ = DocumentCreator
+    __metaclass__ = MetaDocument
 
     class Meta:
         primary_key = "pk"
