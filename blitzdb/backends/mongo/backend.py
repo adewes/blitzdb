@@ -14,11 +14,11 @@ class Backend(BaseBackend):
         supports_indexes = True
         supports_transactions = False
 
-    def __init__(self,db):
-        super(Backend,self).__init__()
+    def __init__(self,db,**kwargs):
         self.db = db
         self.classes = {}
         self.collections = {}
+        super(Backend,self).__init__(**kwargs)
 
     def begin(self):
         """

@@ -29,7 +29,7 @@ class Backend(BaseBackend):
     Index = TransactionalIndex
     IndexStore = Store
 
-    def __init__(self,path,autocommit = False):
+    def __init__(self,path,autocommit = False,**kwargs):
 
         self._path = os.path.abspath(path)
         if not os.path.exists(path):
@@ -42,7 +42,7 @@ class Backend(BaseBackend):
         self.index_stores = defaultdict(lambda : {})
         self.load_config()
 
-        super(Backend,self).__init__()
+        super(Backend,self).__init__(**kwargs)
 
         self.in_transaction = False
         self.begin()
