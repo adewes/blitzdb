@@ -1,7 +1,7 @@
 import abc
 import inspect
 
-from blitzdb.document import Document
+from blitzdb.document import Document,document_classes
 
 class NotInTransaction(BaseException):
     pass
@@ -17,10 +17,16 @@ class Backend(object):
 
     __metaclass__ = abc.ABCMeta
 
-    def __init__(self):
+    def __init__(self,autodiscover_classes = True):
         self.classes = {}
         self.collections = {}
         self.primary_key_name = 'pk'
+        if autodiscover_classes:
+            self.autodiscover_classes()
+
+    def autodiscover_classes(self):
+        for document_class in document_classes:
+            self.register(document_class)
 
     def register(self,cls,parameters = None):
         if not parameters:

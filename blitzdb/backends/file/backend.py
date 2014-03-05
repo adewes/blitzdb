@@ -30,7 +30,6 @@ class Backend(BaseBackend):
     IndexStore = Store
 
     def __init__(self,path,autocommit = False):
-        super(Backend,self).__init__()
 
         self._path = os.path.abspath(path)
         if not os.path.exists(path):
@@ -42,6 +41,9 @@ class Backend(BaseBackend):
         self.indexes = defaultdict(lambda : {})
         self.index_stores = defaultdict(lambda : {})
         self.load_config()
+
+        super(Backend,self).__init__()
+
         self.in_transaction = False
         self.begin()
 
