@@ -14,12 +14,7 @@ class MetaDocument(type):
             pass
         dct['DoesNotExist'] = DoesNotExist
         dct['MultipleDocumentsReturned'] = MultipleDocumentsReturned
-        class_type = type.__new__(meta, name, bases, dct)
-        if not class_type in document_classes:
-            document_classes.append(class_type)
-        return class_type
-
-document_classes = []
+        return type.__new__(meta, name, bases, dct)
 
 class Document(object):
 
