@@ -14,10 +14,6 @@ def large_test_data(request,backend):
     return generate_test_data(request,backend,100)
 
 @pytest.fixture(scope = "function")
-def large_test_data(request,backend):
-    return generate_test_data(request,backend,100)
-
-@pytest.fixture(scope = "function")
 def small_test_data(request,backend):
     return generate_test_data(request,backend,20)
 

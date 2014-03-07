@@ -18,6 +18,12 @@ class Backend(BaseBackend):
 
     """
     The file backend that stores and retrieves DB objects in files.
+
+    To do:
+
+    -Make storage engine for collection objects and indexes configurable
+    -Make serializers for collection objects and indexes configurable
+
     """
 
     class Meta(object):

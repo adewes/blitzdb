@@ -98,7 +98,7 @@ class Backend(object):
         elif collection_or_class in self.collections:
             cls = self.collections[collection_or_class]
         else:
-            raise AttributeError("Unknown collection or class: %s!" % str(collection) )
+            raise AttributeError("Unknown collection or class: %s!" % str(collection_or_class) )
 
         if 'constructor' in self.classes[cls]:
             obj = self.classes[cls]['constructor'](attributes,lazy = lazy)

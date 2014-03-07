@@ -1,3 +1,4 @@
+import copy
 
 class MetaDocument(type):
 
@@ -38,7 +39,6 @@ class Document(object):
         self.__dict__['_attributes'] = attributes
         self.__dict__['embed'] = False
         self._default_backend = default_backend
-
         if not self.pk:
             self.pk = None
 
@@ -47,13 +47,23 @@ class Document(object):
         else:
             self._lazy = True
 
+    def revert(self,backend = None):
+        backend = backend or self._default_backend
+        if not backend:
+            raise AttributeError("No backend for lazy loading given!")
+        if self.pk == None:
+            raise self.DoesNotExist("No primary key given!")
+        obj = self._default_backend.get(self.__class__,{'pk':self.pk})
+        self._attributes = obj.attributes
+        self.initialize()
 
     def initialize(self):
         pass
 
     @property
     def pk(self):
-        if self.Meta.primary_key in self._attributes:
+        primary_key = self.Meta.primary_key if hasattr(self.Meta,'primary_key') else Document.Meta.primary_key
+        if primary_key in self._attributes:
             return self._attributes[self.Meta.primary_key]
         return None
 
@@ -68,15 +78,7 @@ class Document(object):
             lazy = False
         if lazy:
             self._lazy = False
-
-            if self.pk == None:
-                raise AttributeError("No primary key given!")
-            if not self._default_backend:
-                raise AttributeError("No backend for lazy loading given!")
-            obj = self._default_backend.get(self.__class__,{'pk':self.pk})
-            self._attributes = obj.attributes
-            self.initialize()
-
+            self.revert()
         return super(Document,self).__getattribute__(key)
 
     def __getattr__(self,key):
@@ -99,7 +101,7 @@ class Document(object):
 
     @property
     def attributes(self):
-        return self._attributes
+         return self._attributes
 
     def save(self,backend = None):
         if not backend:
