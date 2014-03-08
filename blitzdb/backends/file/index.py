@@ -64,7 +64,9 @@ class Index(object):
 
     def get_hash_for(self,value):
         if isinstance(value,dict):
-            return hash(frozenset(value.items()))
+            return hash(frozenset([self.get_hash_for(x) for x in value.items()]))
+        elif isinstance(value,list) or isinstance(value,tuple):
+            return hash(frozenset([self.get_hash_for(x) for x in value]))
         return value
 
     def get_keys_for(self,value):

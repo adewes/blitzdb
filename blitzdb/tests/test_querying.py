@@ -69,6 +69,43 @@ def test_basic_storage(backend,small_test_data):
     assert len(backend.filter(Movie,{})) == len(movies)
     assert len(backend.filter(Actor,{})) == len(actors)
 
+def test_composite_queries(file_backend):
+
+    file_backend.save(Actor({'foo' : 'bar','value' : 10}))
+    file_backend.save(Actor({'foo' : 'baz','value' : 10}))
+    file_backend.save(Actor({'foo' : 'baz','value' : 11}))
+    file_backend.save(Actor({'foo' : 'bar','value' : 11}))
+    
+    assert len(file_backend.filter(Actor,{'foo' : 'bar'})) == 2
+    assert len(file_backend.filter(Actor,{'value' : 10})) == 2
+    assert len(file_backend.filter(Actor,{'foo' : 'bar', 'value' : 10})) == 1
+    assert len(file_backend.filter(Actor,{'foo' : 'baz', 'value' : 10})) == 1
+    assert len(file_backend.filter(Actor,{'foo' : 'bar', 'value' : 11})) == 1
+    assert len(file_backend.filter(Actor,{'foo' : 'baz', 'value' : 11})) == 1
+
+
+def test_composite_queries(backend):
+
+    backend.filter(Actor,{}).delete()
+
+    backend.save(Actor({'values' : [1,2,3,4,5,6,7,8,9,10]}))
+    backend.save(Actor({'values' : [7,6,5,4,3,2,1]}))
+    backend.save(Actor({'values' : [1,2,3,4]}))
+    
+    assert len(backend.filter(Actor,{})) == 3 
+    assert len(backend.filter(Actor,{'values' : [1,2,3,4]})) == 3 
+    assert len(backend.filter(Actor,{'values' : [1,2,3,4,5]})) == 2 
+    assert len(backend.filter(Actor,{'values' : [10,9,8,7,6,5,4,3,2,1]})) == 1 
+
+    #We create an index and assure that the results are still the same.
+
+    backend.create_index(Actor,'values')
+
+    assert len(backend.filter(Actor,{})) == 3 
+    assert len(backend.filter(Actor,{'values' : [1,2,3,4]})) == 3 
+    assert len(backend.filter(Actor,{'values' : [1,2,3,4,5]})) == 2 
+    assert len(backend.filter(Actor,{'values' : [10,9,8,7,6,5,4,3,2,1]})) == 1 
+
 def test_list_query(backend,small_test_data):
 
     (movies,actors,directors) = small_test_data

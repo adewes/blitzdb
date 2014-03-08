@@ -250,7 +250,7 @@ class Backend(BaseBackend):
         if len(objects) == 0:
             raise cls.DoesNotExist
         elif len(objects) > 1:
-            return cls.MultipleDocumentsReturned
+            raise cls.MultipleDocumentsReturned
         return objects[0]
 
     def compile_query(self,query_dict):
@@ -328,7 +328,10 @@ class Backend(BaseBackend):
                     else:
                         accessed_value = accessor(attributes)
                         if isinstance(accessed_value,list):
-                            if value not in accessed_value: 
+                            if isinstance(value,list):
+                                if not set(value).issubset(set(accessed_value)):
+                                    keys_to_remove.append(key)
+                            elif value not in accessed_value: 
                                 if not key in keys_to_remove:
                                     keys_to_remove.append(key)
                         elif accessed_value != value:

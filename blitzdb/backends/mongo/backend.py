@@ -70,6 +70,14 @@ class Backend(BaseBackend):
             collection = cls_or_collection
         self.db[collection].ensure_index(*args,**kwargs)
 
+    def compile_query(self,query):
+        if isinstance(query,dict):
+            return dict([(self.compile_query(key),self.compile_query(value)) for key,value in query.items()])
+        elif isinstance(query,list):
+            return {'$all' : [self.compile_query(x) for x in query]}
+        else:
+            return self.serialize(query,convert_keys_to_str = True)
+
     def filter(self,cls_or_collection,query,sort_by = None,limit = None,offset = None):
 
         if not isinstance(cls_or_collection,str) and not isinstance(cls_or_collection,unicode):
@@ -79,6 +87,6 @@ class Backend(BaseBackend):
             collection = cls_or_collection
             cls = self.get_cls_for_collection(collection)
 
-        compiled_query = self.serialize(query,convert_keys_to_str = True)
+        compiled_query = self.compile_query(query)
 
         return QuerySet(self,cls,self.db[collection].find(compiled_query))
