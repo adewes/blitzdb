@@ -72,6 +72,16 @@ class Index(object):
             all_keys = []
             [all_keys.extend(l) for l in [v[1] for v in self._index.items() if value(v[0])]]
             return all_keys
+        elif isinstance(value,list):
+            #This is a list query, we return the store keys that match ALL the given keys
+            if len(value) == 0:
+                return []
+            hash_value = self.get_hash_for(value[0])
+            all_keys = self._index[hash_value][:]
+            for subvalue in value[1:]:
+                hash_value = self.get_hash_for(subvalue)
+                all_keys = [key for key in all_keys if key in self._index[hash_value]]
+            return all_keys
         hash_value = self.get_hash_for(value)
         return self._index[hash_value][:]
 

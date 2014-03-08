@@ -88,6 +88,19 @@ def test_list_query(backend,small_test_data):
     assert actor in backend.filter(Actor,{'movies' : movie})
     assert actor not in backend.filter(Actor,{'movies' : other_movie})
 
+def test_list_query_multiple_items(backend,small_test_data):
+
+    (movies,actors,directors) = small_test_data
+
+    actor = None
+    i = 0
+    while not actor or len(actor.movies) < 2:
+        actor = actors[i]
+        i+=1
+
+    assert actor == backend.get(Actor,{'movies' : actor.movies})
+
+
 def test_indexed_delete(backend,small_test_data):
 
     all_movies = backend.filter(Movie,{})
