@@ -17,8 +17,8 @@ class Director(Document):
     pass
 
 def generate_test_data(request,backend,n):
-    fake = faker.Faker()
 
+    fake = faker.Faker()
 
     actors = []
     movies = []

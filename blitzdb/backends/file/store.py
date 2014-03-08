@@ -96,7 +96,6 @@ class CompressedStore(Store):
                 self._map = Serializer.deserialize(map_file.read())
 
             for store_key,(blob_key,start,stop) in self._map.items():
-                print blob_key,start,stop
                 if not store_key in self._reverse_map[blob_key]:
                     self._reverse_map[blob_key].append(store_key)
                 self._blob_sizes[blob_key]+=stop-start

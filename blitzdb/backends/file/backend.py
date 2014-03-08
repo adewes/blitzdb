@@ -224,24 +224,26 @@ class Backend(BaseBackend):
     def get_pk_index(self,collection):
         return self.indexes[collection][self.primary_key_name]
 
-    def delete(self,obj):
-        
-        collection = self.get_collection_for_obj(obj)
+    def delete_by_store_keys(self,collection,store_keys):
+
         store = self.get_collection_store(collection)
-        indexes = self.get_collection_indexes(collection)
-        
-        store_keys = self.get_pk_index(collection).get_keys_for(obj.pk)
-        
+        indexes = self.get_collection_indexes(collection)     
+
         for store_key in store_keys:
             try:
                 store.delete_blob(store_key)
-            except IOError:
+            except (KeyError,IOError):
                 pass
             for index in indexes.values():
                 index.remove_key(store_key)
-
+        
         if self.autocommit:
             self.commit()
+
+    def delete(self,obj):        
+        collection = self.get_collection_for_obj(obj)
+        primary_index = self.get_pk_index(collection)
+        return self.delete_by_store_keys(collection,primary_index.get_keys_for(obj.pk))
 
     def get(self,cls,query):
         objects = self.filter(cls,query,limit = 1)
@@ -297,7 +299,6 @@ class Backend(BaseBackend):
                 indexed_queries.append([indexes_by_key[key],value])
             else:
                 unindexed_queries.append([accessor,value])
-
         if indexed_queries:
             keys = None
             if initial_keys:
@@ -312,7 +313,6 @@ class Backend(BaseBackend):
         else:
             #We fetch ALL keys from the primary index.
             keys = self.get_pk_index(collection).get_all_keys()
-
         for accessor,value in unindexed_queries:
             keys_to_remove = []
             for key in keys:

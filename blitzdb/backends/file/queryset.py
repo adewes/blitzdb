@@ -19,12 +19,8 @@ class QuerySet(BaseQuerySet):
         return self.objects[key]
 
     def delete(self):
-        for i in range(0,len(self.keys)):
-            try:
-                obj = self[i]
-                self.backend.delete(obj)
-            except AttributeError:
-                pass
+        collection = self.backend.get_collection_for_cls(self.cls)
+        self.backend.delete_by_store_keys(collection,self.keys)
         self.keys = []
         self.objects = {}
 
