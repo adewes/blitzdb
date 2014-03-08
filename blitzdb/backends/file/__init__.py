@@ -1,4 +1,4 @@
 from backend import Backend
-from store import Store,CompressedStore,TransactionalStore,TransactionalCompressedStore
+from store import Store,TransactionalStore
 from index import Index,TransactionalIndex
 from queryset import QuerySet

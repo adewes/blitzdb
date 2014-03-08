@@ -69,7 +69,7 @@ def test_basic_storage(backend,small_test_data):
     assert len(backend.filter(Movie,{})) == len(movies)
     assert len(backend.filter(Actor,{})) == len(actors)
 
-def test_composite_queries(file_backend):
+def test_and_queries(file_backend):
 
     file_backend.save(Actor({'foo' : 'bar','value' : 10}))
     file_backend.save(Actor({'foo' : 'baz','value' : 10}))
@@ -105,6 +105,7 @@ def test_composite_queries(backend):
     assert len(backend.filter(Actor,{'values' : [1,2,3,4]})) == 3 
     assert len(backend.filter(Actor,{'values' : [1,2,3,4,5]})) == 2 
     assert len(backend.filter(Actor,{'values' : [10,9,8,7,6,5,4,3,2,1]})) == 1 
+    assert len(backend.filter(Actor,{'values' : [10,9,8,7,6,5,4,3,2,1,11]})) == 0 
 
 def test_list_query(backend,small_test_data):
 

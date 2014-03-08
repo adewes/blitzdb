@@ -1,5 +1,5 @@
 from blitzdb.backends.file.queryset import QuerySet
-from blitzdb.backends.file.store import TransactionalCompressedStore,TransactionalStore,Store
+from blitzdb.backends.file.store import TransactionalStore,Store
 from blitzdb.backends.file.index import TransactionalIndex,Index
 from blitzdb.backends.base import Backend as BaseBackend,NotInTransaction,DatabaseIndexError
 from blitzdb.backends.file.serializers import PickleSerializer as Serializer
