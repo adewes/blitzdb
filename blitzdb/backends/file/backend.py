@@ -3,7 +3,7 @@ from blitzdb.backends.file.store import TransactionalStore,Store
 from blitzdb.backends.file.index import TransactionalIndex,Index
 from blitzdb.backends.base import Backend as BaseBackend,NotInTransaction,DatabaseIndexError,InTransaction
 from blitzdb.backends.file.serializers import PickleSerializer as Serializer
-from blitzdb.backends.file.queries import queries,and_query,filter_query
+from blitzdb.backends.file.queries import compile_query
 
 import os
 import os.path
@@ -119,6 +119,14 @@ class Backend(BaseBackend):
             if indexes_to_rebuild:
                 self.rebuild_indexes(collection,indexes_to_rebuild)
         self.in_transaction = False
+
+    def get_storage_key_for(self,obj):
+        collection = self.get_collection_for_obj(obj)
+        pk_index = self.get_pk_index(collection)
+        try:
+            return pk_index.get_keys_for(obj.pk)[0]
+        except KeyError:
+            raise obj.DoesNotExist
 
     def commit(self):
         """
@@ -286,22 +294,6 @@ class Backend(BaseBackend):
             raise cls.MultipleDocumentsReturned
         return objects[0]
 
-    def compile_query(self,query,value_only = False):
-        if isinstance(query,list):
-            return [self.compile_query(q,value_only = value_only) for q in query]
-        elif isinstance(query,dict) and not value_only:
-            expressions = []
-            for key,value in query.items():
-                if key.startswith('$'):
-                    if not key in queries:
-                        raise AttributeError("Invalid operator: %s" % key)
-                    expressions.append(queries[key](self.compile_query(value,value_only = value_only)))
-                else:
-                    expressions.append(filter_query(key,self.compile_query(value,value_only = True)))
-            return and_query(expressions) if len(expressions) > 1 else expressions[0] if len(expressions) else lambda query_function : query_function(None,None)
-        else:
-            return query
-        
     def filter(self,cls_or_collection,query,sort_by = None,limit = None,offset = None,initial_keys = None):
 
         if not isinstance(query,dict):
@@ -316,7 +308,7 @@ class Backend(BaseBackend):
 
         store = self.get_collection_store(collection)
         indexes = self.get_collection_indexes(collection)
-        compiled_query = self.compile_query(self.serialize(query))
+        compiled_query = compile_query(self.serialize(query))
 
         indexes_to_create = []
 
@@ -330,8 +322,10 @@ class Backend(BaseBackend):
             if key not in indexes and key not in indexes_to_create and key != None:
                 indexes_to_create.append(key)
             return QuerySet(self,cls,store,[])
+
         #We collect all the indexes that we need to create
         compiled_query(index_collector)
         self.create_indexes(cls,indexes_to_create)
+
         return compiled_query(query_function)
 

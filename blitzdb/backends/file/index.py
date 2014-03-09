@@ -52,6 +52,9 @@ class Index(object):
         [all_keys.extend(l) for l in self._index.values()]
         return all_keys
 
+    def get_index(self):
+        return self._index
+
     def load_from_store(self):
         if not self._store:
             raise AttributeError("No datastore defined!")
@@ -75,24 +78,12 @@ class Index(object):
         if isinstance(value,dict):
             return hash(frozenset([self.get_hash_for(x) for x in value.items()]))
         elif isinstance(value,list) or isinstance(value,tuple):
-            return hash(frozenset([self.get_hash_for(x) for x in value]))
+            return hash(tuple([self.get_hash_for(x) for x in value]))
         return value
 
     def get_keys_for(self,value):
         if callable(value):
-            all_keys = []
-            [all_keys.extend(l) for l in [v[1] for v in self._index.items() if value(v[0])]]
-            return all_keys
-        elif isinstance(value,list):
-            #This is a list query, we return the store keys that match ALL the given keys
-            if len(value) == 0:
-                return []
-            hash_value = self.get_hash_for(value[0])
-            all_keys = self._index[hash_value][:]
-            for subvalue in value[1:]:
-                hash_value = self.get_hash_for(subvalue)
-                all_keys = [key for key in all_keys if key in self._index[hash_value]]
-            return all_keys
+            return value(self)
         hash_value = self.get_hash_for(value)
         return self._index[hash_value][:]
 
@@ -105,8 +96,14 @@ class Index(object):
             return
         #We remove old values
         self.remove_key(store_key)
-        if isinstance(value,list):
+        if isinstance(value,list) or isinstance(value,tuple):
             values = value
+            #We add an extra hash value for the list itself (this allows for querying the whole list)
+            hash_value = self.get_hash_for(value)
+            if not store_key in self._index[hash_value]:
+                self._index[hash_value].append(store_key)
+            if not hash_value in self._reverse_index[store_key]:
+                self._reverse_index[store_key].append(hash_value)
         else:
             values = [value]
         for value in values:

@@ -91,24 +91,82 @@ def test_composite_queries(backend):
     backend.save(Actor({'values' : [1,2,3,4,5,6,7,8,9,10]}))
     backend.save(Actor({'values' : [7,6,5,4,3,2,1]}))
     backend.save(Actor({'values' : [1,2,3,4]}))
+    backend.save(Actor({'values' : [1,2,3,4,{'foo' : 'bar'}]}))
+    backend.save(Actor({'values' : 'foobar'}))
+
+    for f in (lambda :True,lambda : backend.create_index(Actor,'values')):
     
-    assert len(backend.filter(Actor,{})) == 3 
-    assert len(backend.filter(Actor,{'values' : [1,2,3,4]})) == 3 
-    assert len(backend.filter(Actor,{'values' : [1,2,3,4,5]})) == 2 
-    assert len(backend.filter(Actor,{'values' : [10,9,8,7,6,5,4,3,2,1]})) == 1 
+        assert len(backend.filter(Actor,{})) == 5 
+        assert len(backend.filter(Actor,{'values' : [1,2,3,4]})) == 1 
+        assert len(backend.filter(Actor,{'values' : [1,2,3,4,{'foo' : 'bar'}]})) == 1 
+        assert len(backend.filter(Actor,{'values' : [1,2,3,{'foo' : 'bar'},4]})) == 0 
+        assert len(backend.filter(Actor,{'values' : [1,2,3,4,5]})) == 0 
+        assert len(backend.filter(Actor,{'values' : [10,9,8,7,6,5,4,3,2,1]})) == 0
 
-    #We create an index and assure that the results are still the same.
+        assert len(backend.filter(Actor,{'values' : {'$all' : [4,3,2,1]}})) == 4
+        assert len(backend.filter(Actor,{'values' : {'$all' : [4,3,2,1,{'foo' : 'bar'}]}})) == 1
+        assert len(backend.filter(Actor,{'values' : {'$all' : [{'foo' : 'bar'}]}})) == 1
+        assert len(backend.filter(Actor,{'values' : {'$all' : [4,3,2,1,14]}})) == 0 
+        assert len(backend.filter(Actor,{'values' : {'$all' : [10,9,8,7,6,5,4,3,2,1]}})) == 1
+        assert len(backend.filter(Actor,{'values' : {'$in' : [[1,2,3,4],[7,6,5,4,3,2,1],[1,2,3,5],'foobar']}})) == 3
 
-    backend.create_index(Actor,'values')
-
-    assert len(backend.filter(Actor,{})) == 3 
-    assert len(backend.filter(Actor,{'values' : [1,2,3,4]})) == 3 
-    assert len(backend.filter(Actor,{'values' : [1,2,3,4,5]})) == 2 
-    assert len(backend.filter(Actor,{'values' : [10,9,8,7,6,5,4,3,2,1]})) == 1 
-    assert len(backend.filter(Actor,{'values' : [10,9,8,7,6,5,4,3,2,1,11]})) == 0 
 
 def test_operators(backend):
-    pass
+
+    backend.filter(Actor,{}).delete()
+
+    marlon_brando = Actor({'name' : 'Marlon Brando', 'gross_income_m' : 1.453,'appearances' : 78,'is_funny' : False,'birth_year' : 1924})
+    leonardo_di_caprio = Actor({'name' : 'Leonardo di Caprio', 'gross_income_m' : 12.453,'appearances' : 34,'is_funny' : 'it depends','birth_year' : 1974})
+    david_hasselhoff = Actor({'name' : 'David Hasselhoff', 'gross_income_m' : 12.453,'appearances' : 173,'is_funny' : True,'birth_year' : 1952})
+    charlie_chaplin = Actor({'name' : 'Charlie Chaplin', 'gross_income_m' : 0.371,'appearances' : 473,'is_funny' : True,'birth_year' : 1889})
+
+    backend.save(marlon_brando)
+    backend.save(leonardo_di_caprio)
+    backend.save(david_hasselhoff)
+    backend.save(charlie_chaplin)
+
+    assert len(backend.filter(Actor,{})) == 4
+
+    for op,results in (('$gt',[david_hasselhoff]),('$gte',[david_hasselhoff]),('$lt',[charlie_chaplin]),('$lte',[charlie_chaplin])):
+
+        query = { 
+                '$and' : 
+                    [
+                        {'gross_income_m' : { op : 1.0} },
+                        {'is_funny' : True }
+                    ] 
+                }
+
+        assert len(backend.filter(Actor,query)) == len(results)
+        assert results in backend.filter(Actor,query)
+
+    for op,results in (('$gt',[david_hasselhoff,charlie_chaplin,marlon_brando]),('$gte',[marlon_brando,david_hasselhoff,charlie_chaplin]),('$lt',[charlie_chaplin]),('$lte',[charlie_chaplin])):
+
+        query = { 
+                '$and' : 
+                    [
+                        {'$or' : [
+                                    {'gross_income_m' : { op : 1.0} },
+                                    {'birth_year' : { '$lt' : 1900} },
+                                ]},
+                        {'$or' : [
+                            {'is_funny' : True },
+                            {'name' : 'Marlon Brando'},
+                                ]
+                        },
+
+                    ] 
+                }
+
+        assert len(backend.filter(Actor,query)) == len(results)
+        assert results in backend.filter(Actor,query)
+
+    assert len(backend.filter(Actor,{'name' : {'$ne' : 'David Hasselhoff'}})) == 3
+    assert len(backend.filter(Actor,{'name' : 'David Hasselhoff'})) == 1
+    assert len(backend.filter(Actor,{'name' : {'$not' : {'$in' : ['David Hasselhoff','Marlon Brando','Charlie Chaplin']}}})) == 1
+    assert len(backend.filter(Actor,{'name' : {'$in' : ['Marlon Brando','Leonardo di Caprio']}})) == 2
+
+
 
 def test_list_query(backend,small_test_data):
 

@@ -31,6 +31,17 @@ class QuerySet(BaseQuerySet):
         obj = self._create_object_for(json_attributes)
         return obj
 
+    def __contains__(self,obj):
+        pks = self._cursor.distinct('_id')
+        if isinstance(obj,list) or isinstance(obj,tuple):
+            obj_list = obj
+        else:
+            obj_list = [obj]
+        for obj in obj_list:
+            if not obj.pk in pks:
+                return False
+        return True
+
     def rewind(self):
         self._cursor.rewind()
 
