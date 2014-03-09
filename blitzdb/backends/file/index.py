@@ -143,4 +143,5 @@ class TransactionalIndex(Index):
         if not hasattr(self,'_cached_index'):
             raise NotInTransaction
         self.load_from_data(self._cached_index)
+        delattr(self,'_cached_index')
 
