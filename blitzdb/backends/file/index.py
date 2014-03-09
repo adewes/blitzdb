@@ -90,6 +90,13 @@ class Index(object):
     #The following two operations change the value of the index
 
     def add_key(self,attributes,store_key):
+
+        def add_hashed_value(value):
+            if not store_key in self._index[hash_value]:
+                self._index[hash_value].append(store_key)
+            if not hash_value in self._reverse_index[store_key]:
+                self._reverse_index[store_key].append(hash_value)
+
         try:
             value = self.get_value(attributes)
         except (KeyError,IndexError):
@@ -100,18 +107,13 @@ class Index(object):
             values = value
             #We add an extra hash value for the list itself (this allows for querying the whole list)
             hash_value = self.get_hash_for(value)
-            if not store_key in self._index[hash_value]:
-                self._index[hash_value].append(store_key)
-            if not hash_value in self._reverse_index[store_key]:
-                self._reverse_index[store_key].append(hash_value)
+            add_hashed_value(hash_value)
         else:
             values = [value]
+
         for value in values:
             hash_value = self.get_hash_for(value)
-            if not store_key in self._index[hash_value]:
-                self._index[hash_value].append(store_key)
-            if not hash_value in self._reverse_index[store_key]:
-                self._reverse_index[store_key].append(hash_value)
+            add_hashed_value(hash_value)
 
     def remove_key(self,store_key):
         if store_key in self._reverse_index:
