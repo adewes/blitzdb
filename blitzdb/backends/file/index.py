@@ -1,6 +1,7 @@
 from collections import defaultdict
 import copy
 from blitzdb.backends.file.utils import JsonEncoder
+from blitzdb.backends.base import NotInTransaction
 from serializers import PickleSerializer as Serializer
 import time
 
@@ -14,12 +15,17 @@ class Index(object):
     def __init__(self,params,store = None):
         self._params = params
         self._store = store
+        self._splitted_key = self.key.split(".")
+        self.clear()
+        if store:
+            self.ephemeral = False
+            self.loaded = self.load_from_store()
+        else:
+            self.ephemeral = True
+
+    def clear(self):
         self._index = defaultdict(lambda : [])
         self._reverse_index = defaultdict(lambda : [])
-        self._splitted_key = self.key.split(".")
-
-        if store:
-            self.loaded = self.load_from_store()
 
     @property
     def key(self):
@@ -27,8 +33,11 @@ class Index(object):
 
     def get_value(self,attributes):
         v = attributes
-        for element in self._splitted_key:
-            v = v[element]
+        for elem in self._splitted_key:
+            if isinstance(v,list):
+                v = v[int(elem)]
+            else:
+                v = v[elem]
         return v
 
     def save_to_store(self):
@@ -113,6 +122,7 @@ class Index(object):
                 self._index[v].remove(store_key)
             del self._reverse_index[store_key]
 
+
 class TransactionalIndex(Index):
 
     """
@@ -121,14 +131,16 @@ class TransactionalIndex(Index):
 
     def __init__(self,params,store = None):
         super(TransactionalIndex,self).__init__(params,store = store)
-        self.begin()
 
     def begin(self):
         self._cached_index = self.save_to_data()
 
     def commit(self):
-        self.save_to_store()
+        if not self.ephemeral:
+            self.save_to_store()
 
     def rollback(self):
+        if not hasattr(self,'_cached_index'):
+            raise NotInTransaction
         self.load_from_data(self._cached_index)
 

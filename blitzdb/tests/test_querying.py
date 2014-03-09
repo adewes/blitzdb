@@ -107,6 +107,9 @@ def test_composite_queries(backend):
     assert len(backend.filter(Actor,{'values' : [10,9,8,7,6,5,4,3,2,1]})) == 1 
     assert len(backend.filter(Actor,{'values' : [10,9,8,7,6,5,4,3,2,1,11]})) == 0 
 
+def test_operators(backend):
+    pass
+
 def test_list_query(backend,small_test_data):
 
     (movies,actors,directors) = small_test_data
@@ -136,7 +139,7 @@ def test_list_query_multiple_items(backend,small_test_data):
         actor = actors[i]
         i+=1
 
-    assert actor == backend.get(Actor,{'movies' : actor.movies})
+    assert actor in backend.filter(Actor,{'movies' : actor.movies})
 
 
 def test_indexed_delete(backend,small_test_data):

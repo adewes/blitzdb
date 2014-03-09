@@ -1,8 +1,9 @@
 from blitzdb.backends.file.queryset import QuerySet
 from blitzdb.backends.file.store import TransactionalStore,Store
 from blitzdb.backends.file.index import TransactionalIndex,Index
-from blitzdb.backends.base import Backend as BaseBackend,NotInTransaction,DatabaseIndexError
+from blitzdb.backends.base import Backend as BaseBackend,NotInTransaction,DatabaseIndexError,InTransaction
 from blitzdb.backends.file.serializers import PickleSerializer as Serializer
+from blitzdb.backends.file.queries import queries,and_query,filter_query
 
 import os
 import os.path
@@ -43,6 +44,7 @@ class Backend(BaseBackend):
 
         self.collections = {}
         self.stores = {}
+        self.in_transaction = False
         self.autocommit = autocommit
         self.indexes = defaultdict(lambda : {})
         self.index_stores = defaultdict(lambda : {})
@@ -50,8 +52,6 @@ class Backend(BaseBackend):
 
         super(Backend,self).__init__(**kwargs)
 
-        self.in_transaction = False
-        self.begin()
 
     def load_config(self):
         config_file = self._path+"/config.json"
@@ -109,8 +109,15 @@ class Backend(BaseBackend):
         for collection,store in self.stores.items():
             store.rollback()
             indexes = self.indexes[collection]
-            for index in indexes.values():
-                index.rollback()
+            indexes_to_rebuild = []
+            for key,index in indexes.items():
+                try:
+                    index.rollback()
+                except NotInTransaction:
+                    #this index is "dirty" and needs to be rebuilt (probably it has been created within a transaction)
+                    indexes_to_rebuild.append(key)
+            if indexes_to_rebuild:
+                self.rebuild_indexes(collection,indexes_to_rebuild)
         self.in_transaction = False
 
     def commit(self):
@@ -139,42 +146,66 @@ class Backend(BaseBackend):
             #If no indexes are given, we just create a primary key index...
             self.create_index(collection,{'key':self.primary_key_name})
 
-        
+    
     def rebuild_index(self,collection,key):
-        index = self.indexes[collection][key]
+        return self.rebuild_indexes(collection,[key])
+
+    def rebuild_indexes(self,collection,keys):
+        if not keys:
+            return
         all_objects = self.filter(collection,{})
+        for key in keys:
+            index = self.indexes[collection][key]
+            index.clear()
         for obj in all_objects:
             serialized_attributes = self.serialize(obj.attributes)#optimize this!
-            index.add_key(serialized_attributes,obj._store_key)
+            for key in keys:
+                index = self.indexes[collection][key]
+                index.add_key(serialized_attributes,obj._store_key)
         if self.autocommit:
             self.commit()
 
-    def create_index(self,cls_or_collection,params):
-        if not isinstance(params,dict):
-            params = {'key' : params}
+    def create_index(self,cls_or_collection,params,ephemeral = False):
+        return self.create_indexes(cls_or_collection,[params],ephemeral = ephemeral)
+
+    def create_indexes(self,cls_or_collection,params_list,ephemeral = False):
+        indexes = []
+        keys = []
+
+        if not params_list:
+            return
+
         if not isinstance(cls_or_collection,str) and not isinstance(cls_or_collection,unicode):
             collection = self.get_collection_for_cls(cls_or_collection)
         else:
             collection = cls_or_collection
-        if params['key'] in self.indexes[collection]:
-            return #Index already exists
-        if not 'id' in params:
-            params['id'] = uuid.uuid4().hex 
 
-        index_store = self.get_index_store(collection,params['id'])
-        index = self.Index(params,index_store)
-        self.indexes[collection][params['key']] = index
+        for params in params_list:
+            if not isinstance(params,dict):
+                params = {'key' : params}
+            if params['key'] in self.indexes[collection]:
+                return #Index already exists
+            if not 'id' in params:
+                params['id'] = uuid.uuid4().hex 
+            if ephemeral:
+                index_store = None
+            else:
+                index_store = self.get_index_store(collection,params['id'])
+            index = self.Index(params,index_store)
+            self.indexes[collection][params['key']] = index
 
-        if not collection in self._config['indexes']:
-            self._config['indexes'][collection] = {}
+            if not collection in self._config['indexes']:
+                self._config['indexes'][collection] = {}
 
-        self._config['indexes'][collection][params['key']] = params
-        self.save_config()
+            self._config['indexes'][collection][params['key']] = params
+            self.save_config()
+            indexes.append(index)
+            if not index.loaded:#if the index failed to load from disk we rebuild it
+                keys.append(params['key'])
 
-        if not index.loaded:#If the index failed to load, we rebuild it...
-            self.rebuild_index(collection,index.key)
+        self.rebuild_indexes(collection,keys)
 
-        return index
+        return indexes
 
     def get_collection_indexes(self,collection):
         return self.indexes[collection] if collection in self.indexes else {}
@@ -222,6 +253,8 @@ class Backend(BaseBackend):
         return obj
 
     def get_pk_index(self,collection):
+        if not self.primary_key_name in self.indexes[collection]:
+            self.create_index(key,collection)
         return self.indexes[collection][self.primary_key_name]
 
     def delete_by_store_keys(self,collection,store_keys):
@@ -253,25 +286,21 @@ class Backend(BaseBackend):
             raise cls.MultipleDocumentsReturned
         return objects[0]
 
-    def compile_query(self,query_dict):
-
-        def access_path(d,path):
-            v = d
-            for elem in path:
-                if isinstance(v,list):
-                    v = v[int(elem)]
+    def compile_query(self,query,value_only = False):
+        if isinstance(query,list):
+            return [self.compile_query(q,value_only = value_only) for q in query]
+        elif isinstance(query,dict) and not value_only:
+            expressions = []
+            for key,value in query.items():
+                if key.startswith('$'):
+                    if not key in queries:
+                        raise AttributeError("Invalid operator: %s" % key)
+                    expressions.append(queries[key](self.compile_query(value,value_only = value_only)))
                 else:
-                    v = v[elem]
-            return v
-
-        serialized_query_dict = self.serialize(query_dict)
-
-        compiled_query = []
-        for key,value in serialized_query_dict.items():
-            splitted_key = key.split(".")
-            accessor = lambda d,path = splitted_key : access_path(d,path = path)
-            compiled_query.append((key,accessor,value))
-        return compiled_query
+                    expressions.append(filter_query(key,self.compile_query(value,value_only = True)))
+            return and_query(expressions) if len(expressions) > 1 else expressions[0] if len(expressions) else lambda query_function : query_function(None,None)
+        else:
+            return query
         
     def filter(self,cls_or_collection,query,sort_by = None,limit = None,offset = None,initial_keys = None):
 
@@ -287,60 +316,22 @@ class Backend(BaseBackend):
 
         store = self.get_collection_store(collection)
         indexes = self.get_collection_indexes(collection)
-        compiled_query = self.compile_query(query)
+        compiled_query = self.compile_query(self.serialize(query))
 
-        unindexed_queries = []
-        indexed_queries = []
+        indexes_to_create = []
 
-        indexes_by_key = dict([(idx.key,idx) for idx in indexes.values()])
+        def query_function(key,expression):
+            if key == None:
+                return QuerySet(self,cls,store,self.get_pk_index(collection).get_all_keys())
+            qs =  QuerySet(self,cls,store,indexes[key].get_keys_for(expression))
+            return qs
 
-        for key,accessor,value in compiled_query:
-            if key in indexes_by_key:
-                indexed_queries.append([indexes_by_key[key],value])
-            else:
-                unindexed_queries.append([accessor,value])
-        if indexed_queries:
-            keys = None
-            if initial_keys:
-                keys = copy.copy(initial_keys)
-            for index,value in indexed_queries:
-                if not keys:
-                    keys = index.get_keys_for(value)
-                else:
-                    keys = [key for key in keys if key in index.get_keys_for(value)]
-        elif initial_keys:
-            keys = copy.copy(initial_keys)
-        else:
-            #We fetch ALL keys from the primary index.
-            keys = self.get_pk_index(collection).get_all_keys()
-        for accessor,value in unindexed_queries:
-            keys_to_remove = []
-            for key in keys:
-                try:
-                    attributes = self.decode_attributes(store.get_blob(key))
-                except IOError:
-                    raise DatabaseIndexError
-                try:
-                    if callable(value):
-                        if not value(accessor(attributes)):
-                            if not key in keys_to_remove:
-                                keys_to_remove.append(key)
-                    else:
-                        accessed_value = accessor(attributes)
-                        if isinstance(accessed_value,list):
-                            if isinstance(value,list):
-                                if not set(value).issubset(set(accessed_value)):
-                                    keys_to_remove.append(key)
-                            elif value not in accessed_value: 
-                                if not key in keys_to_remove:
-                                    keys_to_remove.append(key)
-                        elif accessed_value != value:
-                            if not key in keys_to_remove:
-                                keys_to_remove.append(key) 
-                except (KeyError,IndexError):
-                    if not key in keys_to_remove:
-                        keys_to_remove.append(key)
-            keys = [key for key in keys if not key in keys_to_remove]
-
-        return QuerySet(self,cls,store,keys)
+        def index_collector(key,expressions):
+            if key not in indexes and key not in indexes_to_create and key != None:
+                indexes_to_create.append(key)
+            return QuerySet(self,cls,store,[])
+        #We collect all the indexes that we need to create
+        compiled_query(index_collector)
+        self.create_indexes(cls,indexes_to_create)
+        return compiled_query(query_function)
 

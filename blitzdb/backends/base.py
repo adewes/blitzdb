@@ -8,6 +8,9 @@ class NotInTransaction(BaseException):
 
 class DatabaseIndexError(BaseException):
     pass
+
+class InTransaction(BaseException):
+    pass
     
 class Backend(object):
 

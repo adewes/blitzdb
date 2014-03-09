@@ -18,6 +18,12 @@ class QuerySet(BaseQuerySet):
             self.objects[key]._store_key = key
         return self.objects[key]
 
+    def __and__(self,other):
+        return self.__class__(self.backend,self.cls,self.store,set(self.keys) & set(other.keys))
+
+    def __or__(self,other):
+        return self.__class__(self.backend,self.cls,self.store,set(self.keys) | set(other.keys))
+
     def delete(self):
         collection = self.backend.get_collection_for_cls(self.cls)
         self.backend.delete_by_store_keys(collection,self.keys)
@@ -26,6 +32,9 @@ class QuerySet(BaseQuerySet):
 
     def filter(self,*args,**kwargs):
         return self.backend.filter(self.cls,*args,initial_keys = self.keys,**kwargs)
+
+    def filter_by_key(self,key,expression):
+        return self.backend.filter_by_key(self.cls,expression,initial_keys = self.keys)
 
     def __len__(self):
         return len(self.keys)
