@@ -1,0 +1,5 @@
+
+Documents
+=========
+
+.. autoclass:: blitzdb.document
