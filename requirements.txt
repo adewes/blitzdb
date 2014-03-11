@@ -1,2 +1,3 @@
 pytest>=2.5.0
 fake-factory>=0.3.2
+cjson>=1.0.5
