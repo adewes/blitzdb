@@ -139,6 +139,8 @@ Like MongoDB, Blitz supports advanced query operators like `$and`, `$or`, `$not`
 Defining Relationships
 ----------------------
 
+
+
 .. code-block:: python
 
     modern_times = Movie({
