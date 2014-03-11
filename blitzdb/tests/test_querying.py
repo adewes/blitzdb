@@ -129,7 +129,7 @@ def test_operators(backend):
 
     for op,results in (('$gt',[david_hasselhoff]),('$gte',[david_hasselhoff]),('$lt',[charlie_chaplin]),('$lte',[charlie_chaplin])):
 
-        query = { 
+        query = {   
                 '$and' : 
                     [
                         {'gross_income_m' : { op : 1.0} },

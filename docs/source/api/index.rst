@@ -6,6 +6,7 @@ API
     :hidden:
     :maxdepth: 2
 
-    Backend <backend>
-    Document <document>
-    Queryset <queryset>
+    The Backend <backend>
+    Documents <document>
+    Query Sets <queryset>
+    Exceptions <exceptions>

@@ -4,9 +4,6 @@ import copy
 
 class QuerySet(BaseQuerySet):
 
-    """
-    """
-
     def delete(self):
         collection = self.backend.get_collection_for_cls(self.cls)
         self.backend.delete_by_store_keys(collection,self.keys)

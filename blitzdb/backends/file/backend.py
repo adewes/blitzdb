@@ -1,7 +1,7 @@
 from blitzdb.backends.file.queryset import QuerySet
 from blitzdb.backends.file.store import TransactionalStore,Store
 from blitzdb.backends.file.index import TransactionalIndex,Index
-from blitzdb.backends.base import Backend as BaseBackend,NotInTransaction,DatabaseIndexError,InTransaction
+from blitzdb.backends.base import Backend as BaseBackend,NotInTransaction,InTransaction
 from blitzdb.backends.file.serializers import PickleSerializer as Serializer
 from blitzdb.backends.file.queries import compile_query
 
@@ -14,6 +14,14 @@ import uuid
 import copy
 
 from collections import defaultdict
+
+class DatabaseIndexError(BaseException):
+    """
+    Gets raised when the index of the database is corrupted (ideally this should never happen).
+
+    To recover from this error, you can call the `rebuild_index` function of the file backend with the
+    affected collection and key as parameters.
+    """
 
 class Backend(BaseBackend):
 
@@ -240,7 +248,7 @@ class Backend(BaseBackend):
         store = self.get_collection_store(collection)
 
         if obj.pk == None:
-            obj.pk = uuid.uuid4().hex 
+            obj.autogenerate_pk()
 
         serialized_attributes = self.serialize(obj.attributes)
         data = self.encode_attributes(serialized_attributes)
