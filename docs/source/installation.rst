@@ -41,10 +41,10 @@ Requirements
 The *vanilla* version of Blitz does not require any non-standard Python modules to run. However, you might want to install
 the following Python libraries to be able to use all features of Blitz:
 
-* `pymongo <https://pypi.python.org/pypi/pymongo/>`_ Required for the :doc:`MongoDB backend <backends/mongo>`
-* `cjson <https://pypi.python.org/pypi/python-cjson/>`_ Required for the CJsonEncoder (improved JSON serialization speed)
-* `pytest <https://pypi.python.org/pypi/pytest/>`_ Required for running the test suite
-* `fake-factory <https://pypi.python.org/pypi/fake-factory/>`_ Required for generating fake test data
+* `pymongo <https://pypi.python.org/pypi/pymongo/>`_: Required for the :doc:`MongoDB backend <backends/mongo>`
+* `cjson <https://pypi.python.org/pypi/python-cjson/>`_: Required for the CJsonEncoder (improved JSON serialization speed)
+* `pytest <https://pypi.python.org/pypi/pytest/>`_: Required for running the test suite
+* `fake-factory <https://pypi.python.org/pypi/fake-factory/>`_: Required for generating fake test data
 
 You can install these requirements using pip and the `requirements.txt` file:
 

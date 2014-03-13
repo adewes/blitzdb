@@ -11,7 +11,7 @@ class Backend(BaseBackend):
     """
     A MongoDB backend.
 
-    :param db: An instance of a `pymongo.database.Database <http://api.mongodb.org/python/current/api/pymongo/database.html>` class
+    :param db: An instance of a `pymongo.database.Database <http://api.mongodb.org/python/current/api/pymongo/database.html>`_ class
 
     Example usage:
 

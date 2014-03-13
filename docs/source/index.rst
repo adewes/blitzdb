@@ -53,7 +53,7 @@ Alternatively, you can just download the source from Github and install it manua
 Getting Started
 ---------------
 
-To get started, have a look at the basic :doc:`tutorial <tutorials/basics>` or check out the API documentation.
+To get started, have a look at the basic :doc:`tutorial <tutorials/basics>` or check out the :doc:`API documentation </api/index>`.
 
 Use Cases
 ---------
