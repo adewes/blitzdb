@@ -11,4 +11,35 @@ entry_points = {
 url='https://github.com/adewes/blitzdb',
 packages=find_packages(),
 zip_safe = False,
+description = 'A document-oriented database written purely in Python.',
+long_description = """Blitz is a document-oriented database toolkit for Python that is backend-agnostic. 
+
+It comes with a flat-file database for JSON documents and provides MongoDB-like querying capabilities.
+
+Key Features
+============
+
+* Document-based, object-oriented interface.
+* Powerful and rich querying language.
+* Deep document indexes on arbitrary fields.
+* Compressed storage of documents.
+* Support for multiple backends (e.g. file-based storage, MongoDB).
+* Support for database transactions (currently only for the file-based backend).
+
+Documentation
+=============
+
+An extensive documentation, including tutorials and installation instructions is available on `ReadTheDocs <http://blitz-db.readthedocs.org/>`_.
+
+Source Code
+===========
+
+The source code is available on `GitHub <https://github.com/adewes/blitzdb>`_.
+
+Isssue Tracker
+==============
+
+If you should encounter any problems when using BlitzDB, please feel free to `submit an issue <https://github.com/adewes/blitzdb/issues>`_ on Github.
+
+"""
 )

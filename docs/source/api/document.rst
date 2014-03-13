@@ -1,6 +1,6 @@
 
-Documents
-=========
+The Document
+============
 
 The `Document` class is the base for all documents stored in the database. To create a new document type, just
 create a class that inherits from this base class:
@@ -37,9 +37,6 @@ which defaults to `pk`:
         class Meta(Document.Meta):
             pk = 'name' #use the name of the author as the primary key
 
-
-Class Documentation
--------------------
 
 .. autoclass:: blitzdb.document.Document
     :members: initialize, pk, save, delete, revert, attributes, autogenerate_pk, __eq__

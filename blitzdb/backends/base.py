@@ -31,10 +31,6 @@ class Backend(object):
 
     """
 
-    class Meta(object):
-        supports_indexes = False
-        supports_transactions = False
-
     __metaclass__ = abc.ABCMeta
 
     def __init__(self,autodiscover_classes = True):
@@ -239,13 +235,14 @@ class Backend(object):
         :param cls: The class for which to return an object.
         :param properties: The properties of the object to be returned
 
+        :returns: An instance of the requested object.
+
         .. admonition:: Exception Behavior
 
             Raises a :py:class:`blitzdb.document.Document.DoesNotExist` exception if no object with the given
             properties exists in the database, and a :py:class:`blitzdb.document.Document.MultipleObjectsReturned` 
             exception if more than one object in the database corresponds to the given properties.
         
-        :returns: An instance of the requested object.
         """
 
     @abc.abstractmethod
@@ -268,5 +265,13 @@ class Backend(object):
         :param offset: The offset in respect to the beginning of the result list (to be used in conjunction with `limit`).
 
         :returns: A `blitzdb.queryset.QuerySet` instance containing the keys of the objects matching the query.
+
+        .. admonition:: Functionality might differ between backends
+             
+             Please be aware that the functionality of the `filter` function might
+             differ from backend to backend. Consult the documentation of the given
+             backend that you use to find out which queries are supported.
+
+
         """
 

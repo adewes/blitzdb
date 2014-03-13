@@ -22,6 +22,15 @@ Key Features
 * Support for multiple backends (e.g. file-based storage, MongoDB).
 * Support for database transactions (currently only for the file-based backend).
 
+
+.. warning::
+
+    Please be aware that this is an early development version of BlitzDB, so there are probably still some bugs
+    in the code and the documentation is not very extensive for the moment.
+
+    We are currently looking for contributors and people that are passionate about building BlitzDB with us, so if you're
+    interested in joining our quest or if you have any suggestions, remarks or complaints, feel free to get in touch, e.g. `via email <mailto:andreas@7scientists.com>`_ or `Github <https://github.com/adewes/blitzdb/issues>`_. Thanks!
+
 Installation
 ------------
 
@@ -44,7 +53,7 @@ Alternatively, you can just download the source from Github and install it manua
 Getting Started
 ---------------
 
-To get started, have a look at the :doc:`tutorial` or check out the API documentation.
+To get started, have a look at the basic :doc:`tutorial <tutorials/basics>` or check out the API documentation.
 
 Use Cases
 ---------

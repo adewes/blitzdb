@@ -18,7 +18,10 @@ class MetaDocument(type):
         dct['MultipleDocumentsReturned'] = MultipleDocumentsReturned
         class_type = type.__new__(meta, name, bases, dct)
         if not class_type in document_classes:
-            document_classes.append(class_type)
+            if name == 'Document' and bases == (object,):
+                pass
+            else:
+                document_classes.append(class_type)
         return class_type
 
 document_classes = []
@@ -28,7 +31,7 @@ class Document(object):
     """
     The Document object is the base class for all documents stored in the database.
     The name of the collection can be set by defining a :class:`Document.Meta` class within
-    the class and setting its :ref:`collection`.
+    the class and setting its `collection` attribute.
 
     :param attributes: the attributes of the document instance. Expects a Python dictionary.
     :param lazy: if set to `True`, will lazily load the document from the backend when

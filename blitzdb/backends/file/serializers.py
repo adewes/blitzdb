@@ -1,7 +1,7 @@
 from blitzdb.backends.file.utils import JsonEncoder
 import json
-import cjson
 import cPickle
+import sys
 import marshal
 
 """
@@ -19,16 +19,6 @@ class JsonSerializer(object):
     @classmethod
     def deserialize(cls,data):
         return json.loads(data)
-
-class CJsonSerializer(object):
-
-    @classmethod
-    def serialize(cls,data):
-        return cjson.encode(data)
-
-    @classmethod
-    def deserialize(cls,data):
-        return cjson.decode(data)
 
 class PickleSerializer(object):
 
@@ -50,3 +40,20 @@ class MarshalSerializer(object):
     @classmethod
     def deserialize(cls,data):
         return marshal.loads(data)
+
+try:
+    import cjson
+
+    class CJsonSerializer(object):
+
+        @classmethod
+        def serialize(cls,data):
+            return cjson.encode(data)
+
+        @classmethod
+        def deserialize(cls,data):
+            return cjson.decode(data)
+
+except ImportError:
+    #we fall back to the normal JSON serializer
+    sys.stderr.write("Warning: cjson could not be imported, CJsonSerializer will not be available.\n")

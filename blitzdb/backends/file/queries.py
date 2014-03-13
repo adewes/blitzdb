@@ -101,8 +101,6 @@ def in_query(expression):
         if not isinstance(ev,list) and not isinstance(ev,tuple):
             raise AttributeError("$in argument must be an iterable!")
         hashed_ev = [index.get_hash_for(v) for v in ev]
-        print hashed_ev
-
         store_keys = set()
 
         for value in hashed_ev:

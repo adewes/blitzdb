@@ -2,17 +2,30 @@ import abc
 
 from blitzdb.document import Document
 from blitzdb.backends.base import Backend as BaseBackend
+from blitzdb.backends.base import NotInTransaction
 from blitzdb.backends.mongo.queryset import QuerySet
 import uuid
 
 class Backend(BaseBackend):
 
     """
-    """
+    A MongoDB backend.
 
-    class Meta(BaseBackend.Meta):
-        supports_indexes = True
-        supports_transactions = False
+    :param db: An instance of a `pymongo.database.Database <http://api.mongodb.org/python/current/api/pymongo/database.html>` class
+
+    Example usage:
+
+    .. code-block:: python
+
+        from pymongo import connection
+        from blitzdb.backends.mongo import Backend as MongoBackend
+
+        c = connection()
+        my_db = c.test_db
+
+        #create a new BlitzDB backend using a MongoDB database
+        backend = MongoBackend(my_db)
+    """
 
     def __init__(self,db,**kwargs):
         self.db = db
@@ -21,21 +34,12 @@ class Backend(BaseBackend):
         super(Backend,self).__init__(**kwargs)
 
     def begin(self):
-        """
-        Starts a new transaction
-        """
         pass
 
     def rollback(self):
-        """
-        Rolls back a transaction
-        """
-        pass
+        raise NotInTransaction("MongoDB backend does not support rollback!")
 
     def commit(self):
-        """
-        Commits a transaction
-        """
         pass
 
     def get(self,cls_or_collection,properties):
@@ -79,6 +83,18 @@ class Backend(BaseBackend):
             return self.serialize(query,convert_keys_to_str = True)
 
     def filter(self,cls_or_collection,query,sort_by = None,limit = None,offset = None):
+        """
+        Filter objects from the database that correspond to a given set of properties.
+
+        See :py:meth:`blitzdb.backends.base.Backend.filter` for documentation of individual parameters
+
+        .. note::
+
+            This function supports all query operators that are available in MongoDB and returns a query set
+            that is based on a MongoDB cursor.
+
+
+        """
 
         if not isinstance(cls_or_collection,str) and not isinstance(cls_or_collection,unicode):
             collection = self.get_collection_for_cls(cls_or_collection)

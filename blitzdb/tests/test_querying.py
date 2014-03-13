@@ -18,7 +18,7 @@ def large_test_data(request,backend):
 def small_test_data(request,backend):
     return generate_test_data(request,backend,20)
 
-@pytest.fixture(scope = "module")
+@pytest.fixture(scope = "function")
 def tmpdir(request):
 
     tmpdir = tempfile.mkdtemp()
@@ -27,12 +27,19 @@ def tmpdir(request):
     request.addfinalizer(finalizer)
     return tmpdir
 
-@pytest.fixture(scope="function", params=["file", "mongo"])
+@pytest.fixture(scope="function", params=["file_json","file_marshal","file_pickle","mongo"])
 def backend(request,tmpdir):
-    if request.param == 'file':
-        return file_backend(request,tmpdir)
+    """
+    We test all query operations on a variety of backends.
+    """
+    if request.param == 'file_json':
+        return file_backend(request,tmpdir,{'serializer_class' : 'json'})
+    elif request.param == 'file_marshal':
+        return file_backend(request,tmpdir, {'serializer_class' : 'marshal'})
+    elif request.param == 'file_pickle':
+        return file_backend(request,tmpdir, {'serializer_class' : 'pickle'})
     elif request.param == 'mongo':
-        return mongo_backend(request)
+        return mongo_backend(request,{})
 
 def _init_indexes(backend):
     for idx in ['name','director']:
@@ -41,14 +48,12 @@ def _init_indexes(backend):
     backend.create_index(Actor,'movies')
     return backend
 
-@pytest.fixture(scope="function")
-def file_backend(request,tmpdir):
-    backend = FileBackend(tmpdir)
+def file_backend(request,tmpdir,config):
+    backend = FileBackend(tmpdir,config = config,overwrite_config = True)
     _init_indexes(backend)
     return backend
 
-@pytest.fixture(scope="function")
-def mongo_backend(request):
+def mongo_backend(request,config):
     con = pymongo.MongoClient()
     con.drop_database("blitzdb_test_3243213121435312431")
     db = pymongo.MongoClient()['blitzdb_test_3243213121435312431']
@@ -69,19 +74,19 @@ def test_basic_storage(backend,small_test_data):
     assert len(backend.filter(Movie,{})) == len(movies)
     assert len(backend.filter(Actor,{})) == len(actors)
 
-def test_and_queries(file_backend):
+def test_and_queries(backend):
 
-    file_backend.save(Actor({'foo' : 'bar','value' : 10}))
-    file_backend.save(Actor({'foo' : 'baz','value' : 10}))
-    file_backend.save(Actor({'foo' : 'baz','value' : 11}))
-    file_backend.save(Actor({'foo' : 'bar','value' : 11}))
+    backend.save(Actor({'foo' : 'bar','value' : 10}))
+    backend.save(Actor({'foo' : 'baz','value' : 10}))
+    backend.save(Actor({'foo' : 'baz','value' : 11}))
+    backend.save(Actor({'foo' : 'bar','value' : 11}))
     
-    assert len(file_backend.filter(Actor,{'foo' : 'bar'})) == 2
-    assert len(file_backend.filter(Actor,{'value' : 10})) == 2
-    assert len(file_backend.filter(Actor,{'foo' : 'bar', 'value' : 10})) == 1
-    assert len(file_backend.filter(Actor,{'foo' : 'baz', 'value' : 10})) == 1
-    assert len(file_backend.filter(Actor,{'foo' : 'bar', 'value' : 11})) == 1
-    assert len(file_backend.filter(Actor,{'foo' : 'baz', 'value' : 11})) == 1
+    assert len(backend.filter(Actor,{'foo' : 'bar'})) == 2
+    assert len(backend.filter(Actor,{'value' : 10})) == 2
+    assert len(backend.filter(Actor,{'foo' : 'bar', 'value' : 10})) == 1
+    assert len(backend.filter(Actor,{'foo' : 'baz', 'value' : 10})) == 1
+    assert len(backend.filter(Actor,{'foo' : 'bar', 'value' : 11})) == 1
+    assert len(backend.filter(Actor,{'foo' : 'baz', 'value' : 11})) == 1
 
 
 def test_composite_queries(backend):
@@ -109,7 +114,6 @@ def test_composite_queries(backend):
         assert len(backend.filter(Actor,{'values' : {'$all' : [4,3,2,1,14]}})) == 0 
         assert len(backend.filter(Actor,{'values' : {'$all' : [10,9,8,7,6,5,4,3,2,1]}})) == 1
         assert len(backend.filter(Actor,{'values' : {'$in' : [[1,2,3,4],[7,6,5,4,3,2,1],[1,2,3,5],'foobar']}})) == 3
-
 
 def test_operators(backend):
 
@@ -215,7 +219,7 @@ def test_non_indexed_delete(backend,small_test_data):
     (movies,actors,directors) = small_test_data
 
     for movie in movies:
-        backend.filter(Director,{'movies' : movie}).delete()
+        backend.filter(Director,{'movies' : {'$all' : [movie]} }).delete()
 
     for director in backend.filter(Director,{}):
         assert director.movies == []
@@ -257,21 +261,6 @@ def test_index_reloading(backend,small_test_data):
 
     backend.filter(Actor,{'movies' : movies[0]}).delete()
     assert list(backend.filter(Actor,{'movies' : movies[0]})) == []
-
-def test_reloading_file_backend(file_backend,tmpdir):
-
-    reloaded_backend = FileBackend(tmpdir)
-
-    for cls,params in file_backend.classes.items():
-        reloaded_backend.register(cls,params)
-
-    assert reloaded_backend.indexes.keys() == file_backend.indexes.keys()
-
-    for collection in reloaded_backend.indexes:
-        assert reloaded_backend.indexes[collection].keys() == file_backend.indexes[collection].keys()
-        assert set([idx.key for idx in reloaded_backend.indexes[collection].values()]) == set([idx.key for idx in reloaded_backend.indexes[collection].values()])
-        for index_1,index_2 in zip(file_backend.indexes[collection].values(),reloaded_backend.indexes[collection].values()):
-            assert set(index_1.get_all_keys()) == set(index_2.get_all_keys())
 
 def test_querying_efficiency(backend,large_test_data):
 

@@ -3,7 +3,7 @@
     :maxdepth: 2
 
     Welcome <self>
-    Tutorial <tutorial>
+    Tutorials <tutorials/index>
     Installation <installation>
     API <api/index>
     Backends <backends/index>
