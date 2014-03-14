@@ -2,7 +2,7 @@ from distutils.core import setup
 from setuptools import find_packages
 
 setup(name='blitzdb',
-version='0.1',
+version='0.1.1',
 author='Andreas Dewes - 7scientists',
 author_email = 'andreas@7scientists.com',
 license = 'MIT',
@@ -40,6 +40,11 @@ Isssue Tracker
 ==============
 
 If you should encounter any problems when using BlitzDB, please feel free to `submit an issue <https://github.com/adewes/blitzdb/issues>`_ on Github.
+
+Changelog
+=========
+
+* 0.1.1: BlitzDB is now Python3 compatible (thanks to David Koblas)
 
 """
 )
