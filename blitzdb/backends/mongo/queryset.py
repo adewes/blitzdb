@@ -13,6 +13,9 @@ class QuerySet(BaseQuerySet):
     def __iter__(self):
         return self
 
+    def __len__(self):
+        return self._cursor.count()
+
     def _create_object_for(self,json_attributes):
         deserialized_attributes = self.backend.deserialize(json_attributes)
         if '_id' in deserialized_attributes:
@@ -20,9 +23,12 @@ class QuerySet(BaseQuerySet):
         return self.backend.create_instance(self.cls,deserialized_attributes)
 
     def next(self):
-        json_attributes = self._cursor.next()
+        #in principle we should use `next(self._cursor)` but we do this to maintain compatibility with Python 2.x
+        json_attributes = self._cursor.__next__()
         obj = self._create_object_for(json_attributes)
         return obj
+
+    __next__ = next
 
     def __getitem__(self,key):
         if isinstance(key,slice):

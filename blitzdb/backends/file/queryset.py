@@ -8,6 +8,7 @@ class QuerySet(BaseQuerySet):
         collection = self.backend.get_collection_for_cls(self.cls)
         self.backend.delete_by_store_keys(collection,self.keys)
         self.keys = []
+        self._i = 0
         self.objects = {}
 
     def filter(self,*args,**kwargs):
@@ -18,6 +19,17 @@ class QuerySet(BaseQuerySet):
 
     def _clone(self,keys):
         return self.__class__(self.backend,self.cls,self.store,copy.copy(keys))
+
+    def next(self):
+        if self._i >= len(self):
+            raise StopIteration
+        self._i+=1
+        return self[i-1]
+
+    __next__ = next
+
+    def rewind(self):
+        self._i = 0
 
     def __init__(self,backend,cls,store,keys):
         super(QuerySet,self).__init__(backend,cls)
