@@ -23,8 +23,10 @@ class QuerySet(BaseQuerySet):
         return self.backend.create_instance(self.cls,deserialized_attributes)
 
     def next(self):
-        #in principle we should use `next(self._cursor)` but we do this to maintain compatibility with Python 2.x
-        json_attributes = self._cursor.__next__()
+        try:
+            json_attributes = next(self._cursor)
+        except  AttributeError:#this is Python 2.x
+            json_attributes = self._cursor.next()
         obj = self._create_object_for(json_attributes)
         return obj
 
