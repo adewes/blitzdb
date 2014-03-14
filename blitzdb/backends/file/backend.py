@@ -5,6 +5,7 @@ from blitzdb.backends.base import Backend as BaseBackend,NotInTransaction,InTran
 from blitzdb.backends.file.serializers import PickleSerializer,JsonSerializer,MarshalSerializer
 from blitzdb.backends.file.queries import compile_query
 
+import six
 import os
 import os.path
 
@@ -318,7 +319,7 @@ class Backend(BaseBackend):
         if not params_list:
             return
 
-        if not isinstance(cls_or_collection,str) and not isinstance(cls_or_collection,unicode):
+        if not isinstance(cls_or_collection, six.string_types):
             collection = self.get_collection_for_cls(cls_or_collection)
         else:
             collection = cls_or_collection
@@ -429,7 +430,7 @@ class Backend(BaseBackend):
         if not isinstance(query,dict):
             raise AttributeError("Query parameters must be dict!")
 
-        if not isinstance(cls_or_collection,str) and not isinstance(cls_or_collection,unicode):
+        if not isinstance(cls_or_collection, six.string_types):
             collection = self.get_collection_for_cls(cls_or_collection)
             cls = cls_or_collection
         else:

@@ -8,7 +8,7 @@ import uuid
 import copy
 
 from collections import defaultdict
-from serializers import PickleSerializer as Serializer
+from blitzdb.backends.file.serializers import PickleSerializer as Serializer
 
 """
 """
@@ -33,7 +33,7 @@ class Store(object):
         return self._properties['path']+'/'+key
 
     def store_blob(self,blob,key):
-        with open(self._properties['path']+"/"+key,"w") as output_file:
+        with open(self._properties['path']+"/"+key,"wb") as output_file:
             output_file.write(blob)
         return key
 
@@ -44,7 +44,7 @@ class Store(object):
 
     def get_blob(self,key):
         try:
-            with open(self._properties['path']+"/"+key,"r") as input_file:
+            with open(self._properties['path']+"/"+key,"rb") as input_file:
                 return input_file.read()
         except IOError:
             raise KeyError("Key %s not found!" % key)

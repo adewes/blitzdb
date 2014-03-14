@@ -1,4 +1,5 @@
 import abc
+import six
 
 from blitzdb.document import Document
 from blitzdb.backends.base import Backend as BaseBackend
@@ -43,7 +44,7 @@ class Backend(BaseBackend):
         pass
 
     def get(self,cls_or_collection,properties):
-        if not isinstance(cls_or_collection,str) and not isinstance(cls_or_collection,unicode):
+        if not isinstance(cls_or_collection, six.string_types):
             collection = self.get_collection_for_cls(cls_or_collection)
         else:
             collection = cls_or_collection
@@ -68,7 +69,7 @@ class Backend(BaseBackend):
         self.db[collection].save(serialized_attributes)
 
     def create_index(self,cls_or_collection,*args,**kwargs):
-        if not isinstance(cls_or_collection,str) and not isinstance(cls_or_collection,unicode):
+        if not isinstance(cls_or_collection, six.string_types):
             collection = self.get_collection_for_cls(cls_or_collection)
         else:
             collection = cls_or_collection
@@ -96,7 +97,7 @@ class Backend(BaseBackend):
 
         """
 
-        if not isinstance(cls_or_collection,str) and not isinstance(cls_or_collection,unicode):
+        if not isinstance(cls_or_collection, six.string_types):
             collection = self.get_collection_for_cls(cls_or_collection)
             cls = cls_or_collection
         else:

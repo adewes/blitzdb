@@ -26,7 +26,9 @@ class MetaDocument(type):
 
 document_classes = []
 
-class Document(object):
+_BaseClass = MetaDocument('_BaseClass', (object,), {})
+
+class Document(_BaseClass):
 
     """
     The Document object is the base class for all documents stored in the database.
@@ -101,7 +103,7 @@ class Document(object):
         self.__dict__['_attributes'] = attributes
         self.__dict__['embed'] = False
         self._default_backend = default_backend
-        if not self.pk:
+        if self.pk is None:
             self.pk = None
 
         if not lazy:
@@ -149,6 +151,9 @@ class Document(object):
     def __deepcopy__(self,memo):
         d = self.__class__(copy.deepcopy(self.attributes,memo),lazy = self._lazy,default_backend = self._default_backend)
         return d
+
+    def __hash__(self):
+        return id(self)
 
     def __ne__(self,other):
         return not self.__eq__(other)
