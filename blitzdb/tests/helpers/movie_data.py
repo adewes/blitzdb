@@ -40,7 +40,6 @@ def generate_test_data(request,backend,n):
         movies.append(movie)
         movie.save(backend)
 
-
     for i in range(0,n*4):
         actor = Actor(
             {
@@ -58,7 +57,7 @@ def generate_test_data(request,backend,n):
         actors.append(actor)
         actor.save(backend)
 
-    for i in range(0,n/10):
+    for i in range(0,int(n/10)):
         director = Director(
                 {
                     'name' : fake.name(),

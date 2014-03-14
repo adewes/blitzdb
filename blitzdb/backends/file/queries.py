@@ -1,3 +1,8 @@
+import six
+
+if six.PY3:
+    from functools import reduce
+
 def and_query(expressions): 
 
     def _and(query_function,expressions = expressions):
@@ -16,7 +21,7 @@ def or_query(expressions):
 
 def filter_query(key,expression):
 
-    if isinstance(expression,dict) and len(expression) == 1 and expression.keys()[0].startswith('$'):
+    if isinstance(expression,dict) and len(expression) == 1 and list(expression.keys())[0].startswith('$'):
         compiled_expression = compile_query(expression)
     else:
         compiled_expression = expression

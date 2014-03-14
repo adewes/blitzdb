@@ -2,7 +2,7 @@ from collections import defaultdict
 import copy
 from blitzdb.backends.file.utils import JsonEncoder
 from blitzdb.backends.base import NotInTransaction
-from serializers import PickleSerializer as Serializer
+from blitzdb.backends.file.serializers import PickleSerializer as Serializer
 import time
 
 class Index(object):
@@ -66,7 +66,7 @@ class Index(object):
 
     def save_to_data(self,in_place = False):
         if in_place:
-            return self._index.items()
+            return list(self._index.items())
         return [(key,values[:]) for key,values in self._index.items()]
 
     def load_from_data(self,data):

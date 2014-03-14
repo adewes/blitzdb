@@ -117,7 +117,7 @@ class Backend(object):
             for key,value in obj.items():
                 output_obj[str(key) if convert_keys_to_str else key] = serialize_with_opts(value,embed_level = embed_level)
         elif isinstance(obj,list):
-            output_obj = map(lambda x:serialize_with_opts(x,embed_level = embed_level),obj)
+            output_obj = list(map(lambda x:serialize_with_opts(x,embed_level = embed_level),obj))
         elif isinstance(obj,tuple):
             output_obj = tuple(map(lambda x:serialize_with_opts(x,embed_level = embed_level),obj))
         elif isinstance(obj,Document):
@@ -151,7 +151,7 @@ class Backend(object):
                 for (key,value) in obj.items():
                     output_obj[key] = self.deserialize(value)
         elif isinstance(obj,list) or isinstance(obj,tuple):
-            output_obj = map(lambda x:self.deserialize(x),obj)
+            output_obj = list(map(lambda x:self.deserialize(x),obj))
         else:
             output_obj = obj
         return output_obj
