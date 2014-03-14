@@ -15,9 +15,23 @@
 
 Blitz can be used as a standalone document store for client application. Originally blitz was designed for use with the checkmate Python code analysis toolkit, where it stores statistical data. Since blitz stores all documents as single JSON files, it is possible to put the whole database under version-control.
 
+##Installation
+
+The easiest way to install Blitz is through **pip** or **easy_install**
+
+    pip install blitzdb
+    #or...
+    easy_install blitzdb
+
+For more detailed installation instructions, have a look at the [documentation](http://blitz-db.readthedocs.org).
+
 ##Detailed Documentation
 
 The detailed documentation for this project is hosted on [ReadTheDocs](http://blitz-db.readthedocs.org), feel free to take a look!
+
+##News
+
+* 2014-03-14: Blitz is now **Python 3 compatible**, thanks to David Koblas (@koblas)!
 
 ##Examples
 
