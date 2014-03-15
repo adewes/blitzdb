@@ -1,3 +1,5 @@
+import blitzdb
+
 from blitzdb.backends.file.queryset import QuerySet
 from blitzdb.backends.file.store import TransactionalStore,Store
 from blitzdb.backends.file.index import TransactionalIndex,Index
@@ -72,7 +74,7 @@ class Backend(BaseBackend):
         'index_class' : 'transactional',
         'index_store_class' : 'basic',
         'serializer_class' : 'json', 
-        'autocommit' : False
+        'autocommit' : False,
     }
 
     config_defaults = {}
@@ -241,7 +243,8 @@ class Backend(BaseBackend):
         for key,value in self.default_config.items():
             if not key in self._config:
                 self._config[key] = value
-        
+        if not 'version' in self._config:
+            self._config['version'] = blitzdb.__version__
         self.save_config()
 
     def save_config(self):
@@ -281,7 +284,7 @@ class Backend(BaseBackend):
         pk_index = self.get_pk_index(collection)
         try:
             return pk_index.get_keys_for(obj.pk)[0]
-        except KeyError:
+        except (KeyError,IndexError):
             raise obj.DoesNotExist
 
     def init_indexes(self,collection):
