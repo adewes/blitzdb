@@ -460,6 +460,5 @@ class Backend(BaseBackend):
         #We collect all the indexes that we need to create
         compiled_query(index_collector)
         self.create_indexes(cls,indexes_to_create)
-
         return compiled_query(query_function)
 

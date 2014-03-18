@@ -122,6 +122,10 @@ class Document(_BaseClass):
         except AttributeError:
             lazy = False
         if lazy:
+            try:
+                return super(Document,self).__getattribute__(key)
+            except AttributeError:
+                pass
             self._lazy = False
             self.revert()
         return super(Document,self).__getattribute__(key)
