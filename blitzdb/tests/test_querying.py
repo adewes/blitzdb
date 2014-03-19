@@ -74,6 +74,19 @@ def test_basic_storage(backend,small_test_data):
     assert len(backend.filter(Movie,{})) == len(movies)
     assert len(backend.filter(Actor,{})) == len(actors)
 
+def test_negative_indexing(backend,small_test_data):
+
+    (movies,actors,directors) = small_test_data
+
+    actors = backend.filter(Actor,{})
+
+    assert actors[-1] == actors[len(actors)-1]
+    assert actors[-10:-1] == actors[len(actors)-10:len(actors)-1]
+    assert actors[-len(actors):-1] == actors[0:len(actors)-1]
+
+    #To do: Make step tests for file backend (MongoDB does not support this)
+#    assert actors[-10:-1:2] == actors[len(actors)-10:len(actors)-1:2]
+
 def test_and_queries(backend):
 
     backend.save(Actor({'foo' : 'bar','value' : 10}))

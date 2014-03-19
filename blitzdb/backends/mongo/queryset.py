@@ -34,7 +34,13 @@ class QuerySet(BaseQuerySet):
 
     def __getitem__(self,key):
         if isinstance(key,slice):
+            if key.start < 0:
+                key = slice(self._cursor.count()+key.start,key.stop,key.step)
+            if key.stop < 0:
+                key = slice(key.start,self._cursor.count()+key.stop,key.step)
             return self.__class__(self.backend,self.cls,self._cursor.__getitem__(key))
+        if key < 0:
+            key = self._cursor.count()+key
         json_attributes = self._cursor[key]
         obj = self._create_object_for(json_attributes)
         return obj
@@ -55,6 +61,10 @@ class QuerySet(BaseQuerySet):
 
     def delete(self):
         self._cursor.collection.remove({'_id' : {'$in' : self._cursor.distinct('_id') }})
+
+    def sort(self,*args,**kwargs):
+        self._cursor.sort(*args,**kwargs)
+        return self
 
     def filter(self,*args,**kwargs):
         return self.backend.filter(self.cls,*args,initial_keys = self.keys,**kwargs)

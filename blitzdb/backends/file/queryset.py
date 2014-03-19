@@ -31,6 +31,10 @@ class QuerySet(BaseQuerySet):
     def rewind(self):
         self._i = 0
 
+    def sort(self,key,order = BaseQuerySet.ASCENDING):
+        self.keys = self.backend.sort(self.cls,self.keys,key,order)
+        return self
+
     def __init__(self,backend,cls,store,keys):
         super(QuerySet,self).__init__(backend,cls)
         self.store = store
@@ -39,7 +43,7 @@ class QuerySet(BaseQuerySet):
 
     def __getitem__(self,i):
         if isinstance(i,slice):
-            return self.__class__(self.backend,self.cls,self.keys[i])
+            return self.__class__(self.backend,self.cls,self.store,self.keys[i])
         key = self.keys[i]
         if not key in self.objects:
             self.objects[key] = self.backend.get_object(self.cls,key)

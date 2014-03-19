@@ -12,6 +12,9 @@ class QuerySet(object):
 
     __metaclass__ = abc.ABCMeta
 
+    ASCENDING = 1
+    DESCENDING = -1
+
     def __init__(self,backend,cls):
         """
         Initializes a query set.

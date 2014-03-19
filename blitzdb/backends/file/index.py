@@ -64,6 +64,16 @@ class Index(object):
         self.load_from_data(data)
         return True
 
+    def sort_keys(self,keys,order = 1):
+        #to do: check that all reverse index values are unambiguous
+        missing_keys = [key for key in keys if not len(self._reverse_index[key])]
+        keys_and_values = [(key,self._reverse_index[key][0]) for key in keys if not key in missing_keys]
+        sorted_keys = [kv[0] for kv in sorted(keys_and_values,key = lambda x: x[1],reverse = True if order < 0 else False)]
+        if order > 0:
+            return missing_keys + sorted_keys
+        else:
+            return sorted_keys + missing_keys
+
     def save_to_data(self,in_place = False):
         if in_place:
             return list(self._index.items())

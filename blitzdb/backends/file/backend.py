@@ -428,6 +428,43 @@ class Backend(BaseBackend):
             raise cls.MultipleDocumentsReturned
         return objects[0]
 
+    def sort(self,cls_or_collection,keys,key,order = QuerySet.ASCENDING):
+
+        if not isinstance(cls_or_collection, six.string_types):
+            collection = self.get_collection_for_cls(cls_or_collection)
+            cls = cls_or_collection
+        else:
+            collection = cls_or_collection
+            cls = self.get_cls_for_collection(collection)
+
+        if not isinstance(key,list) and not isinstance(key,tuple):
+            sort_keys = [(key,order)]
+        else:
+            sort_keys = key
+
+        indexes = self.get_collection_indexes(collection)
+        
+        indexes_to_create = []
+        for sort_key,order in sort_keys:
+            if not sort_key in indexes:
+                indexes_to_create.append(sort_key)
+
+        self.create_indexes(cls,indexes_to_create)
+
+        def sort_by_keys(keys,sort_keys):
+            if not sort_keys:
+                return keys
+            (sort_key,order) = sort_keys[0]
+            _sorted_keys =  indexes[sort_key].sort_keys(keys,order)
+            return [sort_by_keys(k,sort_keys[1:]) for k in _sorted_keys]
+
+        def flatten(l):
+            fl = []
+            [fl.extend(flatten(elem)) if isinstance(elem,list) else fl.append(elem) for elem in l]
+            return fl
+
+        return flatten(sort_by_keys(keys,sort_keys))
+
     def filter(self,cls_or_collection,query,sort_by = None,limit = None,offset = None,initial_keys = None):
 
         if not isinstance(query,dict):
