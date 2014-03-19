@@ -38,6 +38,8 @@ class QuerySet(BaseQuerySet):
         self.objects = {}
 
     def __getitem__(self,i):
+        if isinstance(i,slice):
+            return self.__class__(self.backend,self.cls,self.keys[i])
         key = self.keys[i]
         if not key in self.objects:
             self.objects[key] = self.backend.get_object(self.cls,key)
