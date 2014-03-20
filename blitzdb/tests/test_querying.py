@@ -74,6 +74,15 @@ def test_basic_storage(backend,small_test_data):
     assert len(backend.filter(Movie,{})) == len(movies)
     assert len(backend.filter(Actor,{})) == len(actors)
 
+def test_keys_with_dots(backend):
+
+    actor = Actor({'some.key.with.nasty.dots' : [{'some.more.nasty.dots' : 100}] ,'pk' : 'test'})
+
+    backend.save(actor)
+
+    assert actor == backend.get(Actor,{'pk' : 'test'})
+
+
 def test_negative_indexing(backend,small_test_data):
 
     (movies,actors,directors) = small_test_data

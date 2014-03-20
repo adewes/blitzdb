@@ -97,7 +97,7 @@ class Backend(object):
             params = {}
         return self.register(cls,params)
 
-    def serialize(self,obj,convert_keys_to_str = False,embed_level = 0):        
+    def serialize(self,obj,convert_keys_to_str = False,embed_level = 0,encoders = None):        
         """
         Serializes a given object, i.e. converts it to a representation that can be stored in the database.
         This usually involves replacing all `Document` instances by database references to them.
@@ -111,6 +111,11 @@ class Backend(object):
         """
 
         serialize_with_opts = lambda value,*args,**kwargs : self.serialize(value,*args,convert_keys_to_str = convert_keys_to_str,**kwargs)
+
+        if encoders:
+            for matcher,encoder in encoders:
+                if matcher(obj):
+                    obj = encoder(obj)
 
         if isinstance(obj,dict):
             output_obj = {}
@@ -134,7 +139,7 @@ class Backend(object):
             output_obj = obj
         return output_obj
 
-    def deserialize(self,obj):
+    def deserialize(self,obj,decoders = None):
         """
         Deserializes a given object, i.e. converts references to other (known) `Document` objects by lazy instances of the
         corresponding class. This allows the automatic fetching of related documents from the database as required.
@@ -143,6 +148,12 @@ class Backend(object):
 
         :returns: The deserialized object.
         """
+
+        if decoders:
+            for matcher,decoder in decoders:
+                if matcher(obj):
+                    obj = decoder(obj)
+
         if isinstance(obj,dict):
             if '_collection' in obj and self.primary_key_name in obj and obj['_collection'] in self.collections:
                 output_obj = self.create_instance(obj['_collection'],{self.primary_key_name : obj[self.primary_key_name]},lazy = True)

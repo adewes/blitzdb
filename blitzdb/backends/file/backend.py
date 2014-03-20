@@ -223,7 +223,7 @@ class Backend(BaseBackend):
         :returns: the primary key index of the given collection
         """
         if not self.primary_key_name in self.indexes[collection]:
-            self.create_index(key,collection)
+            self.create_index(self.primary_key_name,collection)
         return self.indexes[collection][self.primary_key_name]
 
     def load_config(self,config = None,overwrite_config = False):
