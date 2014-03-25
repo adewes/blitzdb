@@ -149,8 +149,8 @@ class Backend(BaseBackend):
 
         .. admonition:: Warning
 
-                        This operation can be **expensive** in runtime if a large number of documents (>100.000) is contained
-                        in the database, since it will cause all database indexes to be written to disk.
+            This operation can be **expensive** in runtime if a large number of documents (>100.000) is contained
+            in the database, since it will cause all database indexes to be written to disk.
         """
         for collection in self.collections:
             store = self.get_collection_store(collection)
@@ -222,9 +222,12 @@ class Backend(BaseBackend):
 
         :returns: the primary key index of the given collection
         """
-        if not self.primary_key_name in self.indexes[collection]:
-            self.create_index(self.primary_key_name,collection)
-        return self.indexes[collection][self.primary_key_name]
+
+        cls = self.collections[collection]
+
+        if not cls.get_pk_name() in self.indexes[collection]:
+            self.create_index(cls.get_pk_name(),collection)
+        return self.indexes[collection][cls.get_pk_name()]
 
     def load_config(self,config = None,overwrite_config = False):
         config_file = self._path+"/config.json"
@@ -288,17 +291,18 @@ class Backend(BaseBackend):
             raise obj.DoesNotExist
 
     def init_indexes(self,collection):
+        cls = self.collections[collection]
         if collection in self._config['indexes']:
             #If not pk index is present, we create one on the fly...
-            if not [idx for idx in self._config['indexes'][collection].values() if idx['key'] == self.primary_key_name]:
-                self.create_index(collection,{'key':self.primary_key_name})
+            if not [idx for idx in self._config['indexes'][collection].values() if idx['key'] == cls.get_pk_name()]:
+                self.create_index(collection,{'key':cls.get_pk_name()})
             
             #We sort the indexes such that pk is always created first...
-            for index_params in sorted(self._config['indexes'][collection].values(),key = lambda x: 0 if x['key'] == self.primary_key_name else 1):
+            for index_params in sorted(self._config['indexes'][collection].values(),key = lambda x: 0 if x['key'] == cls.get_pk_name() else 1):
                 index = self.create_index(collection,index_params)
         else:
             #If no indexes are given, we just create a primary key index...
-            self.create_index(collection,{'key':self.primary_key_name})
+            self.create_index(collection,{'key':cls.get_pk_name()})
 
     def rebuild_indexes(self,collection,keys):
         if not keys:
@@ -308,10 +312,10 @@ class Backend(BaseBackend):
             index = self.indexes[collection][key]
             index.clear()
         for obj in all_objects:
-            serialized_attributes = self.serialize(obj.attributes)#optimize this!
+#            serialized_attributes = self.serialize(obj.attributes,autosave = False)#optimize this!
             for key in keys:
                 index = self.indexes[collection][key]
-                index.add_key(serialized_attributes,obj._store_key)
+                index.add_key(obj.attributes,obj._store_key)
         if self.config['autocommit']:
             self.commit()
 
@@ -327,6 +331,8 @@ class Backend(BaseBackend):
         else:
             collection = cls_or_collection
 
+        #print("Creating indexes on collection %s:" % collection,params_list,ephemeral)
+
         for params in params_list:
             if not isinstance(params,dict):
                 params = {'key' : params}
@@ -338,20 +344,22 @@ class Backend(BaseBackend):
                 index_store = None
             else:
                 index_store = self.get_index_store(collection,params['id'])
-            index = self.IndexClass(params,index_store)
+
+            index = self.IndexClass(params,serializer = lambda x:self.serialize(x,autosave = False),deserializer = lambda x : self.deserialize(x),store = index_store)
             self.indexes[collection][params['key']] = index
 
             if not collection in self._config['indexes']:
                 self._config['indexes'][collection] = {}
 
-            self._config['indexes'][collection][params['key']] = params
-            self.save_config()
+            if not ephemeral:
+                self._config['indexes'][collection][params['key']] = params
+                self.save_config()
+
             indexes.append(index)
             if not index.loaded:#if the index failed to load from disk we rebuild it
                 keys.append(params['key'])
 
         self.rebuild_indexes(collection,keys)
-
         return indexes
 
     def get_collection_indexes(self,collection):
@@ -392,7 +400,7 @@ class Backend(BaseBackend):
         store.store_blob(data,store_key)
 
         for key,index in indexes.items():
-            index.add_key(serialized_attributes,store_key)
+            index.add_key(obj.attributes,store_key)
 
         if self.config['autocommit']:
             self.commit()
@@ -479,7 +487,7 @@ class Backend(BaseBackend):
 
         store = self.get_collection_store(collection)
         indexes = self.get_collection_indexes(collection)
-        compiled_query = compile_query(self.serialize(query))
+        compiled_query = compile_query(self.serialize(query,autosave = False))
 
         indexes_to_create = []
 

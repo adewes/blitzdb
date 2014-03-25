@@ -14,6 +14,7 @@ class MetaDocument(type):
 
         class MultipleDocumentsReturned(BaseException):
             pass
+
         dct['DoesNotExist'] = DoesNotExist
         dct['MultipleDocumentsReturned'] = MultipleDocumentsReturned
         class_type = type.__new__(meta, name, bases, dct)
@@ -26,9 +27,8 @@ class MetaDocument(type):
 
 document_classes = []
 
-_BaseClass = MetaDocument('_BaseClass', (object,), {})
 
-class Document(_BaseClass):
+class BaseDocument(object):
 
     """
     The Document object is the base class for all documents stored in the database.
@@ -77,9 +77,12 @@ class Document(_BaseClass):
 
       print fail.attributes['delete'] #will print 'False'
 
-    """
+    **Defining "non-database" attributes**
 
-    __metaclass__ = MetaDocument
+    Attributes that begin with an underscore (_) will not be stored in the :py:meth:`attributes`
+    dictionary but as normal instance attributes of the document. This is useful if you need to 
+    define e.g. some helper variables that you don't want to store in the database.
+    """
 
     class Meta:
 
@@ -118,33 +121,36 @@ class Document(_BaseClass):
         after doing so.
         """
         try:
-            lazy = super(Document,self).__getattribute__('_lazy')
+            lazy = super(BaseDocument,self).__getattribute__('_lazy')
         except AttributeError:
             lazy = False
         if lazy:
+            #If we demand the attributes, we load the object from the DB in any case.
+            if key in ('attributes',):
+                self.revert()
             try:
-                return super(Document,self).__getattribute__(key)
+                return super(BaseDocument,self).__getattribute__(key)
             except AttributeError:
                 pass
             self._lazy = False
             self.revert()
-        return super(Document,self).__getattribute__(key)
+        return super(BaseDocument,self).__getattribute__(key)
 
     def __getattr__(self,key):
         try:
-            super(Document,self).__getattr__(key)
+            super(BaseDocument,self).__getattr__(key)
         except AttributeError:
             return self._attributes[key]
 
     def __setattr__(self,key,value):
         if key.startswith('_'):
-            return super(Document,self).__setattr__(key,value)
+            return super(BaseDocument,self).__setattr__(key,value)
         else:
             self._attributes[key] = value
 
     def __delattr__(self,key):
         if key.startswith('_'):
-            return super(Document,self).__delattr__(key)
+            return super(BaseDocument,self).__delattr__(key)
         elif key in self._attributes:
                 del self._attributes[key]
 
@@ -186,7 +192,7 @@ class Document(_BaseClass):
         return unicode(self).encode("utf-8")
 
     def __unicode__(self):
-        return self.__class__.__name__+"({'pk' : '%s'})" % str(self.pk)
+        return self.__class__.__name__+"({'pk' : '%s'},lazy = %s)" % (str(self.pk),str(self._lazy))
 
     def _represent(self,n = 1):
 
@@ -236,6 +242,10 @@ class Document(_BaseClass):
         """
         self.pk = uuid.uuid4().hex 
 
+    @classmethod
+    def get_pk_name(cls):
+        return cls.Meta.primary_key if hasattr(cls.Meta,'primary_key') else Document.Meta.primary_key
+
     @property
     def pk(self):
         """
@@ -254,7 +264,7 @@ class Document(_BaseClass):
             in your derived document class.
 
         """
-        primary_key = self.Meta.primary_key if hasattr(self.Meta,'primary_key') else Document.Meta.primary_key
+        primary_key = self.get_pk_name()
         if primary_key in self._attributes:
             return self._attributes[self.Meta.primary_key]
         return None
@@ -324,3 +334,5 @@ class Document(_BaseClass):
         obj = self._default_backend.get(self.__class__,{'pk':self.pk})
         self._attributes = obj.attributes
         self.initialize()
+
+Document = MetaDocument('Document', (BaseDocument,), {})

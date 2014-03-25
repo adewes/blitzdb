@@ -28,9 +28,6 @@ class Backend(BaseBackend):
         backend = MongoBackend(my_db)
     """
 
-    #magic value to replace '.' characters in dictionary keys (which breaks MongoDB)
-    DOT_MAGIC_VALUE = ":a5b8afc131:"
-
     def __init__(self,db,**kwargs):
         self.db = db
         self.classes = {}
@@ -51,7 +48,7 @@ class Backend(BaseBackend):
             collection = self.get_collection_for_cls(cls_or_collection)
         else:
             collection = cls_or_collection
-        attributes = self.db[collection].find_one(self.serialize(properties,autosave = False))
+        attributes = self.db[collection].find_one(self.serialize(properties))
         cls = self.get_cls_for_collection(collection)
         if not attributes:
             raise cls.DoesNotExist
@@ -71,21 +68,11 @@ class Backend(BaseBackend):
         serialized_attributes['_id'] = obj.pk
         self.db[collection].save(serialized_attributes)
 
-    def serialize(self,obj,convert_keys_to_str = True,embed_level = 0,encoders = None,autosave = True):
-
-        def encode_dict(obj):
-            return dict([(key.replace(".",self.DOT_MAGIC_VALUE),value) for key,value in obj.items()])
-
-        dict_encoders = [(lambda obj:True if isinstance(obj,dict) else False,encode_dict)]
-        return super(Backend,self).serialize(obj,convert_keys_to_str = convert_keys_to_str,embed_level = embed_level, encoders = encoders + dict_encoders if encoders else dict_encoders,autosave = autosave)
+    def serialize(self,obj,convert_keys_to_str = True,embed_level = 0,encoders = None):
+        return super(Backend,self).serialize(obj,convert_keys_to_str = convert_keys_to_str,embed_level = embed_level, encoders = encoders)
 
     def deserialize(self,obj,decoders = None):
-
-        def decode_dict(obj):
-            return dict([(key.replace(self.DOT_MAGIC_VALUE,"."),value) for key,value in obj.items()])
-
-        dict_decoders = [(lambda obj:True if isinstance(obj,dict) and '_type' in obj and obj['_type'] == 'dict' and 'items' in obj else False,decode_dict)]
-        return super(Backend,self).deserialize(obj,decoders = dict_decoders + decoders if decoders else dict_decoders)
+        return super(Backend,self).deserialize(obj,decoders = decoders)
 
 
     def create_index(self,cls_or_collection,*args,**kwargs):
@@ -101,7 +88,7 @@ class Backend(BaseBackend):
         elif isinstance(query,list):
             return  [self.compile_query(x) for x in query]
         else:
-            return self.serialize(query,autosave = False)
+            return self.serialize(query)
 
     def filter(self,cls_or_collection,query,sort_by = None,limit = None,offset = None):
         """
@@ -113,6 +100,7 @@ class Backend(BaseBackend):
 
             This function supports all query operators that are available in MongoDB and returns a query set
             that is based on a MongoDB cursor.
+
 
         """
 

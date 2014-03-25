@@ -36,7 +36,6 @@ class Backend(object):
     def __init__(self,autodiscover_classes = True):
         self.classes = {}
         self.collections = {}
-        self.primary_key_name = 'pk'
         if autodiscover_classes:
             self.autodiscover_classes()
 
@@ -97,7 +96,7 @@ class Backend(object):
             params = {}
         return self.register(cls,params)
 
-    def serialize(self,obj,convert_keys_to_str = False,embed_level = 0,encoders = None):        
+    def serialize(self,obj,convert_keys_to_str = False,embed_level = 0,encoders = None,autosave = True):        
         """
         Serializes a given object, i.e. converts it to a representation that can be stored in the database.
         This usually involves replacing all `Document` instances by database references to them.
@@ -106,11 +105,12 @@ class Backend(object):
         :param convert_keys_to_str: If `True`, converts all dictionary keys to string (this is e.g. required for the MongoDB backend)
         :param embed_level: If `embed_level > 0`, instances of `Document` classes will be embedded instead of referenced. 
                             The value of the parameter will get decremented by 1 when calling `serialize` on child objects.
-        
+        :param autosave: Whether to automatically save embedded objects without a primary key to the database.
+
         :returns: The serialized object.
         """
 
-        serialize_with_opts = lambda value,*args,**kwargs : self.serialize(value,*args,convert_keys_to_str = convert_keys_to_str,**kwargs)
+        serialize_with_opts = lambda value,*args,**kwargs : self.serialize(value,*args,convert_keys_to_str = convert_keys_to_str,autosave = autosave,**kwargs)
 
         if encoders:
             for matcher,encoder in encoders:
@@ -130,11 +130,11 @@ class Backend(object):
             if embed_level > 0:
                 output_obj = serialize_with_opts(obj.attributes,embed_level = embed_level-1)
             elif obj.embed:
-                output_obj = {'_collection':collection,'_attributes':serialize_with_opts(obj.attributes)}
+                output_obj = obj.serialize(embed = True)
             else:
-                if obj.pk == None:
+                if obj.pk == None and autosave:
                     obj.save(self)
-                output_obj = {self.primary_key_name:obj.pk,'_collection':self.classes[obj.__class__]['collection']}
+                output_obj = {'__pk__':obj.pk,'_collection':self.classes[obj.__class__]['collection']}
         else:
             output_obj = obj
         return output_obj
@@ -155,8 +155,9 @@ class Backend(object):
                     obj = decoder(obj)
 
         if isinstance(obj,dict):
-            if '_collection' in obj and self.primary_key_name in obj and obj['_collection'] in self.collections:
-                output_obj = self.create_instance(obj['_collection'],{self.primary_key_name : obj[self.primary_key_name]},lazy = True)
+            if '_collection' in obj and '__pk__' in obj and obj['_collection'] in self.collections:
+                output_obj = self.create_instance(obj['_collection'],{},lazy = True)
+                output_obj.pk = obj['__pk__']
             else:
                 output_obj = {}
                 for (key,value) in obj.items():

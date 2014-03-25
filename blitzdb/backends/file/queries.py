@@ -87,7 +87,7 @@ def all_query(expression):
     def _all(index,expression = expression):
         ev = expression() if callable(expression) else expression
         if not isinstance(ev,list) and not isinstance(ev,tuple):
-            raise AttributeError("$in argument must be an iterable!")
+            raise AttributeError("$all argument must be an iterable!")
         hashed_ev = [index.get_hash_for(v) for v in ev]
         store_keys = set([])
         if len(hashed_ev) == 0:
@@ -103,7 +103,9 @@ def in_query(expression):
 
     def _in(index,expression = expression):
         ev = expression() if callable(expression) else expression
-        if not isinstance(ev,list) and not isinstance(ev,tuple):
+        try:
+            ev_iter = iter(ev)
+        except TypeError as te:
             raise AttributeError("$in argument must be an iterable!")
         hashed_ev = [index.get_hash_for(v) for v in ev]
         store_keys = set()

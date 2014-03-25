@@ -5,6 +5,7 @@ from blitzdb.backends.base import NotInTransaction
 from blitzdb.backends.file.serializers import PickleSerializer as Serializer
 import time
 
+
 class Index(object):
 
     """
@@ -12,9 +13,11 @@ class Index(object):
     efficiently retrieved.
     """
 
-    def __init__(self,params,store = None):
+    def __init__(self,params,serializer,deserializer,store = None):
         self._params = params
         self._store = store
+        self._serializer = serializer
+        self._deserializer = deserializer
         self._splitted_key = self.key.split(".")
         self.clear()
         if store:
@@ -53,7 +56,7 @@ class Index(object):
         return all_keys
 
     def get_index(self):
-        return self._index
+        return copy.deepcopy(self._index)
 
     def load_from_store(self):
         if not self._store:
@@ -85,10 +88,11 @@ class Index(object):
         [self._reverse_index[value].append(key) for key,values in self._index.items() for value in values]
 
     def get_hash_for(self,value):
-        if isinstance(value,dict):
-            return hash(frozenset([self.get_hash_for(x) for x in value.items()]))
-        elif isinstance(value,list) or isinstance(value,tuple):
-            return hash(tuple([self.get_hash_for(x) for x in value]))
+        serialized_value = self._serializer(value)
+        if isinstance(serialized_value,dict):
+            return hash(frozenset([self.get_hash_for(x) for x in serialized_value.items()]))
+        elif isinstance(serialized_value,list) or isinstance(serialized_value,tuple):
+            return hash(tuple([self.get_hash_for(x) for x in serialized_value]))
         return value
 
     def get_keys_for(self,value):
@@ -101,7 +105,7 @@ class Index(object):
 
     def add_key(self,attributes,store_key):
 
-        def add_hashed_value(value):
+        def add_hashed_value(hash_value):
             if not store_key in self._index[hash_value]:
                 self._index[hash_value].append(store_key)
             if not hash_value in self._reverse_index[store_key]:
@@ -114,8 +118,8 @@ class Index(object):
         #We remove old values
         self.remove_key(store_key)
         if isinstance(value,list) or isinstance(value,tuple):
-            values = value
             #We add an extra hash value for the list itself (this allows for querying the whole list)
+            values = value
             hash_value = self.get_hash_for(value)
             add_hashed_value(hash_value)
         else:
@@ -138,8 +142,8 @@ class TransactionalIndex(Index):
     This class adds transaction support to the Index class.
     """
 
-    def __init__(self,params,store = None):
-        super(TransactionalIndex,self).__init__(params,store = store)
+    def __init__(self,*args,**kwargs):
+        super(TransactionalIndex,self).__init__(*args,**kwargs)
 
     def begin(self):
         self._cached_index = self.save_to_data()
