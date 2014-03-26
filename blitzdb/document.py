@@ -19,7 +19,7 @@ class MetaDocument(type):
         dct['MultipleDocumentsReturned'] = MultipleDocumentsReturned
         class_type = type.__new__(meta, name, bases, dct)
         if not class_type in document_classes:
-            if name == 'Document' and bases == (object,):
+            if name == 'Document' and bases == (BaseDocument,):
                 pass
             else:
                 document_classes.append(class_type)
@@ -110,6 +110,7 @@ class BaseDocument(object):
             self.pk = None
 
         if not lazy:
+            self._lazy = False
             self.initialize()
         else:
             self._lazy = True
@@ -182,8 +183,9 @@ class BaseDocument(object):
             return True
         if type(self) != type(other):
             return False
-        if self.pk == other.pk:
-            return True
+        if self.pk != None or other.pk != None:
+            if self.pk == other.pk:
+                return True
         if self.attributes == other.attributes:
             return True
         return False

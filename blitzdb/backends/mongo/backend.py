@@ -87,6 +87,9 @@ class Backend(BaseBackend):
         dict_decoders = [(lambda obj:True if isinstance(obj,dict) and '_type' in obj and obj['_type'] == 'dict' and 'items' in obj else False,decode_dict)]
         return super(Backend,self).deserialize(obj,decoders = dict_decoders + decoders if decoders else dict_decoders)
 
+    def create_indexes(self,cls_or_collection,params_list):
+        for params in params_list:
+            self.create_index(cls_or_collection,*params)
 
     def create_index(self,cls_or_collection,*args,**kwargs):
         if not isinstance(cls_or_collection, six.string_types):
@@ -98,7 +101,7 @@ class Backend(BaseBackend):
     def compile_query(self,query):
         if isinstance(query,dict):
             return dict([(self.compile_query(key),self.compile_query(value)) for key,value in query.items()])
-        elif isinstance(query,list):
+        elif isinstance(query,list) or isinstance(query,QuerySet) or isinstance(query,tuple):
             return  [self.compile_query(x) for x in query]
         else:
             return self.serialize(query,autosave = False)

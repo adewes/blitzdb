@@ -82,12 +82,22 @@ def ne_query(expression):
 
     return _ne
 
+def exists_query(expression):
+
+    def _exists(index,expression = expression):
+        ev = expression() if callable(expression) else expression
+        return [store_key for value,store_keys in index.get_index().items() for store_key in store_keys] 
+
+    return _ne
+
 def all_query(expression):
 
     def _all(index,expression = expression):
         ev = expression() if callable(expression) else expression
-        if not isinstance(ev,list) and not isinstance(ev,tuple):
-            raise AttributeError("$all argument must be an iterable!")
+        try:
+            ev_iter = iter(ev)
+        except TypeError as te:
+            raise AttributeError("$in argument must be an iterable!")
         hashed_ev = [index.get_hash_for(v) for v in ev]
         store_keys = set([])
         if len(hashed_ev) == 0:
@@ -135,6 +145,7 @@ def compile_query(query):
         return query
     
 query_funcs = {
+    '$exists' : exists_query,
     '$and' : and_query,
     '$all' : all_query,
     '$or' : or_query,

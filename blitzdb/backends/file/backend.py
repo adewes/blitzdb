@@ -312,7 +312,6 @@ class Backend(BaseBackend):
             index = self.indexes[collection][key]
             index.clear()
         for obj in all_objects:
-#            serialized_attributes = self.serialize(obj.attributes,autosave = False)#optimize this!
             for key in keys:
                 index = self.indexes[collection][key]
                 index.add_key(obj.attributes,obj._store_key)
