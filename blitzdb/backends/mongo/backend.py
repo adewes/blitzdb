@@ -46,17 +46,6 @@ class Backend(BaseBackend):
     def commit(self):
         pass
 
-    def get(self,cls_or_collection,properties):
-        if not isinstance(cls_or_collection, six.string_types):
-            collection = self.get_collection_for_cls(cls_or_collection)
-        else:
-            collection = cls_or_collection
-        attributes = self.db[collection].find_one(self.serialize(properties,autosave = False))
-        cls = self.get_cls_for_collection(collection)
-        if not attributes:
-            raise cls.DoesNotExist
-        return self.create_instance(cls,self.deserialize(attributes))
-
     def delete(self,obj):
         collection = self.get_collection_for_cls(obj.__class__)
         if obj.pk == None:
@@ -105,6 +94,19 @@ class Backend(BaseBackend):
             return  [self.compile_query(x) for x in query]
         else:
             return self.serialize(query,autosave = False)
+
+    def get(self,cls_or_collection,properties):
+        if not isinstance(cls_or_collection, six.string_types):
+            collection = self.get_collection_for_cls(cls_or_collection)
+        else:
+            collection = cls_or_collection
+        cls = self.get_cls_for_collection(collection)
+        queryset = self.filter(cls_or_collection,properties)
+        if len(queryset) == 0:
+            raise cls.DoesNotExist
+        elif len(queryset) > 1:
+            raise cls.MultipleDocumentsReturned
+        return queryset[0]
 
     def filter(self,cls_or_collection,query,sort_by = None,limit = None,offset = None):
         """
