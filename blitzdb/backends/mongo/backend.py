@@ -1,6 +1,8 @@
 import abc
 import six
 
+from collections import defaultdict
+
 from blitzdb.document import Document
 from blitzdb.backends.base import Backend as BaseBackend
 from blitzdb.backends.base import NotInTransaction
@@ -31,34 +33,86 @@ class Backend(BaseBackend):
     #magic value to replace '.' characters in dictionary keys (which breaks MongoDB)
     DOT_MAGIC_VALUE = ":a5b8afc131:"
 
-    def __init__(self,db,**kwargs):
+    def __init__(self,db,autocommit = False,**kwargs):
         self.db = db
         self.classes = {}
         self.collections = {}
+        self._autocommit = autocommit
+        self._save_cache = defaultdict(lambda  : {})
+        self._delete_cache = defaultdict(lambda : {})
+        self.in_transaction = False
         super(Backend,self).__init__(**kwargs)
 
     def begin(self):
-        pass
+        if self.in_transaction:#we're already in a transaction...
+            self.commit()
+        self.in_transaction = True
 
     def rollback(self):
-        raise NotInTransaction("MongoDB backend does not support rollback!")
+        if not self.in_transaction:
+            raise NotInTransaction("Not in a transaction!")
+        self._write_cache = defaultdict(lambda : {})
+        self._delete_cache = defaultdict(lambda : {})
+        self.in_transaction = False
 
     def commit(self):
-        pass
+        for collection,cache in self._save_cache.items():
+            for pk,attributes in cache.items():
+                self.db[collection].save(attributes)
+        for collection,cache in self._delete_cache.items():
+            for pk in cache:
+                self.db[collection].remove({'_id' : pk})
+
+    @property
+    def autocommit(self):
+        return self._autocommit
+
+    @autocommit.setter
+    def autocommit(self,value):
+        if not value in (True,False):
+            raise TypeError("Value must be boolean!")
+        self._autocommit = value
+
+    def delete_by_primary_keys(self,cls,pks):
+        collection = self.get_collection_for_cls(cls)
+        if self.autocommit:
+            for pk in pks:
+                self.db[collection].remove({'_id' : pk})
+        else:
+            self._delete_cache[collection].update(dict([(pk,True) for pk in pks]))
 
     def delete(self,obj):
         collection = self.get_collection_for_cls(obj.__class__)
         if obj.pk == None:
             raise obj.DoesNotExist
-        self.db[collection].remove({'_id' : obj.pk})
+        if self.autocommit:
+            self.db[collection].remove({'_id' : obj.pk})
+        else:
+            self._delete_cache[collection][obj.pk] = True
+            if obj.pk in self._save_cache[collection]:
+                del self._save_cache[collection][obj.pk]            
+
+    def save_multiple(self,objs):
+        if not objs:
+            return
+        serialized_attributes_list = []
+        collection = self.get_collection_for_cls(objs[0].__class__)
+        for obj in objs:
+            if obj.pk == None:
+                obj.pk = uuid.uuid4().hex
+            serialized_attributes = self.serialize(obj.attributes)
+            serialized_attributes['_id'] = obj.pk
+            serialized_attributes_list.append(serialized_attributes)
+        for attributes in serialized_attributes_list:
+            if self.autocommit:
+                self.db[collection].save(attributes)
+            else:
+                self._save_cache[collection][attributes['pk']] = attributes
+                if attributes['pk'] in self._delete_cache[collection]:
+                    del self._delete_cache[collection][attributes['pk']]
 
     def save(self,obj):
-        collection = self.get_collection_for_cls(obj.__class__)
-        if obj.pk == None:
-            obj.pk = uuid.uuid4().hex
-        serialized_attributes = self.serialize(obj.attributes)
-        serialized_attributes['_id'] = obj.pk
-        self.db[collection].save(serialized_attributes)
+        return self.save_multiple([obj])
 
     def serialize(self,obj,convert_keys_to_str = True,embed_level = 0,encoders = None,autosave = True):
 

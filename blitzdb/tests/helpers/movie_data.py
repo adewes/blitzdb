@@ -24,6 +24,7 @@ def generate_test_data(request,backend,n):
     movies = []
     directors = []
 
+
     backend.filter(Movie,{}).delete()
     backend.filter(Actor,{}).delete()
     backend.filter(Director,{}).delete()
@@ -67,6 +68,7 @@ def generate_test_data(request,backend,n):
             )
         n_movies = 1+int((1.0-math.log(random.randint(1,1000))/math.log(1000.0))*10)
         director_movies = random.sample(movies,n_movies)
+
         for movie in director_movies:
             movie.director = director
             movie.save(backend)

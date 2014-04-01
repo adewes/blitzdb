@@ -94,6 +94,16 @@ class Backend(BaseBackend):
 
         super(Backend,self).__init__(**kwargs)
 
+    @property
+    def autocommit(self):
+        return True if 'autocommit' in self.config and self.config['autocommit'] else False
+
+    @autocommit.setter
+    def autocommit(self,value):
+        if not value in (True,False):
+            raise TypeError("Value must be boolean!")
+        self.config['autocommit'] = value
+
     def begin(self):
         """
         Starts a new transaction
@@ -311,12 +321,11 @@ class Backend(BaseBackend):
         for key in keys:
             index = self.indexes[collection][key]
             index.clear()
-        for obj in all_objects:
-            for key in keys:
-                index = self.indexes[collection][key]
+        for key in keys:
+            index = self.indexes[collection][key]
+            for obj in all_objects:
                 index.add_key(obj.attributes,obj._store_key)
-        if self.config['autocommit']:
-            self.commit()
+            index.commit()
 
     def create_indexes(self,cls_or_collection,params_list,ephemeral = False):
         indexes = []
@@ -329,8 +338,6 @@ class Backend(BaseBackend):
             collection = self.get_collection_for_cls(cls_or_collection)
         else:
             collection = cls_or_collection
-
-        #print("Creating indexes on collection %s:" % collection,params_list,ephemeral)
 
         for params in params_list:
             if not isinstance(params,dict):
@@ -392,7 +399,7 @@ class Backend(BaseBackend):
         data = self.encode_attributes(serialized_attributes)
     
         try:
-            store_key = self.get_pk_index(collection).get_keys_for(obj.pk).pop()
+            store_key = self.get_pk_index(collection).get_keys_for(obj.pk,include_uncommitted = True).pop()
         except IndexError:
             store_key = uuid.uuid4().hex
     
@@ -456,7 +463,7 @@ class Backend(BaseBackend):
             if not sort_key in indexes:
                 indexes_to_create.append(sort_key)
 
-        self.create_indexes(cls,indexes_to_create)
+        self.create_indexes(cls,indexes_to_create,ephemeral = True)
 
         def sort_by_keys(keys,sort_keys):
             if not sort_keys:
@@ -503,6 +510,9 @@ class Backend(BaseBackend):
 
         #We collect all the indexes that we need to create
         compiled_query(index_collector)
-        self.create_indexes(cls,indexes_to_create)
+    
+        if indexes_to_create:
+            self.create_indexes(cls,indexes_to_create,ephemeral = True)
+    
         return compiled_query(query_function)
 

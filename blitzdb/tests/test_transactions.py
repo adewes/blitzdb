@@ -27,10 +27,20 @@ def tmpdir(request):
     request.addfinalizer(finalizer)
     return tmpdir
 
-@pytest.fixture(scope="function", params=["file"])
+@pytest.fixture(scope="function", params=["file","mongo"])
 def transactional_backend(request,tmpdir):
     if request.param == 'file':
         return file_backend(request,tmpdir)
+    elif request.param == 'mongo':
+        return mongo_backend(request)
+
+def mongo_backend(request):
+    con = pymongo.MongoClient()
+    con.drop_database("blitzdb_test_3243213121435312431")
+    db = pymongo.MongoClient()['blitzdb_test_3243213121435312431']
+    backend = MongoBackend(db)
+    _init_indexes(backend)
+    return backend
 
 @pytest.fixture(scope="function")
 def file_backend(request,tmpdir):
@@ -54,7 +64,7 @@ def test_delete_transaction(transactional_backend,small_test_data):
     transactional_backend.begin()
     transactional_backend.filter(Movie,{}).delete()
 
-    assert len(transactional_backend.filter(Movie,{})) == 0
+    assert len(transactional_backend.filter(Movie,{})) == len(movies)
 
     transactional_backend.rollback()
 
@@ -92,10 +102,10 @@ def test_advanced_transaction(transactional_backend):
     movie.name = 'Star Wars IV'
     movie.save(transactional_backend)
 
-    with pytest.raises(Movie.DoesNotExist):
-        transactional_backend.get(Movie,{'name' : 'The Godfather','year' : 1979,'type' : 'US'})
-
     transactional_backend.rollback()
+
+    assert transactional_backend.get(Movie,{'name' : 'The Godfather','year' : 1979,'type' : 'US'}).name == 'The Godfather'
+
 
     assert transactional_backend.get(Movie,{'name' : 'The Godfather','year' : 1979}) == movie
     assert len(transactional_backend.filter(Movie,{'type':'US'})) == 1

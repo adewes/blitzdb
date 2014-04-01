@@ -25,6 +25,7 @@ class Index(object):
             self.loaded = self.load_from_store()
         else:
             self.ephemeral = True
+            self.loaded = False
 
     def clear(self):
         self._index = defaultdict(lambda : [])
@@ -103,31 +104,32 @@ class Index(object):
 
     #The following two operations change the value of the index
 
-    def add_key(self,attributes,store_key):
+    def add_hashed_value(self,hash_value,store_key):
+        if not store_key in self._index[hash_value]:
+            self._index[hash_value].append(store_key)
+        if not hash_value in self._reverse_index[store_key]:
+            self._reverse_index[store_key].append(hash_value)
 
-        def add_hashed_value(hash_value):
-            if not store_key in self._index[hash_value]:
-                self._index[hash_value].append(store_key)
-            if not hash_value in self._reverse_index[store_key]:
-                self._reverse_index[store_key].append(hash_value)
+    def add_key(self,attributes,store_key):
 
         try:
             value = self.get_value(attributes)
         except (KeyError,IndexError):
             return
+
         #We remove old values
         self.remove_key(store_key)
         if isinstance(value,list) or isinstance(value,tuple):
             #We add an extra hash value for the list itself (this allows for querying the whole list)
             values = value
             hash_value = self.get_hash_for(value)
-            add_hashed_value(hash_value)
+            self.add_hashed_value(hash_value,store_key)
         else:
             values = [value]
 
         for value in values:
             hash_value = self.get_hash_for(value)
-            add_hashed_value(hash_value)
+            self.add_hashed_value(hash_value,store_key)
 
     def remove_key(self,store_key):
         if store_key in self._reverse_index:
@@ -144,17 +146,59 @@ class TransactionalIndex(Index):
 
     def __init__(self,*args,**kwargs):
         super(TransactionalIndex,self).__init__(*args,**kwargs)
+        self._in_transaction = False
+        self._init_cache()
+
+    def _init_cache(self):
+        self._add_cache = defaultdict(lambda : [])
+        self._reverse_add_cache = defaultdict(lambda : [])
+        self._remove_cache = {}
 
     def begin(self):
-        self._cached_index = self.save_to_data()
+        self.commit()
 
     def commit(self):
+
+        if not self._add_cache and not self._remove_cache:
+            return
+
+        for store_key,hash_values in self._add_cache.items():
+            for hash_value in hash_values:
+                super(TransactionalIndex,self).add_hashed_value(hash_value,store_key)            
+        for store_key in self._remove_cache:
+            super(TransactionalIndex,self).remove_key(store_key)
         if not self.ephemeral:
             self.save_to_store()
+    
+        self._init_cache()
+        self._in_transaction = True
 
     def rollback(self):
-        if not hasattr(self,'_cached_index'):
+        if not self._in_transaction:
             raise NotInTransaction
-        self.load_from_data(self._cached_index)
-        delattr(self,'_cached_index')
+        self._init_cache()
+        self._in_transaction = False
 
+    def add_hashed_value(self,hash_value,store_key):
+        if not hash_value in self._add_cache[store_key]:
+            self._add_cache[store_key].append(hash_value)
+        if not store_key in self._reverse_add_cache[hash_value]:
+            self._reverse_add_cache[hash_value].append(store_key)
+        if store_key in self._remove_cache:
+            del self._remove_cache[store_key]
+
+    def remove_key(self,store_key):
+        self._remove_cache[store_key] = True
+        if store_key in self._add_cache:
+            for hash_value in self._add_cache[store_key]:
+                self._reverse_add_cache[hash_value].remove(store_key)
+            del self._add_cache[store_key]
+
+    def get_keys_for(self,value,include_uncommitted = False):
+        if not include_uncommitted:
+            return super(TransactionalIndex,self).get_keys_for(value)
+        else:
+            keys = super(TransactionalIndex,self).get_keys_for(value)
+            hash_value = self.get_hash_for(value)
+            keys+=self._reverse_add_cache[hash_value]
+            return keys

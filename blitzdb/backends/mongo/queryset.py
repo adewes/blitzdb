@@ -60,7 +60,8 @@ class QuerySet(BaseQuerySet):
         self._cursor.rewind()
 
     def delete(self):
-        self._cursor.collection.remove({'_id' : {'$in' : self._cursor.distinct('_id') }})
+        print("Deleting...")
+        self.backend.delete_by_primary_keys(self.cls,self._cursor.distinct('_id'))
 
     def sort(self,*args,**kwargs):
         self._cursor.sort(*args,**kwargs)

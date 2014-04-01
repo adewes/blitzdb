@@ -64,6 +64,7 @@ def mongo_backend(request,config):
 def test_basic_delete(backend,small_test_data):
 
     backend.filter(Actor,{}).delete()
+    backend.commit()
 
     assert len(backend.filter(Actor,{})) == 0
 
@@ -79,6 +80,7 @@ def test_keys_with_dots(backend):
     actor = Actor({'some.key.with.nasty.dots' : [{'some.more.nasty.dots' : 100}] ,'pk' : 'test'})
 
     backend.save(actor)
+    backend.commit()
 
     assert actor == backend.get(Actor,{'pk' : 'test'})
 
@@ -102,6 +104,8 @@ def test_and_queries(backend):
     backend.save(Actor({'foo' : 'baz','value' : 10}))
     backend.save(Actor({'foo' : 'baz','value' : 11}))
     backend.save(Actor({'foo' : 'bar','value' : 11}))
+
+    backend.commit()
     
     assert len(backend.filter(Actor,{'foo' : 'bar'})) == 2
     assert len(backend.filter(Actor,{'value' : 10})) == 2
@@ -120,6 +124,8 @@ def test_composite_queries(backend):
     backend.save(Actor({'values' : [1,2,3,4]}))
     backend.save(Actor({'values' : [1,2,3,4,{'foo' : 'bar'}]}))
     backend.save(Actor({'values' : 'foobar'}))
+
+    backend.commit()
 
     for f in (lambda :True,lambda : backend.create_index(Actor,'values')):
     
@@ -150,6 +156,8 @@ def test_operators(backend):
     backend.save(leonardo_di_caprio)
     backend.save(david_hasselhoff)
     backend.save(charlie_chaplin)
+
+    backend.commit()
 
     assert len(backend.filter(Actor,{})) == 4
 
@@ -233,6 +241,8 @@ def test_indexed_delete(backend,small_test_data):
     for movie in all_movies:
         backend.filter(Actor,{'movies' : movie}).delete()
 
+    backend.commit()
+
     for actor in backend.filter(Actor,{}):
         assert actor.movies == []
 
@@ -242,6 +252,8 @@ def test_non_indexed_delete(backend,small_test_data):
 
     for movie in movies:
         backend.filter(Director,{'movies' : {'$all' : [movie]} }).delete()
+
+    backend.commit()
 
     for director in backend.filter(Director,{}):
         assert director.movies == []
@@ -271,6 +283,7 @@ def test_default_backend(backend,small_test_data):
     old_len = len(movies)
     movie = movies[0]
     movie.delete()
+    backend.commit()
 
     with pytest.raises(Movie.DoesNotExist):
         backend.get(Movie,{'pk' : movie.pk})
@@ -282,6 +295,8 @@ def test_index_reloading(backend,small_test_data):
     (movies,actors,directors) = small_test_data
 
     backend.filter(Actor,{'movies' : movies[0]}).delete()
+    backend.commit()
+
     assert list(backend.filter(Actor,{'movies' : movies[0]})) == []
 
 def test_querying_efficiency(backend,large_test_data):

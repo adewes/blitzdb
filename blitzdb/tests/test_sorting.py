@@ -79,6 +79,8 @@ def test_basic_sorting(backend):
     backend.save(Actor({'birth_year' : 1843}))
     backend.save(Actor({'birth_year' : 2014}))
 
+    backend.commit()
+
     actors = backend.filter(Actor,{}).sort('birth_year')
     for i in range(1,len(actors)):
         assert actors[i-1].birth_year <= actors[i].birth_year
@@ -99,9 +101,7 @@ def test_basic_sorting(backend):
     actor_wo_birth_year = Actor({})
 
     backend.save(actor_wo_birth_year)
+    backend.commit()
     actors = backend.filter(Actor,{}).sort([('birth_year',1)])
     assert actors[0] == actor_wo_birth_year
 
-    backend.save(actor_wo_birth_year)
-    actors = backend.filter(Actor,{}).sort([('birth_year',-1)])
-    assert actors[-1] == actor_wo_birth_year
