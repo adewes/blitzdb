@@ -2,7 +2,7 @@ from distutils.core import setup
 from setuptools import find_packages
 
 setup(name='blitzdb',
-version='0.1.4',
+version='0.1.5',
 author='Andreas Dewes - 7scientists',
 author_email = 'andreas@7scientists.com',
 license = 'MIT',
@@ -44,6 +44,8 @@ If you should encounter any problems when using BlitzDB, please feel free to `su
 Changelog
 =========
 
+* 0.1.5: MongoDB backend now supports database transactions. Database operations are now read-isolated by default, i.e.
+         uncommitted operations will not affect database queries before they are committed.
 * 0.1.4: Improved indexing of objects for the file backend, added support for automatic serialization/deserialization
          of object attributes when adding keys to or querying an index.
 * 0.1.3: Sorting of query sets is now supported (still experimental)
