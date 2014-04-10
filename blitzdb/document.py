@@ -10,19 +10,26 @@ class MetaDocument(type):
     def __new__(meta,name,bases,dct):
 
         class DoesNotExist(BaseException):
-            pass
+
+            def __str__(self):
+                return "DoesNotExist(%s)" % name
 
         class MultipleDocumentsReturned(BaseException):
-            pass
+
+            def __str__(self):
+                return "MultipleDocumentsReturned(%s)" % name
 
         dct['DoesNotExist'] = DoesNotExist
         dct['MultipleDocumentsReturned'] = MultipleDocumentsReturned
+
         class_type = type.__new__(meta, name, bases, dct)
-        if not class_type in document_classes:
-            if name == 'Document' and bases == (BaseDocument,):
-                pass
-            else:
-                document_classes.append(class_type)
+
+        if class_type in document_classes:
+            document_classes.remove(class_type)
+        if name == 'Document' and bases == (BaseDocument,):
+            pass
+        else:
+            document_classes.append(class_type)
         return class_type
 
 document_classes = []

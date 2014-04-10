@@ -71,12 +71,21 @@ class Backend(object):
         """
         if not parameters:
             parameters = {}
-        self.classes[cls] = parameters
         if 'collection' in parameters:
-            self.collections[parameters['collection']] = cls
+            collection_name = parameters['collection']
         else:
-            self.collections[cls.__name__.lower()] = cls
-            self.classes[cls]['collection'] = cls.__name__.lower()
+            collection_name = cls.__name__.lower()
+
+        if collection_name in self.collections:
+            print("Warning: Overwriting existing collection %s!" % collection_name)
+
+        for new_cls,new_params in self.classes.items():
+            if 'collection' in new_params and new_params['collection'] == collection_name:
+                del self.classes[new_cls]
+
+        self.collections[collection_name] = cls
+        self.classes[cls] = parameters.copy()
+        self.classes[cls]['collection'] = collection_name
 
     def autoregister(self,cls):
         """
