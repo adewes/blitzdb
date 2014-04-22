@@ -6,9 +6,10 @@ class QuerySet(BaseQuerySet):
     """
     """
 
-    def __init__(self,backend,cls,cursor):
+    def __init__(self,backend,cls,cursor,raw = False):
         super(QuerySet,self).__init__(backend,cls)
         self._cursor = cursor
+        self._raw = raw
         
     def __iter__(self):
         return self
@@ -17,16 +18,18 @@ class QuerySet(BaseQuerySet):
         return self._cursor.count()
 
     def _create_object_for(self,json_attributes):
+        if self._raw:
+            return json_attributes
         deserialized_attributes = self.backend.deserialize(json_attributes)
         if '_id' in deserialized_attributes:
             del deserialized_attributes['_id']
         return self.backend.create_instance(self.cls,deserialized_attributes)
 
+    def as_list(self):
+        return [self._create_object_for(json) for json in list(self._cursor)]
+
     def next(self):
-        try:
-            json_attributes = next(self._cursor)
-        except  AttributeError:#this is Python 2.x
-            json_attributes = self._cursor.next()
+        json_attributes = self._cursor.next()
         obj = self._create_object_for(json_attributes)
         return obj
 
