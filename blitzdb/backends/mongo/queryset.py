@@ -29,7 +29,7 @@ class QuerySet(BaseQuerySet):
         return [self._create_object_for(json) for json in list(self._cursor)]
 
     def next(self):
-        json_attributes = self._cursor.next()
+        json_attributes = next(self._cursor)
         obj = self._create_object_for(json_attributes)
         return obj
 

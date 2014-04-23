@@ -136,6 +136,7 @@ class BaseDocument(object):
             #If we demand the attributes, we load the object from the DB in any case.
             if key in ('attributes',):
                 self.revert()
+                self._lazy = False
             try:
                 return super(BaseDocument,self).__getattribute__(key)
             except AttributeError:
@@ -144,11 +145,28 @@ class BaseDocument(object):
             self.revert()
         return super(BaseDocument,self).__getattribute__(key)
 
+    def __getitem__(self,key):
+        try:
+            lazy = super(BaseDocument,self).__getattribute__('_lazy')
+        except AttributeError:
+            lazy = False
+        if lazy:
+            try:
+                return super(BaseDocument,self).__getattribute__(key)
+            except AttributeError:
+                pass
+            self._lazy = False
+            self.revert()
+        return self.attributes[key]
+
     def __getattr__(self,key):
         try:
             super(BaseDocument,self).__getattr__(key)
         except AttributeError:
-            return self._attributes[key]
+            try:
+                return self._attributes[key]
+            except KeyError:
+                raise AttributeError(key)
 
     def __setattr__(self,key,value):
         if key.startswith('_'):
@@ -156,11 +174,21 @@ class BaseDocument(object):
         else:
             self._attributes[key] = value
 
+    __setitem__ = __setattr__
+
     def __delattr__(self,key):
         if key.startswith('_'):
             return super(BaseDocument,self).__delattr__(key)
         elif key in self._attributes:
                 del self._attributes[key]
+        else:
+            raise AttributeError(key)
+
+    def __delitem__(self,key):
+        try:
+            return self.__delattr__(key)
+        except AttributeError:
+            raise KeyError(key)
 
     def __copy__(self):
         d = self.__class__(self.attributes.copy(),lazy = self._lazy,default_backen = self._default_backend)
