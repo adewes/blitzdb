@@ -275,11 +275,11 @@ class Backend(object):
         """
 
     @abc.abstractmethod
-    def filter(self,cls,properties,sort_by = None,limit = None,offset = None):
+    def filter(self,cls_or_collection,properties,sort_by = None,limit = None,offset = None):
         """
         Filter objects from the database that correspond to a given set of properties.
 
-        :param cls: The class for which to filter objects from the database.
+        :param cls: The class or collection for which to filter objects from the database.
         :param properties: The properties used to filter objects.
         :param sorty_by: A field or list of fields according to which to sort the returned objects.
         :param limit: The maximal number of objects to return in a single query.

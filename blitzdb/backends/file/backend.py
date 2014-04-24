@@ -387,15 +387,21 @@ class Backend(BaseBackend):
         obj = self.create_instance(cls,data)
         return obj
 
-    def save(self,obj):
-        collection = self.get_collection_for_obj(obj)
+    def save(self,obj,collection = None):
+        if isinstance(obj,blitzdb.Document):
+            if collection == None:
+                collection = self.get_collection_for_obj(obj)
+            serialized_attributes = self.serialize(obj.attributes)
+        else:
+            #we assume the object is a dictionary
+            serialized_attributes = self.serialize(obj)
+
         indexes = self.get_collection_indexes(collection)
         store = self.get_collection_store(collection)
 
         if obj.pk == None:
             obj.autogenerate_pk()
 
-        serialized_attributes = self.serialize(obj.attributes)
         data = self.encode_attributes(serialized_attributes)
     
         try:
@@ -429,17 +435,28 @@ class Backend(BaseBackend):
         if self.config['autocommit']:
             self.commit()
 
-    def delete(self,obj):        
-        collection = self.get_collection_for_obj(obj)
+    def delete(self,obj,collection = None):
+        if isinstance(obj,blitzdb.Document):
+            if collection == None:
+                collection = self.get_collection_for_obj(obj)
+            pk = obj.pk
+        else:
+            pk = obj['pk']
         primary_index = self.get_pk_index(collection)
-        return self.delete_by_store_keys(collection,primary_index.get_keys_for(obj.pk))
+        return self.delete_by_store_keys(collection,primary_index.get_keys_for(pk))
 
-    def get(self,cls,query):
-        objects = self.filter(cls,query,limit = 1)
+    def get(self,cls_or_collection,query):
+        objects = self.filter(cls_or_collection,query,limit = 1)
         if len(objects) == 0:
-            raise cls.DoesNotExist
+            if hasattr(cls_or_collection,'DoesNotExist'):
+                raise cls_or_collection.DoesNotExist
+            else:
+                raise blitzdb.Document.DoesNotExist
         elif len(objects) > 1:
-            raise cls.MultipleDocumentsReturned
+            if hasattr(cls_or_collection,'MultipleDocumentsReturned'):
+                raise cls.MultipleDocumentsReturned
+            else:
+                raise blitzdb.Document.MultipleDocumentsReturned
         return objects[0]
 
     def sort(self,cls_or_collection,keys,key,order = QuerySet.ASCENDING):
@@ -489,7 +506,10 @@ class Backend(BaseBackend):
             cls = cls_or_collection
         else:
             collection = cls_or_collection
-            cls = self.get_cls_for_collection(collection)
+            try:
+                cls = self.get_cls_for_collection(collection)
+            except KeyError:
+                cls = None
 
         store = self.get_collection_store(collection)
         indexes = self.get_collection_indexes(collection)
