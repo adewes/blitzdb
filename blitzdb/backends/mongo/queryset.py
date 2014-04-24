@@ -41,7 +41,7 @@ class QuerySet(BaseQuerySet):
                 key = slice(self._cursor.count()+key.start,key.stop,key.step)
             if key.stop < 0:
                 key = slice(key.start,self._cursor.count()+key.stop,key.step)
-            return self.__class__(self.backend,self.cls,self._cursor.__getitem__(key))
+            return self.__class__(self.backend,self.cls,self._cursor.__getitem__(key),raw = self._raw)
         if key < 0:
             key = self._cursor.count()+key
         json_attributes = self._cursor[key]

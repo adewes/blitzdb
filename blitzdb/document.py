@@ -94,6 +94,7 @@ class BaseDocument(object):
     class Meta:
 
         primary_key = "pk"
+        dbref_includes = []
 
     def __init__(self,attributes = None,lazy = False,default_backend = None):
         """
