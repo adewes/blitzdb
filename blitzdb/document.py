@@ -94,7 +94,6 @@ class BaseDocument(object):
     class Meta:
 
         primary_key = "pk"
-        dbref_includes = []
 
     def __init__(self,attributes = None,lazy = False,default_backend = None):
         """
@@ -134,6 +133,8 @@ class BaseDocument(object):
         except AttributeError:
             lazy = False
         if lazy:
+            if key == 'lazy_attributes':
+                return super(BaseDocument,self).__getattribute__('_attributes')
             #If we demand the attributes, we load the object from the DB in any case.
             if key in ('attributes',):
                 self.revert()

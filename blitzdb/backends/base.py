@@ -1,5 +1,6 @@
 import abc
 import inspect
+import copy
 
 from blitzdb.document import Document,document_classes
 
@@ -143,12 +144,23 @@ class Backend(object):
             else:
                 if obj.pk == None and autosave:
                     obj.save(self)
-                output_obj = {'__pk__':obj.pk,'_collection':self.classes[obj.__class__]['collection']}
-                #We add include fields to the reference, as given by the document's Meta class
-                if hasattr(obj,'Meta') and hasattr(obj.Meta,'dbref_includes'):
-                    for include in obj.Meta.dbref_includes:
-                        if include in obj and not include in output_obj:
-                            output_obj[include] = obj[include]
+
+                if obj._lazy:
+                    #We make sure that all attributes that are already present get included in the reference
+                    output_obj = copy.deepcopy(obj.lazy_attributes)
+                    if obj.get_pk_name() in output_obj:
+                        del output_obj[obj.get_pk_name()]
+                    output_obj['__pk__'] = obj.pk
+                    output_obj['__collection__'] = self.classes[obj.__class__]['collection']
+                else:
+                    output_obj = {'__pk__':obj.pk,'__collection__':self.classes[obj.__class__]['collection']}
+                    #We add include fields to the reference, as given by the document's Meta class
+                    if hasattr(obj,'Meta') and hasattr(obj.Meta,'dbref_includes') and obj.Meta.dbref_includes:
+                        for include in obj.Meta.dbref_includes:
+                            if include in obj and not include in output_obj:
+                                output_obj[include] = obj[include]
+                
+
         else:
             output_obj = obj
         return output_obj
@@ -169,8 +181,11 @@ class Backend(object):
                     obj = decoder(obj)
 
         if isinstance(obj,dict):
-            if '_collection' in obj and '__pk__' in obj and obj['_collection'] in self.collections:
-                output_obj = self.create_instance(obj['_collection'],{},lazy = True)
+            if '__collection__' in obj and '__pk__' in obj and obj['__collection__'] in self.collections:
+                attributes = copy.deepcopy(obj)
+                del attributes['__pk__']
+                del attributes['__collection__']
+                output_obj = self.create_instance(obj['__collection__'],attributes,lazy = True)
                 output_obj.pk = obj['__pk__']
             else:
                 output_obj = {}
