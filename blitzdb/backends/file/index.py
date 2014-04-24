@@ -4,6 +4,7 @@ from blitzdb.backends.file.utils import JsonEncoder
 from blitzdb.backends.base import NotInTransaction
 from blitzdb.backends.file.serializers import PickleSerializer as Serializer
 import time
+from BTrees.OOBTree import OOTreeSet
 
 
 class Index(object):
@@ -202,3 +203,29 @@ class TransactionalIndex(Index):
             hash_value = self.get_hash_for(value)
             keys+=self._reverse_add_cache[hash_value]
             return keys
+
+
+class BTreeTransactionalIndex(TransactionalIndex):
+
+    def __init__(self,*args,**kwargs):
+        super(BTreeTransactionalIndex,self).__init__(*args,**kwargs)
+        self._tree = OOTreeSet()
+
+    def add_key(self,attributes,store_key):
+        try:
+            value = self.get_value(attributes)
+        except (KeyError,IndexError):
+            return
+
+        self.remove_key(store_key)
+        self.insert(store_key)
+        #no need for hashing, because of the log N search time provided?
+
+    def remove_key(self,store_key):
+        if self._tree.has_key(store_key) != 0:
+            self._tree.remove(store_key)
+
+        if store_key in self._reverse_index:
+            # for v in self._reverse_index[store_key]: 
+            #     self._index[v].remove(store_key)
+            del self._reverse_index[store_key]
