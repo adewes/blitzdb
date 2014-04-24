@@ -145,44 +145,48 @@ class BaseDocument(object):
             self.revert()
         return super(BaseDocument,self).__getattribute__(key)
 
-    def __getitem__(self,key):
-        try:
-            lazy = super(BaseDocument,self).__getattribute__('_lazy')
-        except AttributeError:
-            lazy = False
-        if lazy:
-            try:
-                return super(BaseDocument,self).__getattribute__(key)
-            except AttributeError:
-                pass
-            self._lazy = False
-            self.revert()
-        return self.attributes[key]
+    def keys(self):
+        return self.attributes.keys()
+
+    def values(self):
+        return self.attributes.values()
+
+    def items(self):
+        return self.attributes.items()
+
+    def __contains__(self,key):
+        return True if key in self.attributes else False
 
     def __getattr__(self,key):
         try:
             super(BaseDocument,self).__getattr__(key)
         except AttributeError:
             try:
-                return self._attributes[key]
+                return self.attributes[key]
             except KeyError:
                 raise AttributeError(key)
 
     def __setattr__(self,key,value):
         if key.startswith('_'):
             return super(BaseDocument,self).__setattr__(key,value)
+        elif key == 'pk':
+            #this is ugly, should find a better solution for handling properties...
+            super(BaseDocument,self).__setattr__(key,value)
         else:
-            self._attributes[key] = value
-
-    __setitem__ = __setattr__
+            self.attributes[key] = value
 
     def __delattr__(self,key):
         if key.startswith('_'):
             return super(BaseDocument,self).__delattr__(key)
-        elif key in self._attributes:
-                del self._attributes[key]
-        else:
+        try:
+            del self.attributes[key]
+        except KeyError:
             raise AttributeError(key)
+
+    def __getitem__(self,key):
+        return self.attributes[key]
+
+    __setitem__ = __setattr__
 
     def __delitem__(self,key):
         try:
