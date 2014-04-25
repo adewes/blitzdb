@@ -369,7 +369,6 @@ class BaseDocument(object):
             allows you to perform document-specific initialization tasks if needed.
 
         """
-        print self.__class__.__name__,self.pk
         backend = backend or self._default_backend
         if not backend:
             raise AttributeError("No backend for lazy loading given!")

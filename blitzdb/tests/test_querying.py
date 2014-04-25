@@ -200,6 +200,18 @@ def test_operators(backend):
     assert len(backend.filter(Actor,{'name' : {'$not' : {'$in' : ['David Hasselhoff','Marlon Brando','Charlie Chaplin']}}})) == 1
     assert len(backend.filter(Actor,{'name' : {'$in' : ['Marlon Brando','Leonardo di Caprio']}})) == 2
 
+def test_regex_operator(backend,small_test_data):
+
+    backend.filter(Actor,{}).delete()
+    marlon_brando = Actor({'name' : 'Marlon Brando', 'gross_income_m' : 1.453,'appearances' : 78,'is_funny' : False,'birth_year' : 1924})
+    marlon_wayans = Actor({'name' : 'Marlon Wayans'})
+    backend.save(marlon_brando)
+    backend.save(marlon_wayans)
+    backend.commit()
+
+    assert backend.get(Actor,{'name' : {'$regex' : r'^Marlon\s+(?!Wayans)[\w]+$'}}) == marlon_brando
+    assert len(backend.filter(Actor,{'name' : {'$regex' : r'^Marlon\s+.*$'}})) == 2
+    assert len(backend.filter(Actor,{'name' : {'$regex' : r'^.*\s+Brando$'}})) == 1
 
 
 def test_list_query(backend,small_test_data):

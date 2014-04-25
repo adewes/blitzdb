@@ -31,7 +31,6 @@ def test_basic_attributes():
     assert doc.baz == 1243
     assert doc.d == {1 :3,4:5}
     assert doc.l == [1,2,3,4]
-
     assert doc.foo == doc['foo']
     assert doc.baz == doc['baz']
     assert doc.d == doc['d']
@@ -140,7 +139,6 @@ def test_container_operations():
 
     assert ('foo' in doc) == True
     assert ('fooz' in doc) == False
-
     assert list(doc.keys()) == list(attributes.keys())
     assert list(doc.values()) == list(attributes.values())
     assert doc.items() == attributes.items()
@@ -155,7 +153,5 @@ def test_different_primary_key_names():
     doc = MyDocument({'foo' : 'bar','foobar' : 1})
 
     assert doc.pk == 1
-
     doc.pk = 2
-
     assert doc.attributes['foobar'] == 2

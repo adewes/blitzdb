@@ -45,6 +45,7 @@ Changelog
 =========
 
 * 0.2.0: Support for including additional information in DB references. Support for accessing document attributes as dictionary items.
+         Added $regex parameter that allows to use regular expressions in queries.
 * 0.1.5: MongoDB backend now supports database transactions. Database operations are now read-isolated by default, i.e.
          uncommitted operations will not affect database queries before they are committed.
 * 0.1.4: Improved indexing of objects for the file backend, added support for automatic serialization/deserialization

@@ -1,4 +1,5 @@
 import six
+import re
 
 if six.PY3:
     from functools import reduce
@@ -90,6 +91,14 @@ def exists_query(expression):
 
     return _ne
 
+def regex_query(expression):
+
+    def _regex(index,expression = expression):
+        pattern = re.compile(expression)
+        return [store_key for value,store_keys in index.get_index().items() if re.match(pattern,value) for store_key in store_keys] 
+
+    return _regex
+
 def all_query(expression):
 
     def _all(index,expression = expression):
@@ -145,6 +154,7 @@ def compile_query(query):
         return query
     
 query_funcs = {
+    '$regex' : regex_query,
     '$exists' : exists_query,
     '$and' : and_query,
     '$all' : all_query,

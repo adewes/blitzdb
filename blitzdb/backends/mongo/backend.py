@@ -149,13 +149,13 @@ class Backend(BaseBackend):
         else:
             return self.serialize(query,autosave = False)
 
-    def get(self,cls_or_collection,properties):
+    def get(self,cls_or_collection,properties,raw = False):
         if not isinstance(cls_or_collection, six.string_types):
             collection = self.get_collection_for_cls(cls_or_collection)
         else:
             collection = cls_or_collection
         cls = self.get_cls_for_collection(collection)
-        queryset = self.filter(cls_or_collection,properties)
+        queryset = self.filter(cls_or_collection,properties,raw = raw)
         if len(queryset) == 0:
             raise cls.DoesNotExist
         elif len(queryset) > 1:
