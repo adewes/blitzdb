@@ -117,3 +117,52 @@ def test_regex_operator(backend,small_test_data):
     assert backend.get(Actor,{'name' : {'$regex' : r'^Marlon\s+(?!Wayans)[\w]+$'}}) == marlon_brando
     assert len(backend.filter(Actor,{'name' : {'$regex' : r'^Marlon\s+.*$'}})) == 2
     assert len(backend.filter(Actor,{'name' : {'$regex' : r'^.*\s+Brando$'}})) == 1
+
+def test_in():
+    #DB setup
+    backend.filter(Actor,{}).delete()
+
+    marlon_brando = Actor({'name' : 'Marlon Brando', 'gross_income_m' : 1.453,'appearances' : 78,'is_funny' : False,'birth_year' : 1924})
+    leonardo_di_caprio = Actor({'name' : 'Leonardo di Caprio', 'gross_income_m' : 12.453,'appearances' : 34,'is_funny' : 'it depends','birth_year' : 1974})
+    david_hasselhoff = Actor({'name' : 'David Hasselhoff', 'gross_income_m' : 12.453,'appearances' : 173,'is_funny' : True,'birth_year' : 1952})
+    charlie_chaplin = Actor({'name' : 'Charlie Chaplin', 'gross_income_m' : 0.371,'appearances' : 473,'is_funny' : True,'birth_year' : 1889})
+
+    backend.save(marlon_brando)
+    backend.save(leonardo_di_caprio)
+    backend.save(david_hasselhoff)
+    backend.save(charlie_chaplin)
+
+    backend.commit()
+    assert len(backend.filter(Actor,{})) == 4
+    #DB setup
+
+    #Test with empty list
+    query = {'name' : {'$not' : {'$in' : []}}}
+    assert len(backend.filter(Actor,query)) == len([david_hasselhoff, charlie_chaplin, marlon_brando, leonardo_di_caprio])
+    query = {'name' : {'$in' : []}}
+    assert len(backend.filter(Actor,query)) == len([])
+    #Test with empty list
+
+    #Test with one match
+    query = {'name' : {'$in' : [david_hasselhoff.name]}}
+    assert len(backend.filter(Actor,query)) == len([david_hasselhoff])
+    #Test with one match
+
+    #Test with unknown elements
+    query = {'name' : {'$in' : ['jackie chan']}}
+    assert len(backend.filter(Actor,query)) == len([])
+    #Test with unknown elements
+
+    #Test with different types
+    query = {'name' : {'$in' : [david_hasselhoff.name, True]}}
+    assert len(backend.filter(Actor,query)) == len([david_hasselhoff])
+    #Test with different types
+
+    #Test without a list
+    try:
+        actor = backend.filter(Actor, {'name' : {'$in' : 4}})
+        assert len(backend.filter(Actor,query)) == len([])
+    except AttributeError:
+    #no list
+        pass
+    #Test without a list
