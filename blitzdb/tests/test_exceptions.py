@@ -1,7 +1,4 @@
 import pytest
-import tempfile
-import subprocess
-import time
 
 from blitzdb.tests.helpers.movie_data import Actor,Director,Movie
 

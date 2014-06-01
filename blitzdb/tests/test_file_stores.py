@@ -1,8 +1,6 @@
 import pytest
 import tempfile
 import subprocess
-import random
-import time
 
 from blitzdb.backends.file import TransactionalStore
 
