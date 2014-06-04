@@ -169,10 +169,11 @@ def test_list_query(backend,small_test_data):
     i = 0
     while not movie or len(movie.cast) < 4:
         movie = movies[i]
-        actor = movie.cast[0]['actor']
         i+=1
 
+    actor = movie.cast[0]['actor']
     other_movie = movies[i%len(movies)]
+
     while other_movie in actor.movies:
         other_movie = movies[i%len(movies)]
         i+=1

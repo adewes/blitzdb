@@ -26,7 +26,7 @@ def tmpdir(request):
 def backend(request,tmpdir):
     return _backend(request,tmpdir)
 
-@pytest.fixture(scope="function", params=["file_json","file_marshal","file_pickle"])
+@pytest.fixture(scope="function", params=["file_json","file_marshal","file_pickle"]+(["mongo"] if test_mongo else []))
 def transactional_backend(request,tmpdir):
     return _backend(request,tmpdir)
 
