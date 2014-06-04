@@ -37,10 +37,18 @@ class QuerySet(BaseQuerySet):
 
     def __getitem__(self,key):
         if isinstance(key,slice):
-            if key.start < 0:
-                key = slice(self._cursor.count()+key.start,key.stop,key.step)
-            if key.stop < 0:
-                key = slice(key.start,self._cursor.count()+key.stop,key.step)
+            start, stop, step = key.start,key.stop,key.step
+            if step != None:
+                raise IndexError("MongoDB slices do not support slice steps")
+            if key.start == None:
+                start = 0
+            if key.stop == None:
+                stop = self._cursor.count()
+            if start < 0:
+                start = self._cursor.count()+start
+            if stop < 0:
+                stop = self._cursor.count()+stop
+            key = slice(start,stop)
             return self.__class__(self.backend,self.cls,self._cursor.__getitem__(key),raw = self._raw)
         if key < 0:
             key = self._cursor.count()+key

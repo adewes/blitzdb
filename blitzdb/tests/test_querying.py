@@ -45,6 +45,16 @@ def test_negative_indexing(backend,small_test_data):
     #To do: Make step tests for file backend (MongoDB does not support this)
 #    assert actors[-10:-1:2] == actors[len(actors)-10:len(actors)-1:2]
 
+def test_missing_keys_in_slice(backend,small_test_data):
+
+    (movies,actors,directors) = small_test_data
+
+    actors = backend.filter(Actor,{})
+
+    assert actors[:] == actors
+    assert actors[1:] == actors[1:len(actors)]
+    assert actors[:len(actors)] == actors[0:len(actors)]
+
 def test_and_queries(backend):
 
     backend.save(Actor({'foo' : 'bar','value' : 10}))
