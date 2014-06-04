@@ -2,7 +2,7 @@ from distutils.core import setup
 from setuptools import find_packages
 
 setup(name='blitzdb',
-version='0.2.1',
+version='0.2.2',
 author='Andreas Dewes - 7scientists',
 author_email = 'andreas@7scientists.com',
 license = 'MIT',
@@ -44,6 +44,7 @@ If you should encounter any problems when using BlitzDB, please feel free to `su
 Changelog
 =========
 
+* 0.2.2: Fix for slice operators in MongoDB backend.
 * 0.2.1: Better tests.
 * 0.2.0: Support for including additional information in DB references. Support for accessing document attributes as dictionary items.
          Added $regex parameter that allows to use regular expressions in queries.
