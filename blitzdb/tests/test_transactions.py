@@ -49,7 +49,6 @@ def test_advanced_transaction(transactional_backend):
     movie = Movie({'name' : 'The Godfather','year' : 1979,'type' : 'US'})
     movie.save(transactional_backend)
     transactional_backend.commit()
-    transactional_backend.begin()
 
     transactional_backend.delete(movie)
     movie.name = 'Star Wars IV'

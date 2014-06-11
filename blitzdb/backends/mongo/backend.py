@@ -51,8 +51,10 @@ class Backend(BaseBackend):
     def rollback(self):
         if not self.in_transaction:
             raise NotInTransaction("Not in a transaction!")
-        self._write_cache = defaultdict(lambda : {})
+        
+        self._save_cache = defaultdict(lambda : {})
         self._delete_cache = defaultdict(lambda : {})
+        
         self.in_transaction = False
 
     def commit(self):
@@ -62,6 +64,9 @@ class Backend(BaseBackend):
         for collection,cache in self._delete_cache.items():
             for pk in cache:
                 self.db[collection].remove({'_id' : pk})
+
+        self._save_cache = defaultdict(lambda  : {})
+        self._delete_cache = defaultdict(lambda : {})
 
     @property
     def autocommit(self):

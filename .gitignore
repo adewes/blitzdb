@@ -1,6 +1,7 @@
 *.py[cod]
 *~
 # C extensions
+venv/*
 *.so
 .checkmate
 *.gz
