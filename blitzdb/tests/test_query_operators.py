@@ -4,11 +4,14 @@ import subprocess
 import random
 import time
 import pymongo
+import math
 
 from blitzdb.backends.mongo import Backend as MongoBackend
 from blitzdb.backends.file import Backend as FileBackend
 from blitzdb import Document
 from blitzdb.tests.helpers.movie_data import Actor,Director,Movie,generate_test_data
+
+from .fixtures import *
 
 def test_operators(backend):
 
@@ -105,7 +108,7 @@ def test_operators(backend):
     assert len(backend.filter(Actor,{'name' : {'$not' : {'$in' : ['David Hasselhoff','Marlon Brando','Charlie Chaplin']}}})) == 1
     assert len(backend.filter(Actor,{'name' : {'$in' : ['Marlon Brando','Leonardo di Caprio']}})) == 2
 
-def test_regex_operator(backend,small_test_data):
+def test_regex_operator(backend):
 
     backend.filter(Actor,{}).delete()
     marlon_brando = Actor({'name' : 'Marlon Brando', 'gross_income_m' : 1.453,'appearances' : 78,'is_funny' : False,'birth_year' : 1924})
@@ -118,7 +121,7 @@ def test_regex_operator(backend,small_test_data):
     assert len(backend.filter(Actor,{'name' : {'$regex' : r'^Marlon\s+.*$'}})) == 2
     assert len(backend.filter(Actor,{'name' : {'$regex' : r'^.*\s+Brando$'}})) == 1
 
-def test_in():
+def test_in(backend):
     #DB setup
     backend.filter(Actor,{}).delete()
 
@@ -167,7 +170,7 @@ def test_in():
         pass
     #Test without a list
 
-def test_lt():
+def test_lt(backend):
     #DB setup
     backend.filter(Actor,{}).delete()
 
@@ -237,7 +240,7 @@ def test_lt():
         pass
     #Test with boolean value
 
-def test_gt():
+def test_gt(backend):
     #DB setup
     backend.filter(Actor,{}).delete()
 
@@ -308,7 +311,7 @@ def test_gt():
     #Test with boolean value
 
 
-def test_gte():
+def test_gte(backend):
     #DB setup
     backend.filter(Actor,{}).delete()
 
@@ -378,7 +381,7 @@ def test_gte():
         pass
     #Test with boolean value
 
-def test_lte():
+def test_lte(backend):
     #DB setup
     backend.filter(Actor,{}).delete()
 
@@ -448,7 +451,7 @@ def test_lte():
         pass
     #Test with boolean value
 
-def test_exists():
+def test_exists(backend):
     #DB setup
     backend.filter(Actor,{}).delete()
 
@@ -559,7 +562,7 @@ def test_exists():
         pass
     #Test with illegal values
 
-def test_all():
+def test_all(backend):
     #DB setup
     backend.filter(Actor,{}).delete()
 
@@ -679,7 +682,7 @@ def test_all():
         pass
     #Test with illegal values
 
-def test_ne():
+def test_ne(backend):
     #DB setup
     backend.filter(Actor,{}).delete()
 
@@ -774,7 +777,7 @@ def test_ne():
         pass
     #Test with illegal values
 
-def test_eq():
+def test_eq(backend):
     #DB setup
     backend.filter(Actor,{}).delete()
 
@@ -866,7 +869,7 @@ def test_eq():
         pass
     #Test with illegal values
 
-def test_not():
+def test_not(backend):
     #DB setup
     backend.filter(Actor,{}).delete()
 
@@ -980,7 +983,7 @@ def test_not():
         pass
     #Test with illegal values
 
-def test_and():
+def test_and(backend):
     #DB setup
     backend.filter(Actor,{}).delete()
 
@@ -1097,7 +1100,7 @@ def test_and():
         pass
     #Test with illegal values
 
-def test_or():
+def test_or(backend):
     #DB setup
     backend.filter(Actor,{}).delete()
 
@@ -1209,7 +1212,7 @@ def test_or():
         pass
     #Test with illegal values
     
-def test_regex():
+def test_regex(backend):
     #DB setup
     backend.filter(Actor,{}).delete()
 
@@ -1307,18 +1310,3 @@ def test_regex():
     except ZeroDivisionError:
         pass
     #Test with illegal values    
-
-def test():
-    test_lt()
-    test_lte()
-    test_gt()
-    test_gte()
-    test_in()
-    test_exists()
-    test_all()
-    test_ne()
-    test_eq()
-    test_not()
-    test_and()
-    test_or()
-    test_regex()
