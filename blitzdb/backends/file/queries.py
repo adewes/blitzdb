@@ -89,7 +89,7 @@ def exists_query(expression):
         ev = expression() if callable(expression) else expression
         return [store_key for value,store_keys in index.get_index().items() for store_key in store_keys] 
 
-    return _ne
+    return _exists
 
 def regex_query(expression):
 
@@ -98,6 +98,14 @@ def regex_query(expression):
         return [store_key for value,store_keys in index.get_index().items() if re.match(pattern,value) for store_key in store_keys] 
 
     return _regex
+    
+def eq_query(expression):
+
+    def _eq(index,expression = expression):
+        ev = expression() if callable(expression) else expression
+        return [store_key for value,store_keys in index.get_index().items() if value == ev for store_key in store_keys] 
+
+    return _eq
 
 def all_query(expression):
 
@@ -166,4 +174,6 @@ query_funcs = {
     '$ne' : ne_query,
     '$not' : not_query,
     '$in' : in_query,
+    '$eq' : eq_query,
+    
 }
