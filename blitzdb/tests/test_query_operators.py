@@ -3,7 +3,6 @@ import tempfile
 import subprocess
 import random
 import time
-import pymongo
 import math
 
 from blitzdb.backends.mongo import Backend as MongoBackend
