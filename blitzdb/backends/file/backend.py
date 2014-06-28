@@ -395,6 +395,9 @@ class Backend(BaseBackend):
         if obj.pk == None:
             obj.autogenerate_pk()
 
+        if hasattr(obj,'pre_save') and callable(obj.pre_save):
+            obj.pre_save()
+
         serialized_attributes = self.serialize(obj.attributes)
         data = self.encode_attributes(serialized_attributes)
     
@@ -432,6 +435,8 @@ class Backend(BaseBackend):
     def delete(self,obj):        
         collection = self.get_collection_for_obj(obj)
         primary_index = self.get_pk_index(collection)
+        if hasattr(obj,'pre_delete') and callable(obj.pre_delete):
+            obj.pre_delete()
         return self.delete_by_store_keys(collection,primary_index.get_keys_for(obj.pk))
 
     def get(self,cls,query):

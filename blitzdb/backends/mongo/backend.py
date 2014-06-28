@@ -68,6 +68,8 @@ class Backend(BaseBackend):
         self._save_cache = defaultdict(lambda  : {})
         self._delete_cache = defaultdict(lambda : {})
 
+        self.in_transaction = True
+
     @property
     def autocommit(self):
         return self._autocommit
@@ -90,6 +92,8 @@ class Backend(BaseBackend):
         collection = self.get_collection_for_cls(obj.__class__)
         if obj.pk == None:
             raise obj.DoesNotExist
+        if hasattr(obj,'pre_delete') and callable(obj.pre_delete):
+            obj.pre_delete()
         if self.autocommit:
             self.db[collection].remove({'_id' : obj.pk})
         else:
@@ -103,6 +107,8 @@ class Backend(BaseBackend):
         serialized_attributes_list = []
         collection = self.get_collection_for_cls(objs[0].__class__)
         for obj in objs:
+            if hasattr(obj,'pre_save') and callable(obj.pre_save):
+                obj.pre_save()
             if obj.pk == None:
                 obj.pk = uuid.uuid4().hex
             serialized_attributes = self.serialize(obj.attributes)

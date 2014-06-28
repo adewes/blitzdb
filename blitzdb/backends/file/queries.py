@@ -99,14 +99,6 @@ def regex_query(expression):
 
     return _regex
     
-def eq_query(expression):
-
-    def _eq(index,expression = expression):
-        ev = expression() if callable(expression) else expression
-        return [store_key for value,store_keys in index.get_index().items() if value == ev for store_key in store_keys] 
-
-    return _eq
-
 def all_query(expression):
 
     def _all(index,expression = expression):
@@ -173,7 +165,5 @@ query_funcs = {
     '$lt' : lt_query,
     '$ne' : ne_query,
     '$not' : not_query,
-    '$in' : in_query,
-    '$eq' : eq_query,
-    
+    '$in' : in_query,    
 }

@@ -80,9 +80,13 @@ class Backend(object):
         if collection_name in self.collections:
             print("Warning: Overwriting existing collection %s!" % collection_name)
 
+        delete_list = []
         for new_cls,new_params in self.classes.items():
             if 'collection' in new_params and new_params['collection'] == collection_name:
-                del self.classes[new_cls]
+                delete_list.append(new_cls)
+
+        for delete_cls in delete_list:
+            del self.classes[delete_cls]
 
         self.collections[collection_name] = cls
         self.classes[cls] = parameters.copy()
