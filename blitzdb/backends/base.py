@@ -158,7 +158,7 @@ class Backend(object):
                     output_obj['__collection__'] = self.classes[obj.__class__]['collection']
                 else:
                     output_obj = {'__pk__':obj.pk,'__collection__':self.classes[obj.__class__]['collection']}
-                    #We add include fields to the reference, as given by the document's Meta class
+                    #We include fields to the reference, as given by the document's Meta class
                     if hasattr(obj,'Meta') and hasattr(obj.Meta,'dbref_includes') and obj.Meta.dbref_includes:
                         for include in obj.Meta.dbref_includes:
                             if include in obj and not include in output_obj:
