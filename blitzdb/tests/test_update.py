@@ -70,7 +70,7 @@ def test_update_on_deleted_document_fails(mongodb_backend):
         mongodb_backend.update(actor,('name',))
      
 
-def test_update_with_invalid_dict(mongodb_backend):
+def test_update_with_dict(mongodb_backend):
 
     actor = Actor({'name' : 'Robert de Niro','age' : 54})
 
@@ -79,6 +79,82 @@ def test_update_with_invalid_dict(mongodb_backend):
 
     assert len(mongodb_backend.filter(Actor,{'name' : 'Robert de Niro'})) == 1
 
-    with pytest.raises(TypeError):
-        mongodb_backend.update(actor,{'name' : 'Ian McKellan'})
+    mongodb_backend.update(actor,{'name' : 'Ian McKellan'})
+
+    mongodb_backend.commit()
+
+    assert len(mongodb_backend.filter(Actor,{'name' : 'Ian McKellan'})) == 1
+
+    assert actor.name == 'Ian McKellan'
      
+    mongodb_backend.update(actor,{'name' : 'Roger Moore'},update_obj = False)
+
+    mongodb_backend.commit()
+
+    assert len(mongodb_backend.filter(Actor,{'name' : 'Roger Moore'})) == 1
+
+    assert actor.name == 'Ian McKellan'
+
+
+def test_update_unset(mongodb_backend):
+
+    actor = Actor({'name' : 'Robert de Niro','age' : 54})
+
+    mongodb_backend.save(actor)
+    mongodb_backend.commit()
+
+    assert len(mongodb_backend.filter(Actor,{'name' : 'Robert de Niro'})) == 1
+
+    mongodb_backend.update(actor,unset_fields = ['name'])
+
+    mongodb_backend.commit()
+
+    assert len(mongodb_backend.filter(Actor,{'name' : 'Ian McKellan'})) == 0
+
+    recovered_actor = mongodb_backend.get(Actor,{'pk' : actor.pk})
+
+    with pytest.raises(AttributeError):
+        recovered_actor.name
+
+
+def test_update_set_then_unset(mongodb_backend):
+
+    actor = Actor({'name' : 'Robert de Niro','age' : 54})
+
+    mongodb_backend.save(actor)
+    mongodb_backend.commit()
+
+    assert len(mongodb_backend.filter(Actor,{'name' : 'Robert de Niro'})) == 1
+
+    mongodb_backend.update(actor,set_fields = {'name' : 'Patrick Stewart'})
+    mongodb_backend.update(actor,unset_fields = ['name'])
+
+    mongodb_backend.commit()
+
+    assert len(mongodb_backend.filter(Actor,{'name' : 'Patrick Stewart'})) == 0
+
+    recovered_actor = mongodb_backend.get(Actor,{'pk' : actor.pk})
+
+    with pytest.raises(AttributeError):
+        recovered_actor.name
+
+def test_update_unset_then_set(mongodb_backend):
+
+    actor = Actor({'name' : 'Robert de Niro','age' : 54})
+
+    mongodb_backend.save(actor)
+    mongodb_backend.commit()
+
+    assert len(mongodb_backend.filter(Actor,{'name' : 'Robert de Niro'})) == 1
+
+    mongodb_backend.update(actor,unset_fields = ['name'])
+    mongodb_backend.update(actor,set_fields = {'name' : 'Patrick Stewart'})
+
+    mongodb_backend.commit()
+
+    assert len(mongodb_backend.filter(Actor,{'name' : 'Patrick Stewart'})) == 1
+
+    recovered_actor = mongodb_backend.get(Actor,{'pk' : actor.pk})
+
+    assert recovered_actor.name == 'Patrick Stewart'
+

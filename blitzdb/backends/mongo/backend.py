@@ -70,7 +70,7 @@ class Backend(BaseBackend):
 
         for collection,cache in self._update_cache.items():
             for pk,attributes in cache.items():
-                self.db[collection].update({'_id' : pk},{'$set' : attributes})
+                self.db[collection].update({'_id' : pk},{'$set' : attributes['set'],'$unset' : attributes['unset']})
 
         self._save_cache = defaultdict(lambda  : {})
         self._delete_cache = defaultdict(lambda : {})
@@ -133,7 +133,7 @@ class Backend(BaseBackend):
     def save(self,obj):
         return self.save_multiple([obj])
 
-    def update(self,obj,fields):
+    def update(self,obj,set_fields = None,unset_fields = None,update_obj = True):
         collection = self.get_collection_for_cls(obj.__class__)
         if hasattr(obj,'pre_save') and callable(obj.pre_save):
             obj.pre_save()
@@ -141,21 +141,47 @@ class Backend(BaseBackend):
         if obj.pk == None:
             raise obj.DoesNotExist("update() called on document without primary key!")
 
-        if isinstance(fields,list) or isinstance(fields,tuple):
-            update_dict = dict([(key,obj[key]) for key in fields])
-            serialized_attributes = self.serialize(update_dict)
+        def serialize_fields(fields):
+
+            if isinstance(fields,list) or isinstance(fields,tuple):
+                update_dict = dict([(key,obj[key]) for key in fields])
+                serialized_attributes = self.serialize(update_dict)
+            elif isinstance(fields,dict):
+                serialized_attributes = self.serialize(fields)
+                if update_obj:
+                    obj.attributes.update(fields)
+            else:
+                raise TypeError("fields must be a list/tuple!")
+
+            return serialized_attributes
+
+        if set_fields:
+            set_attributes = serialize_fields(set_fields)
         else:
-            raise TypeError("fields must be a list/tuple!")
+            set_attributes = {}
+
+        if unset_fields:
+            unset_attributes = unset_fields
+        else:
+            unset_attributes = []
 
         if self.autocommit:
-            self.db[collection].update({'_id' : obj.pk},{'$set' : serialized_attributes})
+            self.db[collection].update({'_id' : obj.pk},{'$set' : set_attributes,'$unset' : dict([(key,'') for key in unset_attributes])})
         else:
             if obj.pk in self._delete_cache[collection]:
                 raise obj.DoesNotExist("update() on document that is marked for deletion!")
             if obj.pk in self._update_cache[collection]:
-                self._update_cache[collection][obj.pk].update(serialized_attributes)
+                update_cache = self._update_cache[collection][obj.pk]
+                for key,value in set_attributes.items():
+                    if key in update_cache['unset']:
+                        del update_cache['unset'][key]
+                    update_cache['set'][key] = value
+                for key in unset_attributes:
+                    if key in update_cache['set']:
+                        del update_cache['set'][key]
+                    update_cache['unset'][key] = ''
             else:
-                self._update_cache[collection][obj.pk] = serialized_attributes
+                self._update_cache[collection][obj.pk] = {'set' : set_attributes, 'unset' : dict([(key,'') for key in unset_attributes]) }
 
     def serialize(self,obj,convert_keys_to_str = True,embed_level = 0,encoders = None,autosave = True):
 
