@@ -7,7 +7,7 @@
 
 **BlitzDB**, or just **Blitz** is a document-based, object-oriented, transactional database written purely in Python. Among other things, it provides a **powerful querying language**, **deep indexing of documents**, **compressed data storage** and **automatic referencing of embedded documents**. It is reasonably fast, can be easily embedded in any Python application and does not have any external dependencies (except when using a third-party backend). In addition, you can use it as a **frontend** to other database engines such as MongoDB in case you should need more power.
 
-##[-&gt; BlitzDB Main Website & Documentation](http://blitz-db.readthedocs.org)
+##[BlitzDB Main Website & Documentation](http://blitz-db.readthedocs.org)
 
 ##Key Features
 
@@ -36,10 +36,21 @@ For more detailed installation instructions, have a look at the [documentation](
 
 The detailed documentation for this project is hosted on [ReadTheDocs](http://blitz-db.readthedocs.org), feel free to take a look!
 
-##News
+##Changelog
 
-* 2014-03-14: Blitz is now **Python 3 compatible**, thanks to David Koblas (@koblas)!
-
+* 0.2.4: Added support for projections and update operations to the MongoDB backend.
+* 0.2.3: Bugfix-Release: Fixed bug in transaction data caching in MongoDB backend.
+* 0.2.2: Fix for slice operators in MongoDB backend.
+* 0.2.1: Better tests.
+* 0.2.0: Support for including additional information in DB references. Support for accessing document attributes as dictionary items.
+         Added $regex parameter that allows to use regular expressions in queries.
+* 0.1.5: MongoDB backend now supports database transactions. Database operations are now read-isolated by default, i.e.
+         uncommitted operations will not affect database queries before they are committed.
+* 0.1.4: Improved indexing of objects for the file backend, added support for automatic serialization/deserialization
+         of object attributes when adding keys to or querying an index.
+* 0.1.3: Sorting of query sets is now supported (still experimental)
+* 0.1.2: Small bugfixes, BlitzDB version number now contained in DB config dict
+* 0.1.1: BlitzDB is now Python3 compatible (thanks to David Koblas)
 ##Examples
 
 To get an idea of what you can do with Blitz, here are some examples.
