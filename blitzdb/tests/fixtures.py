@@ -7,6 +7,12 @@ try:
     import pymongo
     from blitzdb.backends.mongo import Backend as MongoBackend
     test_mongo = True
+
+    @pytest.fixture(scope = "function")
+    def mongodb_backend(request):
+        return mongo_backend(request,{})
+
+
 except ImportError:
     print("MongoDB not found, skipping tests.")
     test_mongo = False

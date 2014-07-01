@@ -40,6 +40,7 @@ class Backend(BaseBackend):
         self._autocommit = autocommit
         self._save_cache = defaultdict(lambda  : {})
         self._delete_cache = defaultdict(lambda : {})
+        self._update_cache = defaultdict(lambda : {})
         self.in_transaction = False
         super(Backend,self).__init__(**kwargs)
 
@@ -54,6 +55,7 @@ class Backend(BaseBackend):
         
         self._save_cache = defaultdict(lambda : {})
         self._delete_cache = defaultdict(lambda : {})
+        self._update_cache = defaultdict(lambda : {})
         
         self.in_transaction = False
 
@@ -61,12 +63,18 @@ class Backend(BaseBackend):
         for collection,cache in self._save_cache.items():
             for pk,attributes in cache.items():
                 self.db[collection].save(attributes)
+
         for collection,cache in self._delete_cache.items():
             for pk in cache:
                 self.db[collection].remove({'_id' : pk})
 
+        for collection,cache in self._update_cache.items():
+            for pk,attributes in cache.items():
+                self.db[collection].update({'_id' : pk},{'$set' : attributes})
+
         self._save_cache = defaultdict(lambda  : {})
         self._delete_cache = defaultdict(lambda : {})
+        self._update_cache = defaultdict(lambda : {})
 
         self.in_transaction = True
 
@@ -125,6 +133,30 @@ class Backend(BaseBackend):
     def save(self,obj):
         return self.save_multiple([obj])
 
+    def update(self,obj,fields):
+        collection = self.get_collection_for_cls(obj.__class__)
+        if hasattr(obj,'pre_save') and callable(obj.pre_save):
+            obj.pre_save()
+
+        if obj.pk == None:
+            raise obj.DoesNotExist("update() called on document without primary key!")
+
+        if isinstance(fields,list) or isinstance(fields,tuple):
+            update_dict = dict([(key,obj[key]) for key in fields])
+            serialized_attributes = self.serialize(update_dict)
+        else:
+            raise TypeError("fields must be a list/tuple!")
+
+        if self.autocommit:
+            self.db[collection].update({'_id' : obj.pk},{'$set' : serialized_attributes})
+        else:
+            if obj.pk in self._delete_cache[collection]:
+                raise obj.DoesNotExist("update() on document that is marked for deletion!")
+            if obj.pk in self._update_cache[collection]:
+                self._update_cache[collection][obj.pk].update(serialized_attributes)
+            else:
+                self._update_cache[collection][obj.pk] = serialized_attributes
+
     def serialize(self,obj,convert_keys_to_str = True,embed_level = 0,encoders = None,autosave = True):
 
         def encode_dict(obj):
@@ -160,13 +192,13 @@ class Backend(BaseBackend):
         else:
             return self.serialize(query,autosave = False)
 
-    def get(self,cls_or_collection,properties,raw = False):
+    def get(self,cls_or_collection,properties,raw = False,only = None):
         if not isinstance(cls_or_collection, six.string_types):
             collection = self.get_collection_for_cls(cls_or_collection)
         else:
             collection = cls_or_collection
         cls = self.get_cls_for_collection(collection)
-        queryset = self.filter(cls_or_collection,properties,raw = raw)
+        queryset = self.filter(cls_or_collection,properties,raw = raw,only = only)
         if len(queryset) == 0:
             raise cls.DoesNotExist
         elif len(queryset) > 1:
