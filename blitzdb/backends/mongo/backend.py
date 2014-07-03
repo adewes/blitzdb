@@ -70,7 +70,11 @@ class Backend(BaseBackend):
 
         for collection,cache in self._update_cache.items():
             for pk,attributes in cache.items():
-                self.db[collection].update({'_id' : pk},attributes)
+                update_dict = {}
+                for key in ('$set','$unset'):
+                    if key in attributes and attributes[key]:
+                        update_dict[key] = attributes[key]
+                self.db[collection].update({'_id' : pk},update_dict)
 
         self._save_cache = defaultdict(lambda  : {})
         self._delete_cache = defaultdict(lambda : {})
