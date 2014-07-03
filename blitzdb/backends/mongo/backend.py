@@ -70,7 +70,7 @@ class Backend(BaseBackend):
 
         for collection,cache in self._update_cache.items():
             for pk,attributes in cache.items():
-                self.db[collection].update({'_id' : pk},{'$set' : attributes['set'],'$unset' : attributes['unset']})
+                self.db[collection].update({'_id' : pk},attributes)
 
         self._save_cache = defaultdict(lambda  : {})
         self._delete_cache = defaultdict(lambda : {})
@@ -165,23 +165,35 @@ class Backend(BaseBackend):
         else:
             unset_attributes = []
 
+        update_dict = {}
+        if set_attributes:
+            update_dict['$set'] = set_attributes
+        if unset_attributes:
+            update_dict['$unset'] = dict([(key,'') for key in unset_attributes])
+
         if self.autocommit:
-            self.db[collection].update({'_id' : obj.pk},{'$set' : set_attributes,'$unset' : dict([(key,'') for key in unset_attributes])})
+            self.db[collection].update({'_id' : obj.pk},update_dict)
         else:
             if obj.pk in self._delete_cache[collection]:
                 raise obj.DoesNotExist("update() on document that is marked for deletion!")
             if obj.pk in self._update_cache[collection]:
                 update_cache = self._update_cache[collection][obj.pk]
-                for key,value in set_attributes.items():
-                    if key in update_cache['unset']:
-                        del update_cache['unset'][key]
-                    update_cache['set'][key] = value
-                for key in unset_attributes:
-                    if key in update_cache['set']:
-                        del update_cache['set'][key]
-                    update_cache['unset'][key] = ''
+                if set_attributes:
+                    if not '$set' in update_cache:
+                        update_cache['$set'] = {}
+                    for key,value in set_attributes.items():
+                        if '$unset' in update_cache and key in update_cache['$unset']:
+                            del update_cache['$unset'][key]
+                        update_cache['$set'][key] = value
+                if unset_attributes:
+                    if not '$unset' in update_cache:
+                        update_cache['$unset'] = {}
+                    for key in unset_attributes:
+                        if '$set' in update_cache and key in update_cache['$set']:
+                            del update_cache['$set'][key]
+                        update_cache['$unset'][key] = ''
             else:
-                self._update_cache[collection][obj.pk] = {'set' : set_attributes, 'unset' : dict([(key,'') for key in unset_attributes]) }
+                self._update_cache[collection][obj.pk] = update_dict
 
     def serialize(self,obj,convert_keys_to_str = True,embed_level = 0,encoders = None,autosave = True):
 
