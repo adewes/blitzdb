@@ -752,14 +752,6 @@ def test_regex(backend):
     assert len(backend.filter(Actor,query)) == len([marlon_brando])
     #Test repeating request
 
-    #Test with empty list
-    try:
-        query = {'name' :{'$regex' : []}}
-        assert len(backend.filter(Actor,query)) == len(backend.filter(Actor,{}))
-    except TypeError:
-        pass
-    #Test with empty list
-
     #Test with no result
     query = {'name' :{'$regex' : r'^test@test.com'}}
     assert len(backend.filter(Actor,query)) == len([])
@@ -773,22 +765,6 @@ def test_regex(backend):
         pass
     #Test with unknown values
 
-    #Test with int
-    try:
-        query = {'appearances' : {'$regex' : 18}}
-        assert len(backend.filter(Actor,query)) == len([])
-    except TypeError:
-        pass
-    #Test with int
-
-    #Test with float
-    try:
-        query = {'gross_income_m' : {'$regex' : 2.0}}
-        assert len(backend.filter(Actor,query)) == len([])
-    except TypeError:
-        pass
-    #Test with float
-
     #Test with crossed type
     try:
         query =  {'gross_income_m' : {'$regex' : r'^Marlon\s+.*$'}}
@@ -801,11 +777,3 @@ def test_regex(backend):
     query =  {'gross_income_bad' : {'$regex' : r'^Marlon\s+.*$'}}
     assert len(backend.filter(Actor,query)) == len([])
     #Test with unknwon attribute
-
-    #Test with illegal values
-    try:
-        query =  {'gross_income_bad' : {'$regex' : 0/0}}
-        assert len(backend.filter(Actor,query)) == len([])
-    except ZeroDivisionError:
-        pass
-    #Test with illegal values    
