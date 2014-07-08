@@ -1,6 +1,10 @@
 import copy
 import uuid
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 class MetaDocument(type):
 
     """
@@ -95,7 +99,7 @@ class BaseDocument(object):
 
         primary_key = "pk"
 
-    def __init__(self,attributes = None,lazy = False,default_backend = None):
+    def __init__(self,attributes = None,lazy = False,default_backend = None,autoload = True):
         """
         Initializes a document instance with the given attributes. If `lazy = True`, a *lazy* document
         will be created, which means that the attributes of the document will be loaded from the database
@@ -112,6 +116,7 @@ class BaseDocument(object):
             attributes = {}
         self.__dict__['_attributes'] = attributes
         self.__dict__['embed'] = False
+        self.__dict__['_autoload'] = autoload
         self._default_backend = default_backend
         if self.pk is None:
             self.pk = None
@@ -137,14 +142,22 @@ class BaseDocument(object):
                 return super(BaseDocument,self).__getattribute__('_attributes')
             #If we demand the attributes, we load the object from the DB in any case.
             if key in ('attributes',):
-                self.revert()
-                self._lazy = False
+                if self._autoload:
+                    self.revert()
+                    self._lazy = False
+                else:
+                    return super(BaseDocument,self).__getattribute__('_attributes')
             try:
                 return super(BaseDocument,self).__getattribute__(key)
             except AttributeError:
                 pass
-            self._lazy = False
-            self.revert()
+            if self._autoload:
+                self._lazy = False
+                self.revert()
+            elif key in self.lazy_attributes:
+                return self.lazy_attributes[key]
+            else:
+                raise AttributeError("Undefined attribute: %s" % key)
         return super(BaseDocument,self).__getattribute__(key)
 
     def keys(self):
@@ -312,6 +325,11 @@ class BaseDocument(object):
             return self._attributes[self.Meta.primary_key]
         return None
 
+    @property
+    def eager(self):
+        self.load_if_lazy()
+        return self
+
     @pk.setter
     def pk(self, value):
         self._attributes[self.Meta.primary_key] = value    
@@ -369,13 +387,23 @@ class BaseDocument(object):
             allows you to perform document-specific initialization tasks if needed.
 
         """
+        logger.debug("Reverting to database state (%s, %s)" %(self.__class__.__name__,self.pk) )
         backend = backend or self._default_backend
         if not backend:
-            raise AttributeError("No backend for lazy loading given!")
+            raise AttributeError("No backend given!")
         if self.pk == None:
             raise self.DoesNotExist("No primary key given!")
         obj = self._default_backend.get(self.__class__,{'pk':self.pk})
         self._attributes = obj.attributes
         self.initialize()
+
+    def load_if_lazy(self):
+        try:
+            lazy = super(BaseDocument,self).__getattribute__('_lazy')
+        except AttributeError:
+            lazy = False
+        if lazy:
+            self._lazy = False
+            self.revert()
 
 Document = MetaDocument('Document', (BaseDocument,), {})

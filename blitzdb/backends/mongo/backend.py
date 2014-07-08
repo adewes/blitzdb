@@ -62,7 +62,12 @@ class Backend(BaseBackend):
     def commit(self):
         for collection,cache in self._save_cache.items():
             for pk,attributes in cache.items():
-                self.db[collection].save(attributes)
+                try:
+                    self.db[collection].save(attributes)
+                except:
+                    logger.error("Error when saving the document with pk %s in collection %s" % (attributes['pk'],collection))
+                    logger.error("Attributes (excerpt):"+str(dict(attributes.items()[:100])) )
+                    raise
 
         for collection,cache in self._delete_cache.items():
             for pk in cache:
@@ -199,13 +204,13 @@ class Backend(BaseBackend):
             else:
                 self._update_cache[collection][obj.pk] = update_dict
 
-    def serialize(self,obj,convert_keys_to_str = True,embed_level = 0,encoders = None,autosave = True):
+    def serialize(self,obj,convert_keys_to_str = True,embed_level = 0,encoders = None,autosave = True,for_query = False):
 
         def encode_dict(obj):
             return dict([(key.replace(".",self.DOT_MAGIC_VALUE),value) for key,value in obj.items()])
 
         dict_encoders = [(lambda obj:True if isinstance(obj,dict) else False,encode_dict)]
-        return super(Backend,self).serialize(obj,convert_keys_to_str = convert_keys_to_str,embed_level = embed_level, encoders = encoders + dict_encoders if encoders else dict_encoders,autosave = autosave)
+        return super(Backend,self).serialize(obj,convert_keys_to_str = convert_keys_to_str,embed_level = embed_level, encoders = encoders + dict_encoders if encoders else dict_encoders,autosave = autosave,for_query = for_query)
 
     def deserialize(self,obj,decoders = None):
 
@@ -232,7 +237,7 @@ class Backend(BaseBackend):
         elif isinstance(query,list) or isinstance(query,QuerySet) or isinstance(query,tuple):
             return  [self.compile_query(x) for x in query]
         else:
-            return self.serialize(query,autosave = False)
+            return self.serialize(query,autosave = False,for_query = True)
 
     def get(self,cls_or_collection,properties,raw = False,only = None):
         if not isinstance(cls_or_collection, six.string_types):

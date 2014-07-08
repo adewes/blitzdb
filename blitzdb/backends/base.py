@@ -2,6 +2,10 @@ import abc
 import inspect
 import copy
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 from blitzdb.document import Document,document_classes
 
 class NotInTransaction(BaseException):
@@ -15,7 +19,7 @@ class InTransaction(BaseException):
     Gets raised if a function that must only be used outside a database transaction
     gets called inside a transaction.
     """
-    
+
 class Backend(object):
 
     """
@@ -34,9 +38,11 @@ class Backend(object):
 
     __metaclass__ = abc.ABCMeta
 
-    def __init__(self,autodiscover_classes = True):
+    def __init__(self,autodiscover_classes = True,autoload_embedded = True,allow_documents_in_query = True):
         self.classes = {}
         self.collections = {}
+        self._autoload_embedded = autoload_embedded
+        self._allow_documents_in_query = allow_documents_in_query
         if autodiscover_classes:
             self.autodiscover_classes()
 
@@ -78,7 +84,7 @@ class Backend(object):
             collection_name = cls.__name__.lower()
 
         if collection_name in self.collections:
-            print("Warning: Overwriting existing collection %s!" % collection_name)
+            logger.warning("Overwriting existing collection %s!" % collection_name)
 
         delete_list = []
         for new_cls,new_params in self.classes.items():
@@ -110,7 +116,7 @@ class Backend(object):
             params = {}
         return self.register(cls,params)
 
-    def serialize(self,obj,convert_keys_to_str = False,embed_level = 0,encoders = None,autosave = True):        
+    def serialize(self,obj,convert_keys_to_str = False,embed_level = 0,encoders = None,autosave = True,for_query = False):        
         """
         Serializes a given object, i.e. converts it to a representation that can be stored in the database.
         This usually involves replacing all `Document` instances by database references to them.
@@ -120,12 +126,12 @@ class Backend(object):
         :param embed_level: If `embed_level > 0`, instances of `Document` classes will be embedded instead of referenced. 
                             The value of the parameter will get decremented by 1 when calling `serialize` on child objects.
         :param autosave: Whether to automatically save embedded objects without a primary key to the database.
+        :param for_query: If true, only the `pk` and `__collection__` attributes will be included in document references.
 
         :returns: The serialized object.
         """
 
-        serialize_with_opts = lambda value,*args,**kwargs : self.serialize(value,*args,convert_keys_to_str = convert_keys_to_str,autosave = autosave,**kwargs)
-
+        serialize_with_opts = lambda value,*args,**kwargs : self.serialize(value,*args,convert_keys_to_str = convert_keys_to_str,autosave = autosave,for_query = for_query, **kwargs)
         if encoders:
             for matcher,encoder in encoders:
                 if matcher(obj):
@@ -154,10 +160,12 @@ class Backend(object):
                     output_obj = copy.deepcopy(obj.lazy_attributes)
                     if obj.get_pk_name() in output_obj:
                         del output_obj[obj.get_pk_name()]
-                    output_obj['__pk__'] = obj.pk
+                    output_obj['pk'] = obj.pk
                     output_obj['__collection__'] = self.classes[obj.__class__]['collection']
                 else:
-                    output_obj = {'__pk__':obj.pk,'__collection__':self.classes[obj.__class__]['collection']}
+                    if for_query and not self._allow_documents_in_query:
+                        raise ValueError("Documents are not allowed in queries!")
+                    output_obj = {'pk':obj.pk,'__collection__':self.classes[obj.__class__]['collection']}
                     #We include fields to the reference, as given by the document's Meta class
                     if hasattr(obj,'Meta') and hasattr(obj.Meta,'dbref_includes') and obj.Meta.dbref_includes:
                         for include in obj.Meta.dbref_includes:
@@ -185,12 +193,12 @@ class Backend(object):
                     obj = decoder(obj)
 
         if isinstance(obj,dict):
-            if '__collection__' in obj and '__pk__' in obj and obj['__collection__'] in self.collections:
+            if '__collection__' in obj and 'pk' in obj and obj['__collection__'] in self.collections:
                 attributes = copy.deepcopy(obj)
-                del attributes['__pk__']
+                del attributes['pk']
                 del attributes['__collection__']
                 output_obj = self.create_instance(obj['__collection__'],attributes,lazy = True)
-                output_obj.pk = obj['__pk__']
+                output_obj.pk = obj['pk']
             else:
                 output_obj = {}
                 for (key,value) in obj.items():
@@ -221,7 +229,7 @@ class Backend(object):
         if 'constructor' in self.classes[cls]:
             obj = self.classes[cls]['constructor'](attributes,lazy = lazy)
         else:
-            obj = cls(attributes,lazy = lazy,default_backend = self)
+            obj = cls(attributes,lazy = lazy,default_backend = self,autoload = self._autoload_embedded)
         return obj
 
     def get_collection_for_obj(self,obj):

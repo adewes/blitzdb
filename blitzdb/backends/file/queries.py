@@ -32,6 +32,7 @@ def filter_query(key,expression):
 
     return _get
 
+
 def not_query(expression):
 
     compiled_expression = compile_query(expression)
@@ -118,6 +119,13 @@ def all_query(expression):
 
     return _all
 
+def elemMatch_query(expression):
+
+    def _elemMatch(index,expression = expression):
+        raise ValueError("$elemMatch query is currently not supported by file backend!")
+
+    return _elemMatch
+
 def in_query(expression):
 
     def _in(index,expression = expression):
@@ -158,6 +166,7 @@ query_funcs = {
     '$exists' : exists_query,
     '$and' : and_query,
     '$all' : all_query,
+    '$elemMatch' : elemMatch_query,
     '$or' : or_query,
     '$gte' : gte_query,
     '$lte' : lte_query,
