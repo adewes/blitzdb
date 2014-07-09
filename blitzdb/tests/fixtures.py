@@ -78,10 +78,10 @@ def _backend(request,tmpdir,autoload_embedded = True):
         return mongo_backend(request,{},autoload_embedded = autoload_embedded)
 
 def _init_indexes(backend):
-    for idx in ['name','director']:
-        backend.create_index(Movie,idx)
-    backend.create_index(Actor,'name')
-    backend.create_index(Actor,'movies')
+    for idx in [{'fields' :{ 'name' : 1}},{'fields' :{ 'director' : 1}}]:
+        backend.create_index(Movie,**idx)
+    backend.create_index(Actor,fields = {'name' : 1})
+    backend.create_index(Actor,fields = {'movies' : 1})
     return backend
 
 def file_backend(request,tmpdir,config,autoload_embedded = True):

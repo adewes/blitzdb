@@ -222,14 +222,31 @@ class Backend(BaseBackend):
 
     def create_indexes(self,cls_or_collection,params_list):
         for params in params_list:
-            self.create_index(cls_or_collection,*params)
+            self.create_index(cls_or_collection,**params)
+
+    def ensure_indexes(self,include_pk = True):
+        for cls in self.classes:
+            meta_attributes = self.get_meta_attributes(cls)
+            if include_pk:
+                self.create_index(cls,fields = {'pk' : 1})
+            if 'indexes' in meta_attributes:
+                self.create_indexes(cls,meta_attributes['indexes'])
 
     def create_index(self,cls_or_collection,*args,**kwargs):
         if not isinstance(cls_or_collection, six.string_types):
             collection = self.get_collection_for_cls(cls_or_collection)
         else:
             collection = cls_or_collection
-        self.db[collection].ensure_index(*args,**kwargs)
+
+        print(kwargs)
+
+        if not 'fields' in kwargs:
+            raise AttributeError("You must specify the 'fields' parameter when creating an index!")
+        if 'opts' in kwargs:
+            opts = kwargs['opts']
+        else:
+            opts = {}
+        self.db[collection].ensure_index(list(kwargs['fields'].items()),**opts)
 
     def compile_query(self,query):
         if isinstance(query,dict):

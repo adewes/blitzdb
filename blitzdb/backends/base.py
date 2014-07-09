@@ -98,12 +98,8 @@ class Backend(object):
         self.classes[cls] = parameters.copy()
         self.classes[cls]['collection'] = collection_name
 
-    def autoregister(self,cls):
-        """
-        Autoregister a class that is encountered for the first time.
+    def get_meta_attributes(self,cls):
 
-        :param cls: The class that should be registered.
-        """
         def get_user_attributes(cls):
             boring = dir(type('dummy', (object,), {}))
             return dict([item
@@ -114,6 +110,17 @@ class Backend(object):
             params = get_user_attributes(cls.Meta)
         else:
             params = {}
+
+        return params
+
+    def autoregister(self,cls):
+        """
+        Autoregister a class that is encountered for the first time.
+
+        :param cls: The class that should be registered.
+        """
+
+        params = self.get_meta_attributes(cls)
         return self.register(cls,params)
 
     def serialize(self,obj,convert_keys_to_str = False,embed_level = 0,encoders = None,autosave = True,for_query = False):        

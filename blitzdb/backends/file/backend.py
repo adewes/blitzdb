@@ -180,7 +180,7 @@ class Backend(BaseBackend):
         """
         return self.rebuild_indexes(collection,[key])
 
-    def create_index(self,cls_or_collection,params,ephemeral = False):
+    def create_index(self,cls_or_collection,params = None,fields = None,ephemeral = False):
         """
         Creates a new index on the given collection or class with the given parameters.
 
@@ -222,7 +222,16 @@ class Backend(BaseBackend):
             value of a document that is embedded in another document.
 
         """
-        return self.create_indexes(cls_or_collection,[params],ephemeral = ephemeral)
+
+        if params:
+            return self.create_indexes(cls_or_collection,[params],ephemeral = ephemeral)
+        elif fields:
+            params = []
+            if len(fields.items()) > 1:
+                raise ValueError("File backend currently does not support multi-key indexes, sorry :/")
+            return self.create_indexes(cls_or_collection,[{'key' : list(fields.keys())[0]}],ephemeral = ephemeral)
+        else:
+            raise AttributeError("You must either specify params or fields!")
 
     def get_pk_index(self,collection):
         """
