@@ -78,6 +78,10 @@ class QuerySet(BaseQuerySet):
         self._cursor.sort(*args,**kwargs)
         return self
 
+    def limit(self,*args,**kwargs):
+        self._cursor.limit(*args,**kwargs)
+        return self
+
     def filter(self,*args,**kwargs):
         return self.backend.filter(self.cls,*args,initial_keys = self.keys,**kwargs)
 

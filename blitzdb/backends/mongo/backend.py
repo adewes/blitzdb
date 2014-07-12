@@ -238,8 +238,6 @@ class Backend(BaseBackend):
         else:
             collection = cls_or_collection
 
-        print(kwargs)
-
         if not 'fields' in kwargs:
             raise AttributeError("You must specify the 'fields' parameter when creating an index!")
         if 'opts' in kwargs:
