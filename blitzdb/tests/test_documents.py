@@ -57,7 +57,7 @@ def test_lazy_attributes(mockup_backend):
     def get_lazy_doc():
         return Document({'pk': 1}, lazy = True, default_backend = mockup_backend)
 
-    #Fetchin of attribute by class attribute
+    # Fetchin of attribute by class attribute
 
     doc = get_lazy_doc()
 
@@ -65,7 +65,7 @@ def test_lazy_attributes(mockup_backend):
     assert doc.foo == 'bar'
     assert doc._lazy == False
 
-    #Fetching of attribute by dict
+    # Fetching of attribute by dict
 
     doc = get_lazy_doc()
 
@@ -73,7 +73,7 @@ def test_lazy_attributes(mockup_backend):
     assert doc['foo'] == 'bar'
     assert doc._lazy == False
 
-    #Getting all attributes
+    # Getting all attributes
 
     doc = get_lazy_doc()
 
@@ -83,7 +83,7 @@ def test_lazy_attributes(mockup_backend):
     assert attributes == mockup_backend.attributes
     assert doc._lazy == False
 
-    #Deletion by dict
+    # Deletion by dict
 
     doc = get_lazy_doc()
 
@@ -93,7 +93,7 @@ def test_lazy_attributes(mockup_backend):
         doc['foo']
     assert doc._lazy == False
 
-    #Deletion by attribute
+    # Deletion by attribute
 
     doc = get_lazy_doc()
 
@@ -103,7 +103,7 @@ def test_lazy_attributes(mockup_backend):
         doc.foo
     assert doc._lazy == False
 
-    #Update by dict
+    # Update by dict
 
     doc = get_lazy_doc()
 
@@ -112,7 +112,7 @@ def test_lazy_attributes(mockup_backend):
     assert doc._lazy == False
     assert doc['foo'] == 'faz'
 
-    #Update by attribute
+    # Update by attribute
 
     doc = get_lazy_doc()
 

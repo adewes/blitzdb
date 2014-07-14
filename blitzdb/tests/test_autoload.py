@@ -14,7 +14,7 @@ def test_update_by_list(no_autoload_mongodb_backend):
         class Meta(Movie.Meta):
             dbref_includes = ["year"]
 
-    actor = Actor({'name': 'Robert de Niro', 'age': 54, 'movies': [MyMovie({'name': 'The Godfather', 'year': 1987, 'rating': 'AAA'})] })
+    actor = Actor({'name': 'Robert de Niro', 'age': 54, 'movies': [MyMovie({'name': 'The Godfather', 'year': 1987, 'rating': 'AAA'})]})
 
     no_autoload_mongodb_backend.save(actor)
     no_autoload_mongodb_backend.commit()
@@ -42,7 +42,7 @@ def test_eager_property(no_autoload_mongodb_backend):
         class Meta(Movie.Meta):
             dbref_includes = ["year"]
 
-    actor = Actor({'name': 'Robert de Niro', 'age': 54, 'movies': [MyMovie({'name': 'The Godfather', 'year': 1987, 'rating': 'AAA'})] })
+    actor = Actor({'name': 'Robert de Niro', 'age': 54, 'movies': [MyMovie({'name': 'The Godfather', 'year': 1987, 'rating': 'AAA'})]})
 
     no_autoload_mongodb_backend.save(actor)
     no_autoload_mongodb_backend.commit()

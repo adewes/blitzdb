@@ -30,7 +30,7 @@ class Backend(BaseBackend):
         backend = MongoBackend(my_db)
     """
 
-    #magic value to replace '.' characters in dictionary keys (which breaks MongoDB)
+    # magic value to replace '.' characters in dictionary keys (which breaks MongoDB)
     DOT_MAGIC_VALUE = ":a5b8afc131:"
 
     def __init__(self, db, autocommit = False, **kwargs):

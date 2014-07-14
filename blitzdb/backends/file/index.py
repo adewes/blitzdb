@@ -69,7 +69,7 @@ class Index(object):
         return True
 
     def sort_keys(self, keys, order = 1):
-        #to do: check that all reverse index values are unambiguous
+        # to do: check that all reverse index values are unambiguous
         missing_keys = [key for key in keys if not len(self._reverse_index[key])]
         keys_and_values = [(key, self._reverse_index[key][0]) for key in keys if not key in missing_keys]
         sorted_keys = [kv[0] for kv in sorted(keys_and_values, key = lambda x: x[1], reverse = True if order < 0 else False)]
@@ -102,7 +102,7 @@ class Index(object):
         hash_value = self.get_hash_for(value)
         return self._index[hash_value][:]
 
-    #The following two operations change the value of the index
+    # The following two operations change the value of the index
 
     def add_hashed_value(self, hash_value, store_key):
         if not store_key in self._index[hash_value]:
@@ -117,10 +117,10 @@ class Index(object):
         except (KeyError, IndexError):
             return
 
-        #We remove old values
+        # We remove old values
         self.remove_key(store_key)
         if isinstance(value, list) or isinstance(value, tuple):
-            #We add an extra hash value for the list itself (this allows for querying the whole list)
+            # We add an extra hash value for the list itself (this allows for querying the whole list)
             values = value
             hash_value = self.get_hash_for(value)
             self.add_hashed_value(hash_value, store_key)

@@ -140,7 +140,7 @@ class BaseDocument(object):
         if lazy:
             if key == 'lazy_attributes':
                 return super(BaseDocument, self).__getattribute__('_attributes')
-            #If we demand the attributes, we load the object from the DB in any case.
+            # If we demand the attributes, we load the object from the DB in any case.
             if key in ('attributes',):
                 if self._autoload:
                     self.revert()
@@ -185,7 +185,7 @@ class BaseDocument(object):
         if key.startswith('_'):
             return super(BaseDocument, self).__setattr__(key, value)
         elif key == 'pk':
-            #this is ugly, should find a better solution for handling properties...
+            # this is ugly, should find a better solution for handling properties...
             super(BaseDocument, self).__setattr__(key, value)
         else:
             self.attributes[key] = value
@@ -387,7 +387,7 @@ class BaseDocument(object):
             allows you to perform document-specific initialization tasks if needed.
 
         """
-        logger.debug("Reverting to database state (%s, %s)" %(self.__class__.__name__, self.pk) )
+        logger.debug("Reverting to database state (%s, %s)" %(self.__class__.__name__, self.pk))
         backend = backend or self._default_backend
         if not backend:
             raise AttributeError("No backend given!")

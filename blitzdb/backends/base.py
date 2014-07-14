@@ -163,7 +163,7 @@ class Backend(object):
                     obj.save(self)
 
                 if obj._lazy:
-                    #We make sure that all attributes that are already present get included in the reference
+                    # We make sure that all attributes that are already present get included in the reference
                     output_obj = copy.deepcopy(obj.lazy_attributes)
                     if obj.get_pk_name() in output_obj:
                         del output_obj[obj.get_pk_name()]
@@ -173,7 +173,7 @@ class Backend(object):
                     if for_query and not self._allow_documents_in_query:
                         raise ValueError("Documents are not allowed in queries!")
                     output_obj = {'pk': obj.pk, '__collection__': self.classes[obj.__class__]['collection']}
-                    #We include fields to the reference, as given by the document's Meta class
+                    # We include fields to the reference, as given by the document's Meta class
                     if hasattr(obj, 'Meta') and hasattr(obj.Meta, 'dbref_includes') and obj.Meta.dbref_includes:
                         for include in obj.Meta.dbref_includes:
                             if include in obj and not include in output_obj:
@@ -231,7 +231,7 @@ class Backend(object):
         elif collection_or_class in self.collections:
             cls = self.collections[collection_or_class]
         else:
-            raise AttributeError("Unknown collection or class: %s!" % str(collection_or_class) )
+            raise AttributeError("Unknown collection or class: %s!" % str(collection_or_class))
 
         if 'constructor' in self.classes[cls]:
             obj = self.classes[cls]['constructor'](attributes, lazy = lazy)

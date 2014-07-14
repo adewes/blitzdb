@@ -42,7 +42,7 @@ def test_negative_indexing(backend, small_test_data):
     assert actors[-10:-1] == actors[len(actors)-10:len(actors)-1]
     assert actors[-len(actors):-1] == actors[0:len(actors)-1]
 
-    #To do: Make step tests for file backend (MongoDB does not support this)
+    # To do: Make step tests for file backend (MongoDB does not support this)
 #    assert actors[-10:-1:2] == actors[len(actors)-10:len(actors)-1:2]
 
 def test_missing_keys_in_slice(backend, small_test_data):
@@ -123,8 +123,8 @@ def test_operators(backend):
         query = {   
                 '$and': 
                     [
-                        {'gross_income_m': {op: 1.0} },
-                        {'is_funny': True }
+                        {'gross_income_m': {op: 1.0}},
+                        {'is_funny': True}
                     ] 
                 }
 
@@ -137,11 +137,11 @@ def test_operators(backend):
                 '$and': 
                     [
                         {'$or': [
-                                    {'gross_income_m': {op: 1.0} },
-                                    {'birth_year': {'$lt': 1900} },
+                                    {'gross_income_m': {op: 1.0}},
+                                    {'birth_year': {'$lt': 1900}},
                                 ]},
                         {'$or': [
-                            {'is_funny': True },
+                            {'is_funny': True},
                             {'name': 'Marlon Brando'},
                                 ]
                         },
@@ -221,7 +221,7 @@ def test_non_indexed_delete(backend, small_test_data):
     (movies, actors, directors) = small_test_data
 
     for movie in movies:
-        backend.filter(Director, {'movies': {'$all': [movie]} }).delete()
+        backend.filter(Director, {'movies': {'$all': [movie]}}).delete()
 
     backend.commit()
 

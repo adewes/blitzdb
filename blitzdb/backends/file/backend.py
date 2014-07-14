@@ -34,7 +34,7 @@ serializer_classes = {
     'marshal': MarshalSerializer
 }
 
-#will only be available if cjson is installed
+# will only be available if cjson is installed
 try:
     from blitzdb.backends.file.serializers import CJsonSerializer
     serializer_classes['cjson'] = CJsonSerializer
@@ -67,7 +67,7 @@ class Backend(BaseBackend):
 
     """
 
-    #the default configuration values.
+    # the default configuration values.
     default_config = {
         'indexes': {},
         'store_class': 'transactional',
@@ -147,7 +147,7 @@ class Backend(BaseBackend):
                 try:
                     index.rollback()
                 except NotInTransaction:
-                    #this index is "dirty" and needs to be rebuilt (probably it has been created within a transaction)
+                    # this index is "dirty" and needs to be rebuilt (probably it has been created within a transaction)
                     indexes_to_rebuild.append(key)
             if indexes_to_rebuild:
                 self.rebuild_indexes(collection, indexes_to_rebuild)
@@ -252,7 +252,7 @@ class Backend(BaseBackend):
         config_file = self._path+"/config.json"
         if os.path.exists(config_file):
             with open(config_file, "rb") as config_file:
-                #configuration is always stored in JSON format
+                # configuration is always stored in JSON format
                 self._config = JsonSerializer.deserialize(config_file.read())
         else:
             if config:
@@ -312,15 +312,15 @@ class Backend(BaseBackend):
     def init_indexes(self, collection):
         cls = self.collections[collection]
         if collection in self._config['indexes']:
-            #If not pk index is present, we create one on the fly...
+            # If not pk index is present, we create one on the fly...
             if not [idx for idx in self._config['indexes'][collection].values() if idx['key'] == cls.get_pk_name()]:
                 self.create_index(collection, {'key': cls.get_pk_name()})
             
-            #We sort the indexes such that pk is always created first...
+            # We sort the indexes such that pk is always created first...
             for index_params in sorted(self._config['indexes'][collection].values(), key = lambda x: 0 if x['key'] == cls.get_pk_name() else 1):
                 index = self.create_index(collection, index_params)
         else:
-            #If no indexes are given, we just create a primary key index...
+            # If no indexes are given, we just create a primary key index...
             self.create_index(collection, {'key': cls.get_pk_name()})
 
     def rebuild_indexes(self, collection, keys):
@@ -522,7 +522,7 @@ class Backend(BaseBackend):
                 indexes_to_create.append(key)
             return QuerySet(self, cls, store, [])
 
-        #We collect all the indexes that we need to create
+        # We collect all the indexes that we need to create
         compiled_query(index_collector)
     
         if indexes_to_create:
