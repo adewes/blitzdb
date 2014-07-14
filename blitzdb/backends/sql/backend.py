@@ -28,11 +28,11 @@ class Backend(BaseBackend):
         backend = MongoBackend(my_db)
     """
 
-    def __init__(self,db,**kwargs):
+    def __init__(self, db, **kwargs):
         self.db = db
         self.classes = {}
         self.collections = {}
-        super(Backend,self).__init__(**kwargs)
+        super(Backend, self).__init__(**kwargs)
 
     def begin(self):
         pass
@@ -43,7 +43,7 @@ class Backend(BaseBackend):
     def commit(self):
         pass
 
-    def get(self,cls_or_collection,properties):
+    def get(self, cls_or_collection, properties):
         if not isinstance(cls_or_collection, six.string_types):
             collection = self.get_collection_for_cls(cls_or_collection)
         else:
@@ -52,15 +52,15 @@ class Backend(BaseBackend):
         cls = self.get_cls_for_collection(collection)
         if not attributes:
             raise cls.DoesNotExist
-        return self.create_instance(cls,self.deserialize(attributes))
+        return self.create_instance(cls, self.deserialize(attributes))
 
-    def delete(self,obj):
+    def delete(self, obj):
         collection = self.get_collection_for_cls(obj.__class__)
         if obj.pk == None:
             raise obj.DoesNotExist
         self.db[collection].remove({'_id' : obj.pk})
 
-    def save(self,obj):
+    def save(self, obj):
         collection = self.get_collection_for_cls(obj.__class__)
         if obj.pk == None:
             obj.pk = uuid.uuid4().hex
@@ -68,29 +68,29 @@ class Backend(BaseBackend):
         serialized_attributes['_id'] = obj.pk
         self.db[collection].save(serialized_attributes)
 
-    def serialize(self,obj,convert_keys_to_str = True,embed_level = 0,encoders = None):
-        return super(Backend,self).serialize(obj,convert_keys_to_str = convert_keys_to_str,embed_level = embed_level, encoders = encoders)
+    def serialize(self, obj, convert_keys_to_str = True, embed_level = 0, encoders = None):
+        return super(Backend, self).serialize(obj, convert_keys_to_str = convert_keys_to_str, embed_level = embed_level, encoders = encoders)
 
-    def deserialize(self,obj,decoders = None):
-        return super(Backend,self).deserialize(obj,decoders = decoders)
+    def deserialize(self, obj, decoders = None):
+        return super(Backend, self).deserialize(obj, decoders = decoders)
 
 
-    def create_index(self,cls_or_collection,*args,**kwargs):
+    def create_index(self, cls_or_collection, *args, **kwargs):
         if not isinstance(cls_or_collection, six.string_types):
             collection = self.get_collection_for_cls(cls_or_collection)
         else:
             collection = cls_or_collection
-        self.db[collection].ensure_index(*args,**kwargs)
+        self.db[collection].ensure_index(*args, **kwargs)
 
-    def compile_query(self,query):
-        if isinstance(query,dict):
-            return dict([(self.compile_query(key),self.compile_query(value)) for key,value in query.items()])
-        elif isinstance(query,list):
+    def compile_query(self, query):
+        if isinstance(query, dict):
+            return dict([(self.compile_query(key), self.compile_query(value)) for key, value in query.items()])
+        elif isinstance(query, list):
             return  [self.compile_query(x) for x in query]
         else:
             return self.serialize(query)
 
-    def filter(self,cls_or_collection,query,sort_by = None,limit = None,offset = None):
+    def filter(self, cls_or_collection, query, sort_by = None, limit = None, offset = None):
         """
         Filter objects from the database that correspond to a given set of properties.
 
@@ -113,4 +113,4 @@ class Backend(BaseBackend):
 
         compiled_query = self.compile_query(query)
 
-        return QuerySet(self,cls,self.db[collection].find(compiled_query))
+        return QuerySet(self, cls, self.db[collection].find(compiled_query))

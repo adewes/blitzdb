@@ -5,7 +5,7 @@ import pytest
 from .fixtures import *
 
 from blitzdb import Document
-from blitzdb.tests.helpers.movie_data import Actor,Director,Movie
+from blitzdb.tests.helpers.movie_data import Actor, Director, Movie
 
 class MyDocument(Document):
 
@@ -19,21 +19,21 @@ class MyDocument(Document):
     def pre_delete(self):
         self.foo = "bar"
 
-def test_pre_save_hook(backend,small_test_data):
+def test_pre_save_hook(backend, small_test_data):
 
     my_document = MyDocument({'test' : 123})
 
     backend.save(my_document)
 
-    assert hasattr(my_document,'foo')
+    assert hasattr(my_document, 'foo')
     assert my_document.foo == "bar"
 
-def test_pre_delete_hook(backend,small_test_data):
+def test_pre_delete_hook(backend, small_test_data):
 
     my_document = MyDocument({'test' : 123})
     my_document.pk = 1
 
     backend.delete(my_document)
 
-    assert hasattr(my_document,'foo')
+    assert hasattr(my_document, 'foo')
     assert my_document.foo == "bar"

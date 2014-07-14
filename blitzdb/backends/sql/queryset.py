@@ -6,8 +6,8 @@ class QuerySet(BaseQuerySet):
     """
     """
 
-    def __init__(self,backend,cls,cursor):
-        super(QuerySet,self).__init__(backend,cls)
+    def __init__(self, backend, cls, cursor):
+        super(QuerySet, self).__init__(backend, cls)
         self._cursor = cursor
         
     def __iter__(self):
@@ -16,7 +16,7 @@ class QuerySet(BaseQuerySet):
     def __len__(self):
         pass
 
-    def _create_object_for(self,json_attributes):
+    def _create_object_for(self, json_attributes):
         pass
 
     def next(self):
@@ -24,10 +24,10 @@ class QuerySet(BaseQuerySet):
 
     __next__ = next
 
-    def __getitem__(self,key):
+    def __getitem__(self, key):
         pass
 
-    def __contains__(self,obj):
+    def __contains__(self, obj):
         pass
 
     def rewind(self):
@@ -36,17 +36,17 @@ class QuerySet(BaseQuerySet):
     def delete(self):
         pass
 
-    def sort(self,*args,**kwargs):
+    def sort(self, *args, **kwargs):
         pass
 
-    def filter(self,*args,**kwargs):
+    def filter(self, *args, **kwargs):
         pass
 
     def __len__(self):
         pass
 
-    def __ne__(self,other):
+    def __ne__(self, other):
         pass
     
-    def __eq__(self,other):
+    def __eq__(self, other):
         pass

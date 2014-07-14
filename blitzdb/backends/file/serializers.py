@@ -18,17 +18,17 @@ as well as a cPickle and marshal serializer.
 class JsonSerializer(object):
 
     @classmethod
-    def serialize(cls,data):
+    def serialize(cls, data):
         if six.PY3:
             if isinstance(data, bytes):
-                return json.dumps(data.decode('utf-8'),cls = JsonEncoder).encode('utf-8')
+                return json.dumps(data.decode('utf-8'), cls = JsonEncoder).encode('utf-8')
             else:
-                return json.dumps(data,cls = JsonEncoder).encode('utf-8')
+                return json.dumps(data, cls = JsonEncoder).encode('utf-8')
         else:
-            return json.dumps(data,cls = JsonEncoder)
+            return json.dumps(data, cls = JsonEncoder)
 
     @classmethod
-    def deserialize(cls,data):
+    def deserialize(cls, data):
         if six.PY3:
             return json.loads(data.decode('utf-8'))
         else:
@@ -37,22 +37,22 @@ class JsonSerializer(object):
 class PickleSerializer(object):
 
     @classmethod
-    def serialize(cls,data):
-        return cPickle.dumps(data,cPickle.HIGHEST_PROTOCOL)
+    def serialize(cls, data):
+        return cPickle.dumps(data, cPickle.HIGHEST_PROTOCOL)
 
     @classmethod
-    def deserialize(cls,data):
+    def deserialize(cls, data):
         return cPickle.loads(data)
 
 
 class MarshalSerializer(object):
 
     @classmethod
-    def serialize(cls,data):
+    def serialize(cls, data):
         return marshal.dumps(data)
 
     @classmethod
-    def deserialize(cls,data):
+    def deserialize(cls, data):
         return marshal.loads(data)
 
 try:
@@ -61,11 +61,11 @@ try:
     class CJsonSerializer(object):
 
         @classmethod
-        def serialize(cls,data):
+        def serialize(cls, data):
             return cjson.encode(data)
 
         @classmethod
-        def deserialize(cls,data):
+        def deserialize(cls, data):
             return cjson.decode(data)
 
 except ImportError:

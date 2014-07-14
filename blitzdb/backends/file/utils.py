@@ -4,8 +4,8 @@ import datetime
 class JsonEncoder(json.JSONEncoder):
     
     def default(self, obj):
-        if isinstance(obj,set):
+        if isinstance(obj, set):
             return list(obj)
-        elif isinstance(obj,datetime.datetime):
+        elif isinstance(obj, datetime.datetime):
             return obj.ctime()
         return json.JSONEncoder.default(self, obj)

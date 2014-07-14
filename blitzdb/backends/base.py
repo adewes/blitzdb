@@ -6,7 +6,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-from blitzdb.document import Document,document_classes
+from blitzdb.document import Document, document_classes
 
 class NotInTransaction(BaseException):
     """
@@ -38,7 +38,7 @@ class Backend(object):
 
     __metaclass__ = abc.ABCMeta
 
-    def __init__(self,autodiscover_classes = True,autoload_embedded = True,allow_documents_in_query = True):
+    def __init__(self, autodiscover_classes = True, autoload_embedded = True, allow_documents_in_query = True):
         self.classes = {}
         self.collections = {}
         self._autoload_embedded = autoload_embedded
@@ -55,7 +55,7 @@ class Backend(object):
         for document_class in document_classes:
             self.register(document_class)
 
-    def register(self,cls,parameters = None):
+    def register(self, cls, parameters = None):
         """
         Explicitly register a new document class for use in the backend.
 
@@ -87,7 +87,7 @@ class Backend(object):
             logger.warning("Overwriting existing collection %s!" % collection_name)
 
         delete_list = []
-        for new_cls,new_params in self.classes.items():
+        for new_cls, new_params in self.classes.items():
             if 'collection' in new_params and new_params['collection'] == collection_name:
                 delete_list.append(new_cls)
 
@@ -98,7 +98,7 @@ class Backend(object):
         self.classes[cls] = parameters.copy()
         self.classes[cls]['collection'] = collection_name
 
-    def get_meta_attributes(self,cls):
+    def get_meta_attributes(self, cls):
 
         def get_user_attributes(cls):
             boring = dir(type('dummy', (object,), {}))
@@ -106,14 +106,14 @@ class Backend(object):
                     for item in inspect.getmembers(cls)
                     if item[0] not in boring])
         
-        if hasattr(cls,'Meta'):
+        if hasattr(cls, 'Meta'):
             params = get_user_attributes(cls.Meta)
         else:
             params = {}
 
         return params
 
-    def autoregister(self,cls):
+    def autoregister(self, cls):
         """
         Autoregister a class that is encountered for the first time.
 
@@ -121,9 +121,9 @@ class Backend(object):
         """
 
         params = self.get_meta_attributes(cls)
-        return self.register(cls,params)
+        return self.register(cls, params)
 
-    def serialize(self,obj,convert_keys_to_str = False,embed_level = 0,encoders = None,autosave = True,for_query = False):        
+    def serialize(self, obj, convert_keys_to_str = False, embed_level = 0, encoders = None, autosave = True, for_query = False):        
         """
         Serializes a given object, i.e. converts it to a representation that can be stored in the database.
         This usually involves replacing all `Document` instances by database references to them.
@@ -138,24 +138,24 @@ class Backend(object):
         :returns: The serialized object.
         """
 
-        serialize_with_opts = lambda value,*args,**kwargs : self.serialize(value,*args,convert_keys_to_str = convert_keys_to_str,autosave = autosave,for_query = for_query, **kwargs)
+        serialize_with_opts = lambda value, *args, **kwargs : self.serialize(value, *args, convert_keys_to_str = convert_keys_to_str, autosave = autosave, for_query = for_query, **kwargs)
         if encoders:
-            for matcher,encoder in encoders:
+            for matcher, encoder in encoders:
                 if matcher(obj):
                     obj = encoder(obj)
 
-        if isinstance(obj,dict):
+        if isinstance(obj, dict):
             output_obj = {}
-            for key,value in obj.items():
-                output_obj[str(key) if convert_keys_to_str else key] = serialize_with_opts(value,embed_level = embed_level)
-        elif isinstance(obj,list):
-            output_obj = list(map(lambda x:serialize_with_opts(x,embed_level = embed_level),obj))
-        elif isinstance(obj,tuple):
-            output_obj = tuple(map(lambda x:serialize_with_opts(x,embed_level = embed_level),obj))
-        elif isinstance(obj,Document):
+            for key, value in obj.items():
+                output_obj[str(key) if convert_keys_to_str else key] = serialize_with_opts(value, embed_level = embed_level)
+        elif isinstance(obj, list):
+            output_obj = list(map(lambda x: serialize_with_opts(x, embed_level = embed_level), obj))
+        elif isinstance(obj, tuple):
+            output_obj = tuple(map(lambda x: serialize_with_opts(x, embed_level = embed_level), obj))
+        elif isinstance(obj, Document):
             collection = self.get_collection_for_obj(obj)
             if embed_level > 0:
-                output_obj = serialize_with_opts(obj.attributes,embed_level = embed_level-1)
+                output_obj = serialize_with_opts(obj.attributes, embed_level = embed_level-1)
             elif obj.embed:
                 output_obj = obj.serialize(embed = True)
             else:
@@ -172,9 +172,9 @@ class Backend(object):
                 else:
                     if for_query and not self._allow_documents_in_query:
                         raise ValueError("Documents are not allowed in queries!")
-                    output_obj = {'pk':obj.pk,'__collection__':self.classes[obj.__class__]['collection']}
+                    output_obj = {'pk': obj.pk, '__collection__': self.classes[obj.__class__]['collection']}
                     #We include fields to the reference, as given by the document's Meta class
-                    if hasattr(obj,'Meta') and hasattr(obj.Meta,'dbref_includes') and obj.Meta.dbref_includes:
+                    if hasattr(obj, 'Meta') and hasattr(obj.Meta, 'dbref_includes') and obj.Meta.dbref_includes:
                         for include in obj.Meta.dbref_includes:
                             if include in obj and not include in output_obj:
                                 output_obj[include] = obj[include]
@@ -184,7 +184,7 @@ class Backend(object):
             output_obj = obj
         return output_obj
 
-    def deserialize(self,obj,decoders = None):
+    def deserialize(self, obj, decoders = None):
         """
         Deserializes a given object, i.e. converts references to other (known) `Document` objects by lazy instances of the
         corresponding class. This allows the automatic fetching of related documents from the database as required.
@@ -195,28 +195,28 @@ class Backend(object):
         """
 
         if decoders:
-            for matcher,decoder in decoders:
+            for matcher, decoder in decoders:
                 if matcher(obj):
                     obj = decoder(obj)
 
-        if isinstance(obj,dict):
+        if isinstance(obj, dict):
             if '__collection__' in obj and 'pk' in obj and obj['__collection__'] in self.collections:
                 attributes = copy.deepcopy(obj)
                 del attributes['pk']
                 del attributes['__collection__']
-                output_obj = self.create_instance(obj['__collection__'],attributes,lazy = True)
+                output_obj = self.create_instance(obj['__collection__'], attributes, lazy = True)
                 output_obj.pk = obj['pk']
             else:
                 output_obj = {}
-                for (key,value) in obj.items():
+                for (key, value) in obj.items():
                     output_obj[key] = self.deserialize(value)
-        elif isinstance(obj,list) or isinstance(obj,tuple):
-            output_obj = list(map(lambda x:self.deserialize(x),obj))
+        elif isinstance(obj, list) or isinstance(obj, tuple):
+            output_obj = list(map(lambda x: self.deserialize(x), obj))
         else:
             output_obj = obj
         return output_obj
 
-    def create_instance(self,collection_or_class,attributes,lazy = False):
+    def create_instance(self, collection_or_class, attributes, lazy = False):
         """
         Creates an instance of a `Document` class corresponding to the given collection name or class.
 
@@ -234,12 +234,12 @@ class Backend(object):
             raise AttributeError("Unknown collection or class: %s!" % str(collection_or_class) )
 
         if 'constructor' in self.classes[cls]:
-            obj = self.classes[cls]['constructor'](attributes,lazy = lazy)
+            obj = self.classes[cls]['constructor'](attributes, lazy = lazy)
         else:
-            obj = cls(attributes,lazy = lazy,default_backend = self,autoload = self._autoload_embedded)
+            obj = cls(attributes, lazy = lazy, default_backend = self, autoload = self._autoload_embedded)
         return obj
 
-    def get_collection_for_obj(self,obj):
+    def get_collection_for_obj(self, obj):
         """
         Returns the collection name for a given object, based on the class of the object.
 
@@ -249,7 +249,7 @@ class Backend(object):
         """
         return self.get_collection_for_cls(obj.__class__)
 
-    def get_collection_for_cls(self,cls):
+    def get_collection_for_cls(self, cls):
         """
         Returns the collection name for a given document class.
 
@@ -258,14 +258,14 @@ class Backend(object):
         :returns: The collection name for the given class.
         """
         if not cls in self.classes:
-            if issubclass(cls,Document) and not cls in self.classes:
+            if issubclass(cls, Document) and not cls in self.classes:
                 self.autoregister(cls)
             else:
                 raise AttributeError("Unknown object type: %s" % cls.__name__)
         collection = self.classes[cls]['collection']
         return collection
 
-    def get_cls_for_collection(self,collection):
+    def get_cls_for_collection(self, collection):
         """
         Return the class for a given collection name.
 
@@ -273,13 +273,13 @@ class Backend(object):
 
         :returns: A reference to the class for the given collection name.
         """
-        for cls,params in self.classes.items():
+        for cls, params in self.classes.items():
             if params['collection'] == collection:
                 return cls
         raise AttributeError("Unknown collection: %s" % collection)
 
     @abc.abstractmethod
-    def save(self,obj,cache = None):
+    def save(self, obj, cache = None):
         """
         Abstract method to save a `Document` instance to the database.
 
@@ -288,7 +288,7 @@ class Backend(object):
         """
 
     @abc.abstractmethod
-    def get(self,cls,properties):
+    def get(self, cls, properties):
         """
         Abstract method to retrieve a single object from the database according to a list of properties.
 
@@ -306,7 +306,7 @@ class Backend(object):
         """
 
     @abc.abstractmethod
-    def delete(self,obj):
+    def delete(self, obj):
         """
         Deletes an object from the database.
 
@@ -314,7 +314,7 @@ class Backend(object):
         """
 
     @abc.abstractmethod
-    def filter(self,cls,properties,sort_by = None,limit = None,offset = None):
+    def filter(self, cls, properties, sort_by = None, limit = None, offset = None):
         """
         Filter objects from the database that correspond to a given set of properties.
 
