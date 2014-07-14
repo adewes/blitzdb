@@ -30,10 +30,10 @@ class Store(object):
             os.makedirs(properties['path'])
 
     def _get_path_for_key(self, key):
-        return self._properties['path']+'/'+key
+        return self._properties['path'] +'/' +key
 
     def store_blob(self, blob, key):
-        with open(self._properties['path']+"/"+key, "wb") as output_file:
+        with open(self._properties['path'] +"/" +key, "wb") as output_file:
             output_file.write(blob)
         return key
 
@@ -44,13 +44,13 @@ class Store(object):
 
     def get_blob(self, key):
         try:
-            with open(self._properties['path']+"/"+key, "rb") as input_file:
+            with open(self._properties['path'] +"/" +key, "rb") as input_file:
                 return input_file.read()
         except IOError:
             raise KeyError("Key %s not found!" % key)
 
     def has_blob(self, key):
-        if os.path.exists(self._properties['path']+"/"+key):
+        if os.path.exists(self._properties['path'] +"/" +key):
             return True
         return False
 

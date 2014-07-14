@@ -46,13 +46,13 @@ class QuerySet(BaseQuerySet):
             if key.stop == None:
                 stop = self._cursor.count()
             if start < 0:
-                start = self._cursor.count()+start
+                start = self._cursor.count() +start
             if stop < 0:
-                stop = self._cursor.count()+stop
+                stop = self._cursor.count() +stop
             key = slice(start, stop)
             return self.__class__(self.backend, self.cls, self._cursor.__getitem__(key), raw=self._raw)
         if key < 0:
-            key = self._cursor.count()+key
+            key = self._cursor.count() +key
         json_attributes = self._cursor[key]
         obj = self._create_object_for(json_attributes)
         return obj

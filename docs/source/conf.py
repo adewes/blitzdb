@@ -19,7 +19,7 @@ import os
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 
-project_path = os.path.abspath(__file__+"/../../../")
+project_path = os.path.abspath(__file__ +"/../../../")
 print project_path
 
 sys.path.insert(0, os.path.abspath(project_path))

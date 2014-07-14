@@ -41,7 +41,7 @@ def generate_test_data(request, backend, n):
         movies.append(movie)
         movie.save(backend)
 
-    for i in range(0, n*4):
+    for i in range(0, n *4):
         actor = Actor(
             {
                 'name': fake.name(),
@@ -49,7 +49,7 @@ def generate_test_data(request, backend, n):
                 'movies': []
             }            
             )
-        n_movies = 1+int((1.0-math.log(random.randint(1, 1000))/math.log(1000.0))*5)
+        n_movies = 1 +int((1.0 -math.log(random.randint(1, 1000)) /math.log(1000.0)) *5)
         actor_movies = random.sample(movies, n_movies)
         for movie in actor_movies:
             actor.movies.append(movie)
@@ -58,7 +58,7 @@ def generate_test_data(request, backend, n):
         actors.append(actor)
         actor.save(backend)
 
-    for i in range(0, int(n/10)):
+    for i in range(0, int(n /10)):
         director = Director(
                 {
                     'name': fake.name(),
@@ -66,7 +66,7 @@ def generate_test_data(request, backend, n):
                     'movies': [],
                 }
             )
-        n_movies = 1+int((1.0-math.log(random.randint(1, 1000))/math.log(1000.0))*10)
+        n_movies = 1 +int((1.0 -math.log(random.randint(1, 1000)) /math.log(1000.0)) *10)
         director_movies = random.sample(movies, n_movies)
 
         for movie in director_movies:

@@ -38,9 +38,9 @@ def test_negative_indexing(backend, small_test_data):
 
     actors = backend.filter(Actor, {})
 
-    assert actors[-1] == actors[len(actors)-1]
-    assert actors[-10:-1] == actors[len(actors)-10:len(actors)-1]
-    assert actors[-len(actors):-1] == actors[0:len(actors)-1]
+    assert actors[-1] == actors[len(actors) -1]
+    assert actors[-10:-1] == actors[len(actors) -10:len(actors) -1]
+    assert actors[-len(actors):-1] == actors[0:len(actors) -1]
 
     # To do: Make step tests for file backend (MongoDB does not support this)
 #    assert actors[-10:-1:2] == actors[len(actors)-10:len(actors)-1:2]
@@ -258,7 +258,7 @@ def test_default_backend(backend, small_test_data):
     with pytest.raises(Movie.DoesNotExist):
         backend.get(Movie, {'pk': movie.pk})
 
-    assert old_len == len(backend.filter(Movie, {}))+1
+    assert old_len == len(backend.filter(Movie, {})) +1
 
 def test_index_reloading(backend, small_test_data):
 

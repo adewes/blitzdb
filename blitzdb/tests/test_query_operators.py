@@ -369,7 +369,7 @@ def test_exists(backend):
 
     # Test with illegal values
     try:
-        query = {'appearances': {'$exists': 0/0}}
+        query = {'appearances': {'$exists': 0 /0}}
         assert len(backend.filter(Actor, query)) == len([])
     except ZeroDivisionError:
         pass
@@ -466,7 +466,7 @@ def test_all(backend):
 
     # Test with illegal values
     try:
-        query = {'appearances': {'$all': [0/0, math.sqrt(-1)]}}
+        query = {'appearances': {'$all': [0 /0, math.sqrt(-1)]}}
         assert len(backend.filter(Actor, query)) == len([])
     except ZeroDivisionError:
         pass
@@ -563,7 +563,7 @@ def test_ne(backend):
 
     # Test with illegal values
     try:
-        query = {'appearances': {'$ne': 0/0}}
+        query = {'appearances': {'$ne': 0 /0}}
         assert len(backend.filter(Actor, query)) == len([])
     except ZeroDivisionError:
         pass
@@ -633,7 +633,7 @@ def test_and(backend):
 
     # Test with illegal values
     try:
-        query = {'$and': [{'name':  charlie_chaplin.name}, {'birth_year': 0/0}]}
+        query = {'$and': [{'name':  charlie_chaplin.name}, {'birth_year': 0 /0}]}
         assert len(backend.filter(Actor, query)) == len([])
     except ZeroDivisionError:
         pass
@@ -705,7 +705,7 @@ def test_or(backend):
 
     # Test with illegal values
     try:
-        query = {'$or': [{'name': charlie_chaplin.name}, {'birth_year': 0/0}]}
+        query = {'$or': [{'name': charlie_chaplin.name}, {'birth_year': 0 /0}]}
         assert len(backend.filter(Actor, query)) == len([])
     except ZeroDivisionError:
         pass
