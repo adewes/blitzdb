@@ -86,7 +86,7 @@ class Backend(BaseBackend):
         if isinstance(query, dict):
             return dict([(self.compile_query(key), self.compile_query(value)) for key, value in query.items()])
         elif isinstance(query, list):
-            return  [self.compile_query(x) for x in query]
+            return [self.compile_query(x) for x in query]
         else:
             return self.serialize(query)
 
