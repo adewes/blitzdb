@@ -775,13 +775,13 @@ def test_regex(backend):
 
     # Test with crossed type
     try:
-        query =  {'gross_income_m': {'$regex': r'^Marlon\s+.*$'}}
+        query = {'gross_income_m': {'$regex': r'^Marlon\s+.*$'}}
         assert len(backend.filter(Actor, query)) == len([])
     except TypeError:
         pass
     # Test with crossed type
 
     # Test with unknown attribute
-    query =  {'gross_income_bad': {'$regex': r'^Marlon\s+.*$'}}
+    query = {'gross_income_bad': {'$regex': r'^Marlon\s+.*$'}}
     assert len(backend.filter(Actor, query)) == len([])
     # Test with unknwon attribute
