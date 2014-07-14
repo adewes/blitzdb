@@ -159,4 +159,3 @@ def test_update_unset_then_set(mongodb_backend):
     recovered_actor = mongodb_backend.get(Actor, {'pk': actor.pk})
 
     assert recovered_actor.name == 'Patrick Stewart'
-

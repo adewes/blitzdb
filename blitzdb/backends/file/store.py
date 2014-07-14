@@ -126,4 +126,3 @@ class TransactionalStore(Store):
     def rollback(self):
         self._delete_cache = set()
         self._update_cache = {}
-

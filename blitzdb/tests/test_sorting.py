@@ -49,4 +49,3 @@ def test_basic_sorting(backend):
     backend.commit()
     actors = backend.filter(Actor, {}).sort([('birth_year', 1)])
     assert actors[0] == actor_wo_birth_year
-

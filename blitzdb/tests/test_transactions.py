@@ -84,4 +84,3 @@ def test_autocommit_transaction(transactional_backend):
         assert len(transactional_backend.filter(Movie, {'type': 'US'})) == 1
     finally:
         transactional_backend.autocommit = False
-

@@ -95,4 +95,3 @@ class QuerySet(BaseQuerySet):
             if other == objs:
                 return True
         return False
-

@@ -531,4 +531,3 @@ class Backend(BaseBackend):
             self.create_indexes(cls, indexes_to_create, ephemeral=True)
     
         return compiled_query(query_function)
-
