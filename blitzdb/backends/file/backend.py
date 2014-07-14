@@ -485,7 +485,7 @@ class Backend(BaseBackend):
             if not sort_keys:
                 return keys
             (sort_key, order) = sort_keys[0]
-            _sorted_keys =  indexes[sort_key].sort_keys(keys, order)
+            _sorted_keys = indexes[sort_key].sort_keys(keys, order)
             return [sort_by_keys(k, sort_keys[1:]) for k in _sorted_keys]
 
         def flatten(l):
@@ -516,7 +516,7 @@ class Backend(BaseBackend):
         def query_function(key, expression):
             if key == None:
                 return QuerySet(self, cls, store, self.get_pk_index(collection).get_all_keys())
-            qs =  QuerySet(self, cls, store, indexes[key].get_keys_for(expression))
+            qs = QuerySet(self, cls, store, indexes[key].get_keys_for(expression))
             return qs
 
         def index_collector(key, expressions):
