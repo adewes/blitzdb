@@ -94,7 +94,7 @@ class QuerySet(BaseQuerySet):
     
     def __eq__(self, other):
         if isinstance(other, QuerySet): 
-            if self.cls == other.cls and set(self._cursor.distinct('_id'))  == set(other._cursor.distinct('_id')):
+            if self.cls == other.cls and set(self._cursor.distinct('_id')) == set(other._cursor.distinct('_id')):
                 return True
         elif isinstance(other, list):
             if len(other) != len(self.keys):
