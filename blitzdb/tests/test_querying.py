@@ -123,7 +123,7 @@ def test_operators(backend):
         query = {   
                 '$and': 
                     [
-                        {'gross_income_m': { op: 1.0} },
+                        {'gross_income_m': {op: 1.0} },
                         {'is_funny': True }
                     ] 
                 }
@@ -137,8 +137,8 @@ def test_operators(backend):
                 '$and': 
                     [
                         {'$or': [
-                                    {'gross_income_m': { op: 1.0} },
-                                    {'birth_year': { '$lt': 1900} },
+                                    {'gross_income_m': {op: 1.0} },
+                                    {'birth_year': {'$lt': 1900} },
                                 ]},
                         {'$or': [
                             {'is_funny': True },
