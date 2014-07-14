@@ -188,10 +188,10 @@ def test_list_query(backend, small_test_data):
         i += 1
 
     actor = movie.cast[0]['actor']
-    other_movie = movies[i%len(movies)]
+    other_movie = movies[i % len(movies)]
 
     while other_movie in actor.movies:
-        other_movie = movies[i%len(movies)]
+        other_movie = movies[i % len(movies)]
         i += 1
 
     assert actor in backend.filter(Actor, {'movies': movie})
