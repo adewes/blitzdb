@@ -42,7 +42,7 @@ def test_transactional_store_save(transactional_store):
     store.delete_blob("key1")
 
     with pytest.raises(KeyError):
-        store.delete_blob("key1")#<<<---
+        store.delete_blob("key1")  # <<<---
 
     with pytest.raises(KeyError):
         store.get_blob("key1")

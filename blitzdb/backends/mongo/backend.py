@@ -46,7 +46,7 @@ class Backend(BaseBackend):
         super(Backend, self).__init__(**kwargs)
 
     def begin(self):
-        if self.in_transaction:#we're already in a transaction...
+        if self.in_transaction:  # we're already in a transaction...
             self.commit()
         self.in_transaction = True
 

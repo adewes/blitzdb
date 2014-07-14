@@ -110,7 +110,7 @@ class Backend(BaseBackend):
         """
         Starts a new transaction
         """
-        if self.in_transaction:#we're already in a transaction...
+        if self.in_transaction:  # we're already in a transaction...
             self.commit()
         self.in_transaction = True
         for collection, store in self.stores.items():
@@ -354,7 +354,7 @@ class Backend(BaseBackend):
             if not isinstance(params, dict):
                 params = {'key': params}
             if params['key'] in self.indexes[collection]:
-                return #Index already exists
+                return  # Index already exists
             if 'id' not in params:
                 params['id'] = uuid.uuid4().hex 
             if ephemeral:
@@ -373,7 +373,7 @@ class Backend(BaseBackend):
                 self.save_config()
 
             indexes.append(index)
-            if not index.loaded:#if the index failed to load from disk we rebuild it
+            if not index.loaded:  # if the index failed to load from disk we rebuild it
                 keys.append(params['key'])
 
         self.rebuild_indexes(collection, keys)

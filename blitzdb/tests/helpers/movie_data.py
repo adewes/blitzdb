@@ -1,5 +1,5 @@
 import math
-import faker #https://github.com/joke2k/faker
+import faker  # https://github.com/joke2k/faker
 import random
 
 from blitzdb import Document
