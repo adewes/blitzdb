@@ -179,7 +179,7 @@ class Backend(object):
                     # We include fields to the reference, as given by the document's Meta class
                     if hasattr(obj, 'Meta') and hasattr(obj.Meta, 'dbref_includes') and obj.Meta.dbref_includes:
                         for include in obj.Meta.dbref_includes:
-                            if include in obj and not include in output_obj:
+                            if include in obj and include not in output_obj:
                                 output_obj[include] = obj[include]
                 
         else:
@@ -259,8 +259,8 @@ class Backend(object):
 
         :returns: The collection name for the given class.
         """
-        if not cls in self.classes:
-            if issubclass(cls, Document) and not cls in self.classes:
+        if cls not in self.classes:
+            if issubclass(cls, Document) and cls not in self.classes:
                 self.autoregister(cls)
             else:
                 raise AttributeError("Unknown object type: %s" % cls.__name__)

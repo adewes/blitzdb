@@ -71,7 +71,7 @@ class Index(object):
     def sort_keys(self, keys, order=1):
         # to do: check that all reverse index values are unambiguous
         missing_keys = [key for key in keys if not len(self._reverse_index[key])]
-        keys_and_values = [(key, self._reverse_index[key][0]) for key in keys if not key in missing_keys]
+        keys_and_values = [(key, self._reverse_index[key][0]) for key in keys if key not in missing_keys]
         sorted_keys = [kv[0] for kv in sorted(keys_and_values, key=lambda x: x[1], reverse=True if order < 0 else False)]
         if order > 0:
             return missing_keys + sorted_keys
@@ -105,9 +105,9 @@ class Index(object):
     # The following two operations change the value of the index
 
     def add_hashed_value(self, hash_value, store_key):
-        if not store_key in self._index[hash_value]:
+        if store_key not in self._index[hash_value]:
             self._index[hash_value].append(store_key)
-        if not hash_value in self._reverse_index[store_key]:
+        if hash_value not in self._reverse_index[store_key]:
             self._reverse_index[store_key].append(hash_value)
 
     def add_key(self, attributes, store_key):
@@ -180,9 +180,9 @@ class TransactionalIndex(Index):
         self._in_transaction = False
 
     def add_hashed_value(self, hash_value, store_key):
-        if not hash_value in self._add_cache[store_key]:
+        if hash_value not in self._add_cache[store_key]:
             self._add_cache[store_key].append(hash_value)
-        if not store_key in self._reverse_add_cache[hash_value]:
+        if store_key not in self._reverse_add_cache[hash_value]:
             self._reverse_add_cache[hash_value].append(store_key)
         if store_key in self._remove_cache:
             del self._remove_cache[store_key]

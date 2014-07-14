@@ -65,7 +65,7 @@ class QuerySet(BaseQuerySet):
         else:
             obj_list = [obj]
         for obj in obj_list:
-            if not obj.pk in pks:
+            if obj.pk not in pks:
                 return False
         return True
 

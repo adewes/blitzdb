@@ -23,7 +23,7 @@ class Store(object):
     def __init__(self, properties):
         self._properties = properties
 
-        if not 'path' in properties:
+        if 'path' not in properties:
             raise AttributeError("You must specify a path when creating a Store!")
 
         if not os.path.exists(properties['path']):

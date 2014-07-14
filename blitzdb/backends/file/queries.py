@@ -43,7 +43,7 @@ def not_query(expression):
     def _not(index, expression=compiled_expression):
         all_keys = index.get_all_keys()
         returned_keys = expression(index)
-        return [key for key in all_keys if not key in returned_keys]
+        return [key for key in all_keys if key not in returned_keys]
 
     return _not
 
@@ -163,7 +163,7 @@ def compile_query(query):
         expressions = []
         for key, value in query.items():
             if key.startswith('$'):
-                if not key in query_funcs:
+                if key not in query_funcs:
                     raise AttributeError("Invalid operator: %s" % key)
                 expressions.append(query_funcs[key](value))
             else:

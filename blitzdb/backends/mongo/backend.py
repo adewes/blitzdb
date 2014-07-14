@@ -94,7 +94,7 @@ class Backend(BaseBackend):
 
     @autocommit.setter
     def autocommit(self, value):
-        if not value in (True, False):
+        if value not in (True, False):
             raise TypeError("Value must be boolean!")
         self._autocommit = value
 
@@ -189,14 +189,14 @@ class Backend(BaseBackend):
             if obj.pk in self._update_cache[collection]:
                 update_cache = self._update_cache[collection][obj.pk]
                 if set_attributes:
-                    if not '$set' in update_cache:
+                    if '$set' not in update_cache:
                         update_cache['$set'] = {}
                     for key, value in set_attributes.items():
                         if '$unset' in update_cache and key in update_cache['$unset']:
                             del update_cache['$unset'][key]
                         update_cache['$set'][key] = value
                 if unset_attributes:
-                    if not '$unset' in update_cache:
+                    if '$unset' not in update_cache:
                         update_cache['$unset'] = {}
                     for key in unset_attributes:
                         if '$set' in update_cache and key in update_cache['$set']:
@@ -239,7 +239,7 @@ class Backend(BaseBackend):
         else:
             collection = cls_or_collection
 
-        if not 'fields' in kwargs:
+        if 'fields' not in kwargs:
             raise AttributeError("You must specify the 'fields' parameter when creating an index!")
         if 'opts' in kwargs:
             opts = kwargs['opts']

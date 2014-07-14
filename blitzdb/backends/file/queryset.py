@@ -46,7 +46,7 @@ class QuerySet(BaseQuerySet):
         if isinstance(i, slice):
             return self.__class__(self.backend, self.cls, self.store, self.keys[i])
         key = self.keys[i]
-        if not key in self.objects:
+        if key not in self.objects:
             self.objects[key] = self.backend.get_object(self.cls, key)
             self.objects[key]._store_key = key
         return self.objects[key]
@@ -67,7 +67,7 @@ class QuerySet(BaseQuerySet):
         collection = self.backend.get_collection_for_cls(self.cls)
         pk_index = self.backend.get_pk_index(collection)
         all_keys = pk_index.get_all_keys()
-        keys = [key for key in all_keys if not key in self.keys]        
+        keys = [key for key in all_keys if key not in self.keys]
         return self._clone(keys)
 
     def __contains__(self, obj):
@@ -80,7 +80,7 @@ class QuerySet(BaseQuerySet):
                 storage_key = self.backend.get_storage_key_for(obj)
             except obj.DoesNotExist:
                 return False
-            if not storage_key in self.keys:
+            if storage_key not in self.keys:
                 return False
         return True
 

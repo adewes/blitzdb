@@ -102,7 +102,7 @@ class Backend(BaseBackend):
 
     @autocommit.setter
     def autocommit(self, value):
-        if not value in (True, False):
+        if value not in (True, False):
             raise TypeError("Value must be boolean!")
         self.config['autocommit'] = value
 
@@ -265,9 +265,9 @@ class Backend(BaseBackend):
             self._config.update(config)
 
         for key, value in self.default_config.items():
-            if not key in self._config:
+            if key not in self._config:
                 self._config[key] = value
-        if not 'version' in self._config:
+        if 'version' not in self._config:
             self._config['version'] = blitzdb.__version__
         self.save_config()
 
@@ -290,12 +290,12 @@ class Backend(BaseBackend):
         return self._path
 
     def get_collection_store(self, collection):
-        if not collection in self.stores:
+        if collection not in self.stores:
             self.stores[collection] = self.StoreClass({'path': self.path + "/" + collection + "/objects"})
         return self.stores[collection]
 
     def get_index_store(self, collection, store_key):
-        if not store_key in self.index_stores[collection]:
+        if store_key not in self.index_stores[collection]:
             self.index_stores[collection][store_key] = self.IndexStoreClass({'path': self.path + "/" + collection + "/indexes/" + store_key})
         return self.index_stores[collection][store_key]
 
@@ -355,7 +355,7 @@ class Backend(BaseBackend):
                 params = {'key': params}
             if params['key'] in self.indexes[collection]:
                 return #Index already exists
-            if not 'id' in params:
+            if 'id' not in params:
                 params['id'] = uuid.uuid4().hex 
             if ephemeral:
                 index_store = None
@@ -365,7 +365,7 @@ class Backend(BaseBackend):
             index = self.IndexClass(params, serializer=lambda x: self.serialize(x, autosave=False), deserializer=lambda x: self.deserialize(x), store=index_store)
             self.indexes[collection][params['key']] = index
 
-            if not collection in self._config['indexes']:
+            if collection not in self._config['indexes']:
                 self._config['indexes'][collection] = {}
 
             if not ephemeral:
@@ -476,7 +476,7 @@ class Backend(BaseBackend):
         
         indexes_to_create = []
         for sort_key, order in sort_keys:
-            if not sort_key in indexes:
+            if sort_key not in indexes:
                 indexes_to_create.append(sort_key)
 
         self.create_indexes(cls, indexes_to_create, ephemeral=True)
