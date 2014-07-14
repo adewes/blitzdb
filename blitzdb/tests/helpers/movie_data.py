@@ -40,8 +40,8 @@ def generate_test_data(request, backend, n):
                 'year': fake.year(),
                 'pk': i,
                 'cast': [],
-                }
-            )
+            }
+        )
         movies.append(movie)
         movie.save(backend)
 
@@ -52,7 +52,7 @@ def generate_test_data(request, backend, n):
                 'pk': i,
                 'movies': []
             }            
-            )
+        )
         n_movies = 1 + int((1.0 - math.log(random.randint(1, 1000)) / math.log(1000.0)) * 5)
         actor_movies = random.sample(movies, n_movies)
         for movie in actor_movies:
@@ -68,8 +68,8 @@ def generate_test_data(request, backend, n):
                 'name': fake.name(),
                 'pk': i,
                 'movies': [],
-                }
-            )
+            }
+        )
         n_movies = 1 + int((1.0 - math.log(random.randint(1, 1000)) / math.log(1000.0)) * 10)
         director_movies = random.sample(movies, n_movies)
 

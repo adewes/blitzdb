@@ -130,8 +130,8 @@ def test_operators(backend):
             [
                 {'gross_income_m': {op: 1.0}},
                 {'is_funny': True}
-                ] 
-            }
+            ] 
+        }
 
         assert len(backend.filter(Actor, query)) == len(results)
         assert results in backend.filter(Actor, query)
@@ -144,15 +144,13 @@ def test_operators(backend):
                 {'$or': [
                     {'gross_income_m': {op: 1.0}},
                     {'birth_year': {'$lt': 1900}},
-                    ]},
+                ]},
                 {'$or': [
                     {'is_funny': True},
                     {'name': 'Marlon Brando'},
-                    ]
-                        },
-
-                ] 
-            }
+                ]},
+            ] 
+        }
 
         assert len(backend.filter(Actor, query)) == len(results)
         assert results in backend.filter(Actor, query)
