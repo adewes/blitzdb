@@ -23,8 +23,8 @@ class QuerySet(BaseQuerySet):
     def next(self):
         if self._i >= len(self):
             raise StopIteration
-        self._i+=1
-        return self[i -1]
+        self._i += 1
+        return self[i - 1]
 
     __next__ = next
 

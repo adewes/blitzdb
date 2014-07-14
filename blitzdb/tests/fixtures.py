@@ -32,11 +32,11 @@ def tmpdir(request):
     request.addfinalizer(finalizer)
     return tmpdir
 
-@pytest.fixture(scope="function", params=["file_json", "file_marshal", "file_pickle"] +(["mongo"] if test_mongo else []))
+@pytest.fixture(scope="function", params=["file_json", "file_marshal", "file_pickle"] + (["mongo"] if test_mongo else []))
 def backend(request, tmpdir):
     return _backend(request, tmpdir)
 
-@pytest.fixture(scope="function", params=["file_json", "file_marshal", "file_pickle"] +(["mongo"] if test_mongo else []))
+@pytest.fixture(scope="function", params=["file_json", "file_marshal", "file_pickle"] + (["mongo"] if test_mongo else []))
 def no_autoload_backend(request, tmpdir):
     return _backend(request, tmpdir, autoload_embedded=False)
 
@@ -44,7 +44,7 @@ def no_autoload_backend(request, tmpdir):
 def no_autoload_mongodb_backend(request, tmpdir):
     return _backend(request, tmpdir, autoload_embedded=False)
 
-@pytest.fixture(scope="function", params=["file_json", "file_marshal", "file_pickle"] +(["mongo"] if test_mongo else []))
+@pytest.fixture(scope="function", params=["file_json", "file_marshal", "file_pickle"] + (["mongo"] if test_mongo else []))
 def transactional_backend(request, tmpdir):
     return _backend(request, tmpdir)
 

@@ -200,5 +200,5 @@ class TransactionalIndex(Index):
         else:
             keys = super(TransactionalIndex, self).get_keys_for(value)
             hash_value = self.get_hash_for(value)
-            keys+=self._reverse_add_cache[hash_value]
+            keys += self._reverse_add_cache[hash_value]
             return keys
