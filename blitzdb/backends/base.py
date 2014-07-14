@@ -138,7 +138,7 @@ class Backend(object):
         :returns: The serialized object.
         """
 
-        serialize_with_opts = lambda value, *args, **kwargs : self.serialize(value, *args, convert_keys_to_str = convert_keys_to_str, autosave = autosave, for_query = for_query, **kwargs)
+        serialize_with_opts = lambda value, *args, **kwargs: self.serialize(value, *args, convert_keys_to_str = convert_keys_to_str, autosave = autosave, for_query = for_query, **kwargs)
         if encoders:
             for matcher, encoder in encoders:
                 if matcher(obj):

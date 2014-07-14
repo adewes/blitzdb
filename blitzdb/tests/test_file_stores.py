@@ -12,7 +12,7 @@ def transactional_store(request):
         subprocess.call(["rm", "-rf", tmpdir])
 
     request.addfinalizer(finalizer)
-    return TransactionalStore({'path' : tmpdir})
+    return TransactionalStore({'path': tmpdir})
 
 def test_transactional_store_save(transactional_store):
 

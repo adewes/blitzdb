@@ -38,9 +38,9 @@ class Backend(BaseBackend):
         self.classes = {}
         self.collections = {}
         self._autocommit = autocommit
-        self._save_cache = defaultdict(lambda  : {})
-        self._delete_cache = defaultdict(lambda : {})
-        self._update_cache = defaultdict(lambda : {})
+        self._save_cache = defaultdict(lambda: {})
+        self._delete_cache = defaultdict(lambda: {})
+        self._update_cache = defaultdict(lambda: {})
         self.in_transaction = False
         super(Backend, self).__init__(**kwargs)
 
@@ -53,9 +53,9 @@ class Backend(BaseBackend):
         if not self.in_transaction:
             raise NotInTransaction("Not in a transaction!")
         
-        self._save_cache = defaultdict(lambda : {})
-        self._delete_cache = defaultdict(lambda : {})
-        self._update_cache = defaultdict(lambda : {})
+        self._save_cache = defaultdict(lambda: {})
+        self._delete_cache = defaultdict(lambda: {})
+        self._update_cache = defaultdict(lambda: {})
         
         self.in_transaction = False
 
@@ -71,7 +71,7 @@ class Backend(BaseBackend):
 
         for collection, cache in self._delete_cache.items():
             for pk in cache:
-                self.db[collection].remove({'_id' : pk})
+                self.db[collection].remove({'_id': pk})
 
         for collection, cache in self._update_cache.items():
             for pk, attributes in cache.items():
@@ -79,11 +79,11 @@ class Backend(BaseBackend):
                 for key in ('$set', '$unset'):
                     if key in attributes and attributes[key]:
                         update_dict[key] = attributes[key]
-                self.db[collection].update({'_id' : pk}, update_dict)
+                self.db[collection].update({'_id': pk}, update_dict)
 
-        self._save_cache = defaultdict(lambda  : {})
-        self._delete_cache = defaultdict(lambda : {})
-        self._update_cache = defaultdict(lambda : {})
+        self._save_cache = defaultdict(lambda: {})
+        self._delete_cache = defaultdict(lambda: {})
+        self._update_cache = defaultdict(lambda: {})
 
         self.in_transaction = True
 
@@ -101,7 +101,7 @@ class Backend(BaseBackend):
         collection = self.get_collection_for_cls(cls)
         if self.autocommit:
             for pk in pks:
-                self.db[collection].remove({'_id' : pk})
+                self.db[collection].remove({'_id': pk})
         else:
             self._delete_cache[collection].update(dict([(pk, True) for pk in pks]))
 
@@ -112,7 +112,7 @@ class Backend(BaseBackend):
         if hasattr(obj, 'pre_delete') and callable(obj.pre_delete):
             obj.pre_delete()
         if self.autocommit:
-            self.db[collection].remove({'_id' : obj.pk})
+            self.db[collection].remove({'_id': obj.pk})
         else:
             self._delete_cache[collection][obj.pk] = True
             if obj.pk in self._save_cache[collection]:
@@ -181,7 +181,7 @@ class Backend(BaseBackend):
             update_dict['$unset'] = dict([(key, '') for key in unset_attributes])
 
         if self.autocommit:
-            self.db[collection].update({'_id' : obj.pk}, update_dict)
+            self.db[collection].update({'_id': obj.pk}, update_dict)
         else:
             if obj.pk in self._delete_cache[collection]:
                 raise obj.DoesNotExist("update() on document that is marked for deletion!")
@@ -228,7 +228,7 @@ class Backend(BaseBackend):
         for cls in self.classes:
             meta_attributes = self.get_meta_attributes(cls)
             if include_pk:
-                self.create_index(cls, fields = {'pk' : 1})
+                self.create_index(cls, fields = {'pk': 1})
             if 'indexes' in meta_attributes:
                 self.create_indexes(cls, meta_attributes['indexes'])
 

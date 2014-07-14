@@ -69,19 +69,19 @@ def _backend(request, tmpdir, autoload_embedded = True):
     We test all query operations on a variety of backends.
     """
     if request.param == 'file_json':
-        return file_backend(request, tmpdir, {'serializer_class' : 'json'}, autoload_embedded = autoload_embedded)
+        return file_backend(request, tmpdir, {'serializer_class': 'json'}, autoload_embedded = autoload_embedded)
     elif request.param == 'file_marshal':
-        return file_backend(request, tmpdir, {'serializer_class' : 'marshal'}, autoload_embedded = autoload_embedded)
+        return file_backend(request, tmpdir, {'serializer_class': 'marshal'}, autoload_embedded = autoload_embedded)
     elif request.param == 'file_pickle':
-        return file_backend(request, tmpdir, {'serializer_class' : 'pickle'}, autoload_embedded = autoload_embedded)
+        return file_backend(request, tmpdir, {'serializer_class': 'pickle'}, autoload_embedded = autoload_embedded)
     elif request.param == 'mongo':
         return mongo_backend(request, {}, autoload_embedded = autoload_embedded)
 
 def _init_indexes(backend):
-    for idx in [{'fields' : { 'name' : 1}}, {'fields' : { 'director' : 1}}]:
+    for idx in [{'fields': { 'name': 1}}, {'fields': { 'director': 1}}]:
         backend.create_index(Movie, **idx)
-    backend.create_index(Actor, fields = {'name' : 1})
-    backend.create_index(Actor, fields = {'movies' : 1})
+    backend.create_index(Actor, fields = {'name': 1})
+    backend.create_index(Actor, fields = {'movies': 1})
     return backend
 
 def file_backend(request, tmpdir, config, autoload_embedded = True):

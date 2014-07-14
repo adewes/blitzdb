@@ -46,7 +46,7 @@ def test_advanced_transaction(transactional_backend):
     transactional_backend.filter(Movie, {}).delete()
     transactional_backend.rollback()
 
-    movie = Movie({'name' : 'The Godfather', 'year' : 1979, 'type' : 'US'})
+    movie = Movie({'name': 'The Godfather', 'year': 1979, 'type': 'US'})
     movie.save(transactional_backend)
     transactional_backend.commit()
 
@@ -56,9 +56,9 @@ def test_advanced_transaction(transactional_backend):
 
     transactional_backend.rollback()
 
-    assert transactional_backend.get(Movie, {'name' : 'The Godfather', 'year' : 1979, 'type' : 'US'}).name == 'The Godfather'
+    assert transactional_backend.get(Movie, {'name': 'The Godfather', 'year': 1979, 'type': 'US'}).name == 'The Godfather'
 
-    assert transactional_backend.get(Movie, {'name' : 'The Godfather', 'year' : 1979}) == movie
+    assert transactional_backend.get(Movie, {'name': 'The Godfather', 'year': 1979}) == movie
     assert len(transactional_backend.filter(Movie, {'type': 'US'})) == 1
 
 def test_autocommit_transaction(transactional_backend):
@@ -67,16 +67,16 @@ def test_autocommit_transaction(transactional_backend):
 
     try:
         transactional_backend.autocommit = True
-        movie = Movie({'name' : 'The Godfather', 'year' : 1979, 'type' : 'US'})
+        movie = Movie({'name': 'The Godfather', 'year': 1979, 'type': 'US'})
         movie.save(transactional_backend)
         transactional_backend.delete(movie)
         movie.name = 'Star Wars IV'
         movie.save(transactional_backend)
 
         with pytest.raises(Movie.DoesNotExist):
-            transactional_backend.get(Movie, {'name' : 'The Godfather', 'year' : 1979, 'type' : 'US'})
+            transactional_backend.get(Movie, {'name': 'The Godfather', 'year': 1979, 'type': 'US'})
 
-        assert transactional_backend.get(Movie, {'name' : 'Star Wars IV', 'year' : 1979}) == movie
+        assert transactional_backend.get(Movie, {'name': 'Star Wars IV', 'year': 1979}) == movie
         assert len(transactional_backend.filter(Movie, {'type': 'US'})) == 1
     finally:
         transactional_backend.autocommit = False

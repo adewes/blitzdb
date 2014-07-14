@@ -28,8 +28,8 @@ class Index(object):
             self.loaded = False
 
     def clear(self):
-        self._index = defaultdict(lambda : [])
-        self._reverse_index = defaultdict(lambda : [])
+        self._index = defaultdict(lambda: [])
+        self._reverse_index = defaultdict(lambda: [])
 
     @property
     def key(self):
@@ -150,8 +150,8 @@ class TransactionalIndex(Index):
         self._init_cache()
 
     def _init_cache(self):
-        self._add_cache = defaultdict(lambda : [])
-        self._reverse_add_cache = defaultdict(lambda : [])
+        self._add_cache = defaultdict(lambda: [])
+        self._reverse_add_cache = defaultdict(lambda: [])
         self._remove_cache = {}
 
     def begin(self):

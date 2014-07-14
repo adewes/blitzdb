@@ -58,7 +58,7 @@ class Backend(BaseBackend):
         collection = self.get_collection_for_cls(obj.__class__)
         if obj.pk == None:
             raise obj.DoesNotExist
-        self.db[collection].remove({'_id' : obj.pk})
+        self.db[collection].remove({'_id': obj.pk})
 
     def save(self, obj):
         collection = self.get_collection_for_cls(obj.__class__)

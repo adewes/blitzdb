@@ -21,7 +21,7 @@ class MyDocument(Document):
 
 def test_pre_save_hook(backend, small_test_data):
 
-    my_document = MyDocument({'test' : 123})
+    my_document = MyDocument({'test': 123})
 
     backend.save(my_document)
 
@@ -30,7 +30,7 @@ def test_pre_save_hook(backend, small_test_data):
 
 def test_pre_delete_hook(backend, small_test_data):
 
-    my_document = MyDocument({'test' : 123})
+    my_document = MyDocument({'test': 123})
     my_document.pk = 1
 
     backend.delete(my_document)

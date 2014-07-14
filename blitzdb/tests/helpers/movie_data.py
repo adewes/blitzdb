@@ -44,9 +44,9 @@ def generate_test_data(request, backend, n):
     for i in range(0, n*4):
         actor = Actor(
             {
-                'name' : fake.name(),
-                'pk' : i,
-                'movies' : []
+                'name': fake.name(),
+                'pk': i,
+                'movies': []
             }            
             )
         n_movies = 1+int((1.0-math.log(random.randint(1, 1000))/math.log(1000.0))*5)

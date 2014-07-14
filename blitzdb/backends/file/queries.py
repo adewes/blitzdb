@@ -157,7 +157,7 @@ def compile_query(query):
         if len(expressions) > 1:
             return and_query(expressions) 
         else: 
-            return expressions[0] if len(expressions) else lambda query_function : query_function(None, None)
+            return expressions[0] if len(expressions) else lambda query_function: query_function(None, None)
     else:
         return query
     
