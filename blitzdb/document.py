@@ -248,26 +248,26 @@ class BaseDocument(object):
         return unicode(self).encode("utf-8")
 
     def __unicode__(self):
-        return self.__class__.__name__ +"({'pk' : '%s'},lazy = %s)" % (str(self.pk), str(self._lazy))
+        return self.__class__.__name__ + "({'pk' : '%s'},lazy = %s)" % (str(self.pk), str(self._lazy))
 
     def _represent(self, n=1):
 
         if n < 0:
-            return self.__class__.__name__ +"({...})"
+            return self.__class__.__name__ + "({...})"
 
         def truncate_dict(d, n=n):
 
             if isinstance(d, dict):
                 out = {}
-                return dict([(key, truncate_dict(value, n -1)) for key, value in d.items()])
+                return dict([(key, truncate_dict(value, n - 1)) for key, value in d.items()])
             elif isinstance(d, list) or isinstance(d, set):
-                return [truncate_dict(v, n -1) for v in d]
+                return [truncate_dict(v, n - 1) for v in d]
             elif isinstance(d, Document):
-                return d._represent(n -1)
+                return d._represent(n - 1)
             else:
                 return d
 
-        return self.__class__.__name__ +"(" +str(truncate_dict(self._attributes)) +")"
+        return self.__class__.__name__ + "(" + str(truncate_dict(self._attributes)) + ")"
 
     __repr__ = _represent
 
@@ -387,7 +387,7 @@ class BaseDocument(object):
             allows you to perform document-specific initialization tasks if needed.
 
         """
-        logger.debug("Reverting to database state (%s, %s)" %(self.__class__.__name__, self.pk))
+        logger.debug("Reverting to database state (%s, %s)" % (self.__class__.__name__, self.pk))
         backend = backend or self._default_backend
         if not backend:
             raise AttributeError("No backend given!")
