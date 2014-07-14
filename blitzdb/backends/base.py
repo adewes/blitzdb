@@ -106,8 +106,8 @@ class Backend(object):
         def get_user_attributes(cls):
             boring = dir(type('dummy', (object,), {}))
             return dict([item
-                    for item in inspect.getmembers(cls)
-                    if item[0] not in boring])
+                         for item in inspect.getmembers(cls)
+                         if item[0] not in boring])
         
         if hasattr(cls, 'Meta'):
             params = get_user_attributes(cls.Meta)

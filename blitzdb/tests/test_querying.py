@@ -126,12 +126,12 @@ def test_operators(backend):
     for op, results in (('$gt', [david_hasselhoff]), ('$gte', [david_hasselhoff]), ('$lt', [charlie_chaplin]), ('$lte', [charlie_chaplin])):
 
         query = {   
-                '$and': 
-                    [
-                        {'gross_income_m': {op: 1.0}},
-                        {'is_funny': True}
-                    ] 
-                }
+            '$and': 
+            [
+                {'gross_income_m': {op: 1.0}},
+                {'is_funny': True}
+                ] 
+            }
 
         assert len(backend.filter(Actor, query)) == len(results)
         assert results in backend.filter(Actor, query)
@@ -139,20 +139,20 @@ def test_operators(backend):
     for op, results in (('$gt', [david_hasselhoff, charlie_chaplin, marlon_brando]), ('$gte', [marlon_brando, david_hasselhoff, charlie_chaplin]), ('$lt', [charlie_chaplin]), ('$lte', [charlie_chaplin])):
 
         query = { 
-                '$and': 
-                    [
-                        {'$or': [
-                                    {'gross_income_m': {op: 1.0}},
-                                    {'birth_year': {'$lt': 1900}},
-                                ]},
-                        {'$or': [
-                            {'is_funny': True},
-                            {'name': 'Marlon Brando'},
-                                ]
+            '$and': 
+            [
+                {'$or': [
+                    {'gross_income_m': {op: 1.0}},
+                    {'birth_year': {'$lt': 1900}},
+                    ]},
+                {'$or': [
+                    {'is_funny': True},
+                    {'name': 'Marlon Brando'},
+                    ]
                         },
 
-                    ] 
-                }
+                ] 
+            }
 
         assert len(backend.filter(Actor, query)) == len(results)
         assert results in backend.filter(Actor, query)
