@@ -7,6 +7,7 @@ from blitzdb.backends.base import NotInTransaction
 from blitzdb.backends.mongo.queryset import QuerySet
 import uuid
 
+
 class Backend(BaseBackend):
 
     """
@@ -73,7 +74,6 @@ class Backend(BaseBackend):
 
     def deserialize(self, obj, decoders=None):
         return super(Backend, self).deserialize(obj, decoders=decoders)
-
 
     def create_index(self, cls_or_collection, *args, **kwargs):
         if not isinstance(cls_or_collection, six.string_types):

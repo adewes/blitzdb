@@ -6,6 +6,7 @@ from .fixtures import *
 from blitzdb import Document
 from blitzdb.tests.helpers.movie_data import Actor, Director, Movie
 
+
 def test_delete_transaction(transactional_backend, small_transactional_test_data):
 
     (movies, actors, directors) = small_transactional_test_data
@@ -20,6 +21,7 @@ def test_delete_transaction(transactional_backend, small_transactional_test_data
     transactional_backend.rollback()
 
     assert all_movies == transactional_backend.filter(Movie, {})
+
 
 def test_rollback_and_commit(transactional_backend, small_transactional_test_data):
 
@@ -38,6 +40,7 @@ def test_rollback_and_commit(transactional_backend, small_transactional_test_dat
 
     assert 0 == len(set(transactional_backend.filter(Movie, {})))
     assert [] == sorted(transactional_backend.filter(Movie, {}), key=lambda x: x.pk)
+
 
 def test_advanced_transaction(transactional_backend):
 
@@ -60,6 +63,7 @@ def test_advanced_transaction(transactional_backend):
 
     assert transactional_backend.get(Movie, {'name': 'The Godfather', 'year': 1979}) == movie
     assert len(transactional_backend.filter(Movie, {'type': 'US'})) == 1
+
 
 def test_autocommit_transaction(transactional_backend):
 

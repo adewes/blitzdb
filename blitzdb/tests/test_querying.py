@@ -15,12 +15,14 @@ def test_basic_delete(backend, small_test_data):
 
     assert len(backend.filter(Actor, {})) == 0
 
+
 def test_basic_storage(backend, small_test_data):
 
     (movies, actors, directors) = small_test_data
 
     assert len(backend.filter(Movie, {})) == len(movies)
     assert len(backend.filter(Actor, {})) == len(actors)
+
 
 def test_keys_with_dots(backend):
 
@@ -45,6 +47,7 @@ def test_negative_indexing(backend, small_test_data):
     # To do: Make step tests for file backend (MongoDB does not support this)
 #    assert actors[-10:-1:2] == actors[len(actors)-10:len(actors)-1:2]
 
+
 def test_missing_keys_in_slice(backend, small_test_data):
 
     (movies, actors, directors) = small_test_data
@@ -54,6 +57,7 @@ def test_missing_keys_in_slice(backend, small_test_data):
     assert actors[:] == actors
     assert actors[1:] == actors[1:len(actors)]
     assert actors[:len(actors)] == actors[0:len(actors)]
+
 
 def test_and_queries(backend):
 
@@ -99,6 +103,7 @@ def test_composite_queries(backend):
         assert len(backend.filter(Actor, {'values': {'$all': [4, 3, 2, 1, 14]}})) == 0 
         assert len(backend.filter(Actor, {'values': {'$all': [10, 9, 8, 7, 6, 5, 4, 3, 2, 1]}})) == 1
         assert len(backend.filter(Actor, {'values': {'$in': [[1, 2, 3, 4], [7, 6, 5, 4, 3, 2, 1], [1, 2, 3, 5], 'foobar']}})) == 3
+
 
 def test_operators(backend):
 
@@ -157,6 +162,7 @@ def test_operators(backend):
     assert len(backend.filter(Actor, {'name': {'$not': {'$in': ['David Hasselhoff', 'Marlon Brando', 'Charlie Chaplin']}}})) == 1
     assert len(backend.filter(Actor, {'name': {'$in': ['Marlon Brando', 'Leonardo di Caprio']}})) == 2
 
+
 def test_regex_operator(backend, small_test_data):
 
     backend.filter(Actor, {}).delete()
@@ -191,6 +197,7 @@ def test_list_query(backend, small_test_data):
     assert actor in backend.filter(Actor, {'movies': movie})
     assert actor not in backend.filter(Actor, {'movies': other_movie})
 
+
 def test_list_query_multiple_items(backend, small_test_data):
 
     (movies, actors, directors) = small_test_data
@@ -216,6 +223,7 @@ def test_indexed_delete(backend, small_test_data):
     for actor in backend.filter(Actor, {}):
         assert actor.movies == []
 
+
 def test_non_indexed_delete(backend, small_test_data):
 
     (movies, actors, directors) = small_test_data
@@ -228,8 +236,8 @@ def test_non_indexed_delete(backend, small_test_data):
     for director in backend.filter(Director, {}):
         assert director.movies == []
 
-def test_positional_query(backend, small_test_data):
 
+def test_positional_query(backend, small_test_data):
     """
     We test a search query which explicitly references a given list item in an object
     """
@@ -247,6 +255,7 @@ def test_positional_query(backend, small_test_data):
 
     assert actor in backend.filter(Actor, {'movies.%d' % index: movie})
 
+
 def test_default_backend(backend, small_test_data):
 
     movies = backend.filter(Movie, {})
@@ -259,6 +268,7 @@ def test_default_backend(backend, small_test_data):
         backend.get(Movie, {'pk': movie.pk})
 
     assert old_len == len(backend.filter(Movie, {})) + 1
+
 
 def test_index_reloading(backend, small_test_data):
 

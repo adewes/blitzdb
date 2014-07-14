@@ -7,6 +7,7 @@ from .fixtures import *
 from blitzdb import Document
 from blitzdb.tests.helpers.movie_data import Actor, Director, Movie
 
+
 class MyDocument(Document):
 
     """
@@ -19,6 +20,7 @@ class MyDocument(Document):
     def pre_delete(self):
         self.foo = "bar"
 
+
 def test_pre_save_hook(backend, small_test_data):
 
     my_document = MyDocument({'test': 123})
@@ -27,6 +29,7 @@ def test_pre_save_hook(backend, small_test_data):
 
     assert hasattr(my_document, 'foo')
     assert my_document.foo == "bar"
+
 
 def test_pre_delete_hook(backend, small_test_data):
 

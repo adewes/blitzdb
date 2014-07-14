@@ -9,6 +9,7 @@ from blitzdb.tests.helpers.movie_data import Actor, Director, Movie, generate_te
 
 from .fixtures import *
 
+
 def test_regex_operator(backend, small_test_data):
 
     backend.filter(Actor, {}).delete()
@@ -21,6 +22,7 @@ def test_regex_operator(backend, small_test_data):
     assert backend.get(Actor, {'name': {'$regex': r'^Marlon\s+(?!Wayans)[\w]+$'}}) == marlon_brando
     assert len(backend.filter(Actor, {'name': {'$regex': r'^Marlon\s+.*$'}})) == 2
     assert len(backend.filter(Actor, {'name': {'$regex': r'^.*\s+Brando$'}})) == 1
+
 
 def test_in(backend):
     # DB setup
@@ -61,6 +63,7 @@ def test_in(backend):
     query = {'name': {'$in': [david_hasselhoff.name, True]}}
     assert len(backend.filter(Actor, query)) == len([david_hasselhoff])
     # Test with different types
+
 
 def test_lt(backend):
     # DB setup
@@ -272,6 +275,7 @@ def test_lte(backend):
         query = {'gross_income_m': {'$lte': math.sqrt(-1)}}
         assert len(backend.filter(Actor, query)) == len([])
 
+
 def test_exists(backend):
     # DB setup
     backend.filter(Actor, {}).delete()
@@ -383,6 +387,7 @@ def test_exists(backend):
         pass
     # Test with illegal values
 
+
 def test_all(backend):
     # DB setup
     backend.filter(Actor, {}).delete()
@@ -473,6 +478,7 @@ def test_all(backend):
     except ValueError:
         pass
     # Test with illegal values
+
 
 def test_ne(backend):
     # DB setup
@@ -647,6 +653,7 @@ def test_and(backend):
         pass
     # Test with illegal values
 
+
 def test_or(backend):
     # DB setup
     backend.filter(Actor, {}).delete()
@@ -719,6 +726,7 @@ def test_or(backend):
         pass
     # Test with illegal values
     
+
 def test_regex(backend):
     # DB setup
     backend.filter(Actor, {}).delete()

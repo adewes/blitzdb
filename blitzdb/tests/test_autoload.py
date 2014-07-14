@@ -7,6 +7,7 @@ from .fixtures import *
 from blitzdb import Document
 from blitzdb.tests.helpers.movie_data import Actor, Director, Movie
 
+
 def test_update_by_list(no_autoload_mongodb_backend):
 
     class MyMovie(Movie):
@@ -34,6 +35,7 @@ def test_update_by_list(no_autoload_mongodb_backend):
     recovered_actor.movies[0].load_if_lazy()
 
     assert recovered_actor.movies[0].rating == 'AAA'
+
 
 def test_eager_property(no_autoload_mongodb_backend):
 

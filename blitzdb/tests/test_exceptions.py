@@ -2,8 +2,8 @@ import pytest
 
 from blitzdb.tests.helpers.movie_data import Actor, Director, Movie
 
-def test_basic_exceptions():
 
+def test_basic_exceptions():
     """
     We test that the basic exceptions work as expected.
     """
@@ -18,8 +18,8 @@ def test_basic_exceptions():
     except Actor.MultipleDocumentsReturned:
         pass
 
-def test_exception_distinguishability():
 
+def test_exception_distinguishability():
     """
     We test that exceptions belonging to different base classes are indeed different
     """

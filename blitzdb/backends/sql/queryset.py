@@ -1,6 +1,7 @@
 from blitzdb.queryset import QuerySet as BaseQuerySet
 from functools import wraps
 
+
 class QuerySet(BaseQuerySet):
 
     """

@@ -63,6 +63,7 @@ class Store(object):
     def commit(self):
         pass
 
+
 class TransactionalStore(Store):
 
     """

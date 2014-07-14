@@ -15,6 +15,7 @@ BlitzDB currently supports several differen JSON serializers,
 as well as a cPickle and marshal serializer.
 """
 
+
 class JsonSerializer(object):
 
     @classmethod
@@ -33,6 +34,7 @@ class JsonSerializer(object):
             return json.loads(data.decode('utf-8'))
         else:
             return json.loads(data)
+
 
 class PickleSerializer(object):
 

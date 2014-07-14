@@ -9,6 +9,7 @@ from blitzdb.backends.base import NotInTransaction
 from blitzdb.backends.mongo.queryset import QuerySet
 import uuid
 
+
 class Backend(BaseBackend):
 
     """

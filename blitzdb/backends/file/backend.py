@@ -41,6 +41,7 @@ try:
 except ImportError:
     pass
 
+
 class DatabaseIndexError(BaseException):
     """
     Gets raised when the index of the database is corrupted (ideally this should never happen).
@@ -48,6 +49,7 @@ class DatabaseIndexError(BaseException):
     To recover from this error, you can call the `rebuild_index` function of the file backend with the
     affected collection and key as parameters.
     """
+
 
 class Backend(BaseBackend):
 

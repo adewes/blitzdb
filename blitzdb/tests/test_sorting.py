@@ -5,6 +5,7 @@ from .fixtures import *
 from blitzdb import Document
 from blitzdb.tests.helpers.movie_data import Actor, Director, Movie
 
+
 def test_basic_sorting(backend):
 
     backend.filter(Actor, {}).delete()

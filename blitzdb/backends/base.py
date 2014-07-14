@@ -8,17 +8,20 @@ logger = logging.getLogger(__name__)
 
 from blitzdb.document import Document, document_classes
 
+
 class NotInTransaction(BaseException):
     """
     Gets raised if a function that must only be used inside a database transaction
     gets called outside a transaction.
     """
 
+
 class InTransaction(BaseException):
     """
     Gets raised if a function that must only be used outside a database transaction
     gets called inside a transaction.
     """
+
 
 class Backend(object):
 
@@ -179,7 +182,6 @@ class Backend(object):
                             if include in obj and not include in output_obj:
                                 output_obj[include] = obj[include]
                 
-
         else:
             output_obj = obj
         return output_obj

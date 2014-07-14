@@ -2,6 +2,7 @@ from blitzdb.queryset import QuerySet as BaseQuerySet
 import time
 import copy
 
+
 class QuerySet(BaseQuerySet):
 
     def delete(self):

@@ -24,45 +24,56 @@ except ImportError:
 from blitzdb.backends.file import Backend as FileBackend
 from blitzdb.tests.helpers.movie_data import Actor, Director, Movie, generate_test_data
 
+
 @pytest.fixture(scope="function")
 def tmpdir(request):
     tmpdir = tempfile.mkdtemp()
+
     def finalizer():
         subprocess.call(["rm", "-rf", tmpdir])
     request.addfinalizer(finalizer)
     return tmpdir
 
+
 @pytest.fixture(scope="function", params=["file_json", "file_marshal", "file_pickle"] + (["mongo"] if test_mongo else []))
 def backend(request, tmpdir):
     return _backend(request, tmpdir)
+
 
 @pytest.fixture(scope="function", params=["file_json", "file_marshal", "file_pickle"] + (["mongo"] if test_mongo else []))
 def no_autoload_backend(request, tmpdir):
     return _backend(request, tmpdir, autoload_embedded=False)
 
+
 @pytest.fixture(scope="function", params=["mongo"] if test_mongo else [])
 def no_autoload_mongodb_backend(request, tmpdir):
     return _backend(request, tmpdir, autoload_embedded=False)
+
 
 @pytest.fixture(scope="function", params=["file_json", "file_marshal", "file_pickle"] + (["mongo"] if test_mongo else []))
 def transactional_backend(request, tmpdir):
     return _backend(request, tmpdir)
 
+
 @pytest.fixture(scope="function")
 def large_test_data(request, backend):
     return generate_test_data(request, backend, 100)
+
 
 @pytest.fixture(scope="function")
 def small_test_data(request, backend):
     return generate_test_data(request, backend, 20)
 
+
 @pytest.fixture(scope="function")
 def large_transactional_test_data(request, transactional_backend):
     return generate_test_data(request, transactional_backend, 100)
 
+
 @pytest.fixture(scope="function")
 def small_transactional_test_data(request, transactional_backend):
     return generate_test_data(request, transactional_backend, 20)
+
 
 def _backend(request, tmpdir, autoload_embedded=True):
     """
@@ -77,6 +88,7 @@ def _backend(request, tmpdir, autoload_embedded=True):
     elif request.param == 'mongo':
         return mongo_backend(request, {}, autoload_embedded=autoload_embedded)
 
+
 def _init_indexes(backend):
     for idx in [{'fields': {'name': 1}}, {'fields': {'director': 1}}]:
         backend.create_index(Movie, **idx)
@@ -84,10 +96,12 @@ def _init_indexes(backend):
     backend.create_index(Actor, fields={'movies': 1})
     return backend
 
+
 def file_backend(request, tmpdir, config, autoload_embedded=True):
     backend = FileBackend(tmpdir, config=config, overwrite_config=True, autoload_embedded=autoload_embedded)
     _init_indexes(backend)
     return backend
+
 
 def mongo_backend(request, config, autoload_embedded=True):
     con = pymongo.MongoClient()

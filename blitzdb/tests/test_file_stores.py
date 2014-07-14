@@ -4,15 +4,18 @@ import subprocess
 
 from blitzdb.backends.file import TransactionalStore
 
+
 @pytest.fixture(scope="function")
 def transactional_store(request):
 
     tmpdir = tempfile.mkdtemp()
+
     def finalizer():
         subprocess.call(["rm", "-rf", tmpdir])
 
     request.addfinalizer(finalizer)
     return TransactionalStore({'path': tmpdir})
+
 
 def test_transactional_store_save(transactional_store):
 
@@ -30,7 +33,6 @@ def test_transactional_store_save(transactional_store):
     assert store.get_blob("key1") == blob1
     assert store.get_blob("key2") == blob2
     assert store.get_blob("key3") == blob3
-
 
     store.store_blob(blob2, "key1")
     store.delete_blob("key2")

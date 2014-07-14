@@ -3,6 +3,7 @@ import copy
 
 from blitzdb import Document
 
+
 @pytest.fixture(scope="function")
 def mockup_backend():
 
@@ -15,6 +16,7 @@ def mockup_backend():
             return DocumentClass(copy.deepcopy(self.attributes))
 
     return Backend()
+
 
 def test_basic_attributes():
 
@@ -31,6 +33,7 @@ def test_basic_attributes():
     assert doc.d == doc['d']
 
     assert doc.attributes == attributes
+
 
 def test_attribute_deletion():
 
@@ -51,6 +54,7 @@ def test_attribute_deletion():
 
     with pytest.raises(AttributeError):
         del doc.foo
+
 
 def test_lazy_attributes(mockup_backend):
 
@@ -122,7 +126,6 @@ def test_lazy_attributes(mockup_backend):
     assert doc.foo == 'faz'
     
 
-
 def test_container_operations():
 
     attributes = {'foo': 'bar', 'baz': 1243, 'd': {1: 3, 4: 5}, 'l': [1, 2, 3, 4]}
@@ -137,6 +140,7 @@ def test_container_operations():
     assert list(doc.keys()) == list(attributes.keys())
     assert list(doc.values()) == list(attributes.values())
     assert doc.items() == attributes.items()
+
 
 def test_different_primary_key_names():
 

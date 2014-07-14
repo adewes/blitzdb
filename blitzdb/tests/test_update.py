@@ -7,6 +7,7 @@ from .fixtures import *
 from blitzdb import Document
 from blitzdb.tests.helpers.movie_data import Actor, Director, Movie
 
+
 def test_update_by_list(mongodb_backend):
 
     actor = Actor({'name': 'Robert de Niro', 'age': 54})
@@ -137,6 +138,7 @@ def test_update_set_then_unset(mongodb_backend):
 
     with pytest.raises(AttributeError):
         recovered_actor.name
+
 
 def test_update_unset_then_set(mongodb_backend):
 

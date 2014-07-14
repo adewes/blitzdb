@@ -4,17 +4,22 @@ import random
 
 from blitzdb import Document
 
+
 class Movie(Document):
     pass
+
 
 class Actor(Document):
     pass
 
+
 class Role(Document):
     pass
 
+
 class Director(Document):
     pass
+
 
 def generate_test_data(request, backend, n):
 
@@ -23,7 +28,6 @@ def generate_test_data(request, backend, n):
     actors = []
     movies = []
     directors = []
-
 
     backend.filter(Movie, {}).delete()
     backend.filter(Actor, {}).delete()

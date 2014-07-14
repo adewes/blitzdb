@@ -4,6 +4,7 @@ import re
 if six.PY3:
     from functools import reduce
 
+
 def and_query(expressions): 
 
     def _and(query_function, expressions=expressions):
@@ -12,6 +13,7 @@ def and_query(expressions):
         
     return _and
 
+
 def or_query(expressions):
 
     def _or(query_function, expressions=expressions):
@@ -19,6 +21,7 @@ def or_query(expressions):
         return reduce(lambda x, y: x | y, [e(query_function) for e in compiled_expressions])
 
     return _or
+
 
 def filter_query(key, expression):
 
@@ -44,6 +47,7 @@ def not_query(expression):
 
     return _not
 
+
 def gte_query(expression):
 
     def _gte(index, expression=expression):
@@ -51,6 +55,7 @@ def gte_query(expression):
         return [store_key for value, store_keys in index.get_index().items() if value >= ev for store_key in store_keys] 
 
     return _gte
+
 
 def lte_query(expression):
 
@@ -60,6 +65,7 @@ def lte_query(expression):
 
     return _lte
 
+
 def gt_query(expression):
 
     def _gt(index, expression=expression):
@@ -67,6 +73,7 @@ def gt_query(expression):
         return [store_key for value, store_keys in index.get_index().items() if value > ev for store_key in store_keys] 
 
     return _gt
+
 
 def lt_query(expression):
 
@@ -76,6 +83,7 @@ def lt_query(expression):
 
     return _lt
 
+
 def ne_query(expression):
 
     def _ne(index, expression=expression):
@@ -83,6 +91,7 @@ def ne_query(expression):
         return [store_key for value, store_keys in index.get_index().items() if value != ev for store_key in store_keys] 
 
     return _ne
+
 
 def exists_query(expression):
 
@@ -92,6 +101,7 @@ def exists_query(expression):
 
     return _exists
 
+
 def regex_query(expression):
 
     def _regex(index, expression=expression):
@@ -100,6 +110,7 @@ def regex_query(expression):
 
     return _regex
     
+
 def all_query(expression):
 
     def _all(index, expression=expression):
@@ -119,12 +130,14 @@ def all_query(expression):
 
     return _all
 
+
 def elemMatch_query(expression):
 
     def _elemMatch(index, expression=expression):
         raise ValueError("$elemMatch query is currently not supported by file backend!")
 
     return _elemMatch
+
 
 def in_query(expression):
 
@@ -143,6 +156,7 @@ def in_query(expression):
         return list(store_keys)
 
     return _in
+
 
 def compile_query(query):
     if isinstance(query, dict):
