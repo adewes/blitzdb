@@ -4,7 +4,7 @@ import subprocess
 
 from blitzdb.backends.file import TransactionalStore
 
-@pytest.fixture(scope = "function")
+@pytest.fixture(scope="function")
 def transactional_store(request):
 
     tmpdir = tempfile.mkdtemp()

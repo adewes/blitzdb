@@ -21,11 +21,11 @@ class JsonSerializer(object):
     def serialize(cls, data):
         if six.PY3:
             if isinstance(data, bytes):
-                return json.dumps(data.decode('utf-8'), cls = JsonEncoder).encode('utf-8')
+                return json.dumps(data.decode('utf-8'), cls=JsonEncoder).encode('utf-8')
             else:
-                return json.dumps(data, cls = JsonEncoder).encode('utf-8')
+                return json.dumps(data, cls=JsonEncoder).encode('utf-8')
         else:
-            return json.dumps(data, cls = JsonEncoder)
+            return json.dumps(data, cls=JsonEncoder)
 
     @classmethod
     def deserialize(cls, data):

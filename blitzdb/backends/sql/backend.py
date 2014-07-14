@@ -68,11 +68,11 @@ class Backend(BaseBackend):
         serialized_attributes['_id'] = obj.pk
         self.db[collection].save(serialized_attributes)
 
-    def serialize(self, obj, convert_keys_to_str = True, embed_level = 0, encoders = None):
-        return super(Backend, self).serialize(obj, convert_keys_to_str = convert_keys_to_str, embed_level = embed_level, encoders = encoders)
+    def serialize(self, obj, convert_keys_to_str=True, embed_level=0, encoders=None):
+        return super(Backend, self).serialize(obj, convert_keys_to_str=convert_keys_to_str, embed_level=embed_level, encoders=encoders)
 
-    def deserialize(self, obj, decoders = None):
-        return super(Backend, self).deserialize(obj, decoders = decoders)
+    def deserialize(self, obj, decoders=None):
+        return super(Backend, self).deserialize(obj, decoders=decoders)
 
 
     def create_index(self, cls_or_collection, *args, **kwargs):
@@ -90,7 +90,7 @@ class Backend(BaseBackend):
         else:
             return self.serialize(query)
 
-    def filter(self, cls_or_collection, query, sort_by = None, limit = None, offset = None):
+    def filter(self, cls_or_collection, query, sort_by=None, limit=None, offset=None):
         """
         Filter objects from the database that correspond to a given set of properties.
 

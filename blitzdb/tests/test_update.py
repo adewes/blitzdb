@@ -87,7 +87,7 @@ def test_update_with_dict(mongodb_backend):
 
     assert actor.name == 'Ian McKellan'
      
-    mongodb_backend.update(actor, {'name': 'Roger Moore'}, update_obj = False)
+    mongodb_backend.update(actor, {'name': 'Roger Moore'}, update_obj=False)
 
     mongodb_backend.commit()
 
@@ -105,7 +105,7 @@ def test_update_unset(mongodb_backend):
 
     assert len(mongodb_backend.filter(Actor, {'name': 'Robert de Niro'})) == 1
 
-    mongodb_backend.update(actor, unset_fields = ['name'])
+    mongodb_backend.update(actor, unset_fields=['name'])
 
     mongodb_backend.commit()
 
@@ -126,8 +126,8 @@ def test_update_set_then_unset(mongodb_backend):
 
     assert len(mongodb_backend.filter(Actor, {'name': 'Robert de Niro'})) == 1
 
-    mongodb_backend.update(actor, set_fields = {'name': 'Patrick Stewart'})
-    mongodb_backend.update(actor, unset_fields = ['name'])
+    mongodb_backend.update(actor, set_fields={'name': 'Patrick Stewart'})
+    mongodb_backend.update(actor, unset_fields=['name'])
 
     mongodb_backend.commit()
 
@@ -147,8 +147,8 @@ def test_update_unset_then_set(mongodb_backend):
 
     assert len(mongodb_backend.filter(Actor, {'name': 'Robert de Niro'})) == 1
 
-    mongodb_backend.update(actor, unset_fields = ['name'])
-    mongodb_backend.update(actor, set_fields = {'name': 'Patrick Stewart'})
+    mongodb_backend.update(actor, unset_fields=['name'])
+    mongodb_backend.update(actor, set_fields={'name': 'Patrick Stewart'})
 
     mongodb_backend.commit()
 

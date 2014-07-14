@@ -3,7 +3,7 @@ import copy
 
 from blitzdb import Document
 
-@pytest.fixture(scope = "function")
+@pytest.fixture(scope="function")
 def mockup_backend():
 
     class Backend(object):  
@@ -55,7 +55,7 @@ def test_attribute_deletion():
 def test_lazy_attributes(mockup_backend):
 
     def get_lazy_doc():
-        return Document({'pk': 1}, lazy = True, default_backend = mockup_backend)
+        return Document({'pk': 1}, lazy=True, default_backend=mockup_backend)
 
     # Fetchin of attribute by class attribute
 

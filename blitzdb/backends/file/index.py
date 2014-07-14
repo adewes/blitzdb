@@ -13,7 +13,7 @@ class Index(object):
     efficiently retrieved.
     """
 
-    def __init__(self, params, serializer, deserializer, store = None):
+    def __init__(self, params, serializer, deserializer, store=None):
         self._params = params
         self._store = store
         self._serializer = serializer
@@ -47,7 +47,7 @@ class Index(object):
     def save_to_store(self):
         if not self._store:
             raise AttributeError("No datastore defined!")
-        saved_data = self.save_to_data(in_place = True)
+        saved_data = self.save_to_data(in_place=True)
         data = Serializer.serialize(saved_data)
         self._store.store_blob(data, 'all_keys')
         
@@ -68,17 +68,17 @@ class Index(object):
         self.load_from_data(data)
         return True
 
-    def sort_keys(self, keys, order = 1):
+    def sort_keys(self, keys, order=1):
         # to do: check that all reverse index values are unambiguous
         missing_keys = [key for key in keys if not len(self._reverse_index[key])]
         keys_and_values = [(key, self._reverse_index[key][0]) for key in keys if not key in missing_keys]
-        sorted_keys = [kv[0] for kv in sorted(keys_and_values, key = lambda x: x[1], reverse = True if order < 0 else False)]
+        sorted_keys = [kv[0] for kv in sorted(keys_and_values, key=lambda x: x[1], reverse=True if order < 0 else False)]
         if order > 0:
             return missing_keys + sorted_keys
         else:
             return sorted_keys + missing_keys
 
-    def save_to_data(self, in_place = False):
+    def save_to_data(self, in_place=False):
         if in_place:
             return list(self._index.items())
         return [(key, values[:]) for key, values in self._index.items()]
@@ -194,7 +194,7 @@ class TransactionalIndex(Index):
                 self._reverse_add_cache[hash_value].remove(store_key)
             del self._add_cache[store_key]
 
-    def get_keys_for(self, value, include_uncommitted = False):
+    def get_keys_for(self, value, include_uncommitted=False):
         if not include_uncommitted:
             return super(TransactionalIndex, self).get_keys_for(value)
         else:

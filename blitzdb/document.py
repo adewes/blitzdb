@@ -99,7 +99,7 @@ class BaseDocument(object):
 
         primary_key = "pk"
 
-    def __init__(self, attributes = None, lazy = False, default_backend = None, autoload = True):
+    def __init__(self, attributes=None, lazy=False, default_backend=None, autoload=True):
         """
         Initializes a document instance with the given attributes. If `lazy = True`, a *lazy* document
         will be created, which means that the attributes of the document will be loaded from the database
@@ -210,11 +210,11 @@ class BaseDocument(object):
             raise KeyError(key)
 
     def __copy__(self):
-        d = self.__class__(self.attributes.copy(), lazy = self._lazy, default_backen = self._default_backend)
+        d = self.__class__(self.attributes.copy(), lazy=self._lazy, default_backen=self._default_backend)
         return d
 
     def __deepcopy__(self, memo):
-        d = self.__class__(copy.deepcopy(self.attributes, memo), lazy = self._lazy, default_backend = self._default_backend)
+        d = self.__class__(copy.deepcopy(self.attributes, memo), lazy=self._lazy, default_backend=self._default_backend)
         return d
 
     def __hash__(self):
@@ -250,12 +250,12 @@ class BaseDocument(object):
     def __unicode__(self):
         return self.__class__.__name__+"({'pk' : '%s'},lazy = %s)" % (str(self.pk), str(self._lazy))
 
-    def _represent(self, n = 1):
+    def _represent(self, n=1):
 
         if n < 0:
             return self.__class__.__name__+"({...})"
 
-        def truncate_dict(d, n = n):
+        def truncate_dict(d, n=n):
 
             if isinstance(d, dict):
                 out = {}
@@ -342,7 +342,7 @@ class BaseDocument(object):
         """
         return self._attributes
 
-    def save(self, backend = None):
+    def save(self, backend=None):
         """
         Saves a document to the database. If the `backend` argument is not specified, the function resorts
         to the *default backend* as defined during object instantiation. If no such backend is defined, an
@@ -357,7 +357,7 @@ class BaseDocument(object):
             return self._default_backend.save(self)
         return backend.save(self)
 
-    def delete(self, backend = None):
+    def delete(self, backend=None):
         """
         Deletes a document from the database. If the `backend` argument is not specified, the function resorts
         to the *default backend* as defined during object instantiation. If no such backend is defined, an
@@ -372,7 +372,7 @@ class BaseDocument(object):
             return self._default_backend.delete(self)
         backend.delete(self)
 
-    def revert(self, backend = None):
+    def revert(self, backend=None):
         """
         Reverts the state of the document to that contained in the database. 
         If the `backend` argument is not specified, the function resorts to the *default backend* 

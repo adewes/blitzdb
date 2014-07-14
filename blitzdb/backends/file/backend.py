@@ -79,7 +79,7 @@ class Backend(BaseBackend):
 
     config_defaults = {}
 
-    def __init__(self, path, config = None, overwrite_config = False, **kwargs):
+    def __init__(self, path, config=None, overwrite_config=False, **kwargs):
 
         self._path = os.path.abspath(path)
         if not os.path.exists(path):
@@ -180,7 +180,7 @@ class Backend(BaseBackend):
         """
         return self.rebuild_indexes(collection, [key])
 
-    def create_index(self, cls_or_collection, params = None, fields = None, ephemeral = False):
+    def create_index(self, cls_or_collection, params=None, fields=None, ephemeral=False):
         """
         Creates a new index on the given collection or class with the given parameters.
 
@@ -224,12 +224,12 @@ class Backend(BaseBackend):
         """
 
         if params:
-            return self.create_indexes(cls_or_collection, [params], ephemeral = ephemeral)
+            return self.create_indexes(cls_or_collection, [params], ephemeral=ephemeral)
         elif fields:
             params = []
             if len(fields.items()) > 1:
                 raise ValueError("File backend currently does not support multi-key indexes, sorry :/")
-            return self.create_indexes(cls_or_collection, [{'key': list(fields.keys())[0]}], ephemeral = ephemeral)
+            return self.create_indexes(cls_or_collection, [{'key': list(fields.keys())[0]}], ephemeral=ephemeral)
         else:
             raise AttributeError("You must either specify params or fields!")
 
@@ -248,7 +248,7 @@ class Backend(BaseBackend):
             self.create_index(cls.get_pk_name(), collection)
         return self.indexes[collection][cls.get_pk_name()]
 
-    def load_config(self, config = None, overwrite_config = False):
+    def load_config(self, config=None, overwrite_config=False):
         config_file = self._path+"/config.json"
         if os.path.exists(config_file):
             with open(config_file, "rb") as config_file:
@@ -297,7 +297,7 @@ class Backend(BaseBackend):
             self.index_stores[collection][store_key] = self.IndexStoreClass({'path': self.path+"/"+collection+"/indexes/"+store_key})
         return self.index_stores[collection][store_key]
 
-    def register(self, cls, parameters = None):
+    def register(self, cls, parameters=None):
         super(Backend, self).register(cls, parameters)
         self.init_indexes(self.get_collection_for_cls(cls))
 
@@ -317,7 +317,7 @@ class Backend(BaseBackend):
                 self.create_index(collection, {'key': cls.get_pk_name()})
             
             # We sort the indexes such that pk is always created first...
-            for index_params in sorted(self._config['indexes'][collection].values(), key = lambda x: 0 if x['key'] == cls.get_pk_name() else 1):
+            for index_params in sorted(self._config['indexes'][collection].values(), key=lambda x: 0 if x['key'] == cls.get_pk_name() else 1):
                 index = self.create_index(collection, index_params)
         else:
             # If no indexes are given, we just create a primary key index...
@@ -336,7 +336,7 @@ class Backend(BaseBackend):
                 index.add_key(obj.attributes, obj._store_key)
             index.commit()
 
-    def create_indexes(self, cls_or_collection, params_list, ephemeral = False):
+    def create_indexes(self, cls_or_collection, params_list, ephemeral=False):
         indexes = []
         keys = []
 
@@ -360,7 +360,7 @@ class Backend(BaseBackend):
             else:
                 index_store = self.get_index_store(collection, params['id'])
 
-            index = self.IndexClass(params, serializer = lambda x: self.serialize(x, autosave = False), deserializer = lambda x: self.deserialize(x), store = index_store)
+            index = self.IndexClass(params, serializer=lambda x: self.serialize(x, autosave=False), deserializer=lambda x: self.deserialize(x), store=index_store)
             self.indexes[collection][params['key']] = index
 
             if not collection in self._config['indexes']:
@@ -411,7 +411,7 @@ class Backend(BaseBackend):
         data = self.encode_attributes(serialized_attributes)
     
         try:
-            store_key = self.get_pk_index(collection).get_keys_for(obj.pk, include_uncommitted = True).pop()
+            store_key = self.get_pk_index(collection).get_keys_for(obj.pk, include_uncommitted=True).pop()
         except IndexError:
             store_key = uuid.uuid4().hex
     
@@ -449,14 +449,14 @@ class Backend(BaseBackend):
         return self.delete_by_store_keys(collection, primary_index.get_keys_for(obj.pk))
 
     def get(self, cls, query):
-        objects = self.filter(cls, query, limit = 1)
+        objects = self.filter(cls, query, limit=1)
         if len(objects) == 0:
             raise cls.DoesNotExist
         elif len(objects) > 1:
             raise cls.MultipleDocumentsReturned
         return objects[0]
 
-    def sort(self, cls_or_collection, keys, key, order = QuerySet.ASCENDING):
+    def sort(self, cls_or_collection, keys, key, order=QuerySet.ASCENDING):
 
         if not isinstance(cls_or_collection, six.string_types):
             collection = self.get_collection_for_cls(cls_or_collection)
@@ -477,7 +477,7 @@ class Backend(BaseBackend):
             if not sort_key in indexes:
                 indexes_to_create.append(sort_key)
 
-        self.create_indexes(cls, indexes_to_create, ephemeral = True)
+        self.create_indexes(cls, indexes_to_create, ephemeral=True)
 
         def sort_by_keys(keys, sort_keys):
             if not sort_keys:
@@ -493,7 +493,7 @@ class Backend(BaseBackend):
 
         return flatten(sort_by_keys(keys, sort_keys))
 
-    def filter(self, cls_or_collection, query, sort_by = None, limit = None, offset = None, initial_keys = None):
+    def filter(self, cls_or_collection, query, sort_by=None, limit=None, offset=None, initial_keys=None):
 
         if not isinstance(query, dict):
             raise AttributeError("Query parameters must be dict!")
@@ -507,7 +507,7 @@ class Backend(BaseBackend):
 
         store = self.get_collection_store(collection)
         indexes = self.get_collection_indexes(collection)
-        compiled_query = compile_query(self.serialize(query, autosave = False))
+        compiled_query = compile_query(self.serialize(query, autosave=False))
 
         indexes_to_create = []
 
@@ -526,7 +526,7 @@ class Backend(BaseBackend):
         compiled_query(index_collector)
     
         if indexes_to_create:
-            self.create_indexes(cls, indexes_to_create, ephemeral = True)
+            self.create_indexes(cls, indexes_to_create, ephemeral=True)
     
         return compiled_query(query_function)
 

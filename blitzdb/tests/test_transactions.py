@@ -30,14 +30,14 @@ def test_rollback_and_commit(transactional_backend, small_transactional_test_dat
     transactional_backend.rollback()
 
     assert len(movies) == len(transactional_backend.filter(Movie, {}))
-    assert sorted(movies, key = lambda x: x.pk) == sorted(transactional_backend.filter(Movie, {}), key = lambda x: x.pk)
+    assert sorted(movies, key=lambda x: x.pk) == sorted(transactional_backend.filter(Movie, {}), key=lambda x: x.pk)
 
     transactional_backend.begin()    
     transactional_backend.filter(Movie, {}).delete()
     transactional_backend.commit()
 
     assert 0 == len(set(transactional_backend.filter(Movie, {})))
-    assert [] == sorted(transactional_backend.filter(Movie, {}), key = lambda x: x.pk)
+    assert [] == sorted(transactional_backend.filter(Movie, {}), key=lambda x: x.pk)
 
 def test_advanced_transaction(transactional_backend):
 

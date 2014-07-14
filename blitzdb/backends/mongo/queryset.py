@@ -6,7 +6,7 @@ class QuerySet(BaseQuerySet):
     """
     """
 
-    def __init__(self, backend, cls, cursor, raw = False, only = None):
+    def __init__(self, backend, cls, cursor, raw=False, only=None):
         super(QuerySet, self).__init__(backend, cls)
         self._cursor = cursor
         self._raw = raw
@@ -50,7 +50,7 @@ class QuerySet(BaseQuerySet):
             if stop < 0:
                 stop = self._cursor.count()+stop
             key = slice(start, stop)
-            return self.__class__(self.backend, self.cls, self._cursor.__getitem__(key), raw = self._raw)
+            return self.__class__(self.backend, self.cls, self._cursor.__getitem__(key), raw=self._raw)
         if key < 0:
             key = self._cursor.count()+key
         json_attributes = self._cursor[key]
@@ -83,7 +83,7 @@ class QuerySet(BaseQuerySet):
         return self
 
     def filter(self, *args, **kwargs):
-        return self.backend.filter(self.cls, *args, initial_keys = self.keys, **kwargs)
+        return self.backend.filter(self.cls, *args, initial_keys=self.keys, **kwargs)
 
     def __len__(self):
         return self._cursor.count()

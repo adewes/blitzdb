@@ -12,10 +12,10 @@ class QuerySet(BaseQuerySet):
         self.objects = {}
 
     def filter(self, *args, **kwargs):
-        return self.backend.filter(self.cls, *args, initial_keys = self.keys, **kwargs)
+        return self.backend.filter(self.cls, *args, initial_keys=self.keys, **kwargs)
 
     def filter_by_key(self, key, expression):
-        return self.backend.filter_by_key(self.cls, expression, initial_keys = self.keys)
+        return self.backend.filter_by_key(self.cls, expression, initial_keys=self.keys)
 
     def _clone(self, keys):
         return self.__class__(self.backend, self.cls, self.store, copy.copy(keys))
@@ -31,7 +31,7 @@ class QuerySet(BaseQuerySet):
     def rewind(self):
         self._i = 0
 
-    def sort(self, key, order = BaseQuerySet.ASCENDING):
+    def sort(self, key, order=BaseQuerySet.ASCENDING):
         self.keys = self.backend.sort(self.cls, self.keys, key, order)
         return self
 
