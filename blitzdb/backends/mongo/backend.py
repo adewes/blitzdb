@@ -66,7 +66,7 @@ class Backend(BaseBackend):
                     self.db[collection].save(attributes)
                 except:
                     logger.error("Error when saving the document with pk %s in collection %s" % (attributes['pk'], collection))
-                    logger.error("Attributes (excerpt):"+str(dict(attributes.items()[:100])) )
+                    logger.error("Attributes (excerpt):"+str(dict(attributes.items()[:100])))
                     raise
 
         for collection, cache in self._delete_cache.items():
