@@ -127,6 +127,19 @@ class BaseDocument(object):
         else:
             self._lazy = True
 
+    def __getitem__(self,key):
+        try:
+            lazy = super(BaseDocument,self).__getattribute__('_lazy')
+        except AttributeError:
+            lazy = False
+        if lazy:
+            if key in self.lazy_attributes:
+                return self.lazy_attributes[key]
+            else:
+                self.revert()
+                self._lazy = False
+        return self.attributes[key]
+
     def __getattribute__(self,key):
         """
         Checks if the `_lazy` attribute of the document is set. If this is the case, the function
@@ -151,13 +164,11 @@ class BaseDocument(object):
                 return super(BaseDocument,self).__getattribute__(key)
             except AttributeError:
                 pass
-            if self._autoload:
-                self._lazy = False
-                self.revert()
-            elif key in self.lazy_attributes:
+            if key in self.lazy_attributes:
                 return self.lazy_attributes[key]
-            else:
-                raise AttributeError("Undefined attribute: %s" % key)
+            elif self._autoload:
+                self.revert()
+                self._lazy = False
         return super(BaseDocument,self).__getattribute__(key)
 
     def keys(self):
@@ -197,9 +208,6 @@ class BaseDocument(object):
             del self.attributes[key]
         except KeyError:
             raise AttributeError(key)
-
-    def __getitem__(self,key):
-        return self.attributes[key]
 
     __setitem__ = __setattr__
 

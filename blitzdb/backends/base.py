@@ -138,6 +138,13 @@ class Backend(object):
         :returns: The serialized object.
         """
 
+        def get_value(obj,key):
+            key_fragments = key.split(".")
+            current_dict = obj
+            for key_fragment in key_fragments:
+                current_dict = current_dict[key_fragment]
+            return current_dict
+
         serialize_with_opts = lambda value,*args,**kwargs : self.serialize(value,*args,convert_keys_to_str = convert_keys_to_str,autosave = autosave,for_query = for_query, **kwargs)
         if encoders:
             for matcher,encoder in encoders:
@@ -175,9 +182,12 @@ class Backend(object):
                     output_obj = {'pk':obj.pk,'__collection__':self.classes[obj.__class__]['collection']}
                     #We include fields to the reference, as given by the document's Meta class
                     if hasattr(obj,'Meta') and hasattr(obj.Meta,'dbref_includes') and obj.Meta.dbref_includes:
-                        for include in obj.Meta.dbref_includes:
-                            if include in obj and not include in output_obj:
-                                output_obj[include] = obj[include]
+                        for include_key in obj.Meta.dbref_includes:
+                            try:
+                                value = get_value(obj,include_key)
+                                output_obj[include_key.replace(".","_")] = value
+                            except KeyError:
+                                continue
                 
 
         else:
