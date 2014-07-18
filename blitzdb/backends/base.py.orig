@@ -141,6 +141,7 @@ class Backend(object):
         :returns: The serialized object.
         """
 
+<<<<<<< HEAD
         def get_value(obj,key):
             key_fragments = key.split(".")
             current_dict = obj
@@ -149,6 +150,9 @@ class Backend(object):
             return current_dict
 
         serialize_with_opts = lambda value,*args,**kwargs : self.serialize(value,*args,convert_keys_to_str = convert_keys_to_str,autosave = autosave,for_query = for_query, **kwargs)
+=======
+        serialize_with_opts = lambda value, *args, **kwargs: self.serialize(value, *args, convert_keys_to_str=convert_keys_to_str, autosave=autosave, for_query=for_query, **kwargs)
+>>>>>>> cf37b7c2151b4678d1590d4a95f6fbe181fccff5
         if encoders:
             for matcher, encoder in encoders:
                 if matcher(obj):
@@ -182,6 +186,7 @@ class Backend(object):
                 else:
                     if for_query and not self._allow_documents_in_query:
                         raise ValueError("Documents are not allowed in queries!")
+<<<<<<< HEAD
                     output_obj = {'pk':obj.pk,'__collection__':self.classes[obj.__class__]['collection']}
                     #We include fields to the reference, as given by the document's Meta class
                     if hasattr(obj,'Meta') and hasattr(obj.Meta,'dbref_includes') and obj.Meta.dbref_includes:
@@ -191,8 +196,15 @@ class Backend(object):
                                 output_obj[include_key.replace(".","_")] = value
                             except KeyError:
                                 continue
+=======
+                    output_obj = {'pk': obj.pk, '__collection__': self.classes[obj.__class__]['collection']}
+                    # We include fields to the reference, as given by the document's Meta class
+                    if hasattr(obj, 'Meta') and hasattr(obj.Meta, 'dbref_includes') and obj.Meta.dbref_includes:
+                        for include in obj.Meta.dbref_includes:
+                            if include in obj and include not in output_obj:
+                                output_obj[include] = obj[include]
+>>>>>>> cf37b7c2151b4678d1590d4a95f6fbe181fccff5
                 
-
         else:
             output_obj = obj
         return output_obj
@@ -347,4 +359,3 @@ class Backend(object):
 
 
         """
-

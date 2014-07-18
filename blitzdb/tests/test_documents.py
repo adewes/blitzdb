@@ -3,38 +3,41 @@ import copy
 
 from blitzdb import Document
 
-@pytest.fixture(scope = "function")
+
+@pytest.fixture(scope="function")
 def mockup_backend():
 
     class Backend(object):  
 
         def __init__(self):
-            self.attributes = {'foo' : 'bar', 'baz' : 123}
+            self.attributes = {'foo': 'bar', 'baz': 123}
 
-        def get(self,DocumentClass,pk):
+        def get(self, DocumentClass, pk):
             return DocumentClass(copy.deepcopy(self.attributes))
 
     return Backend()
 
+
 def test_basic_attributes():
 
-    attributes = {'foo' : 'bar','baz' : 1243, 'd' : {1 :3,4 :5},'l' : [1,2,3,4]}
+    attributes = {'foo': 'bar', 'baz': 1243, 'd': {1: 3, 4: 5}, 'l': [1, 2, 3, 4]}
 
     doc = Document(attributes)
 
     assert doc.foo == 'bar'
     assert doc.baz == 1243
-    assert doc.d == {1 :3,4:5}
-    assert doc.l == [1,2,3,4]
+    assert doc.d == {1: 3, 4: 5}
+    assert doc.l == [1, 2, 3, 4]
     assert doc.foo == doc['foo']
     assert doc.baz == doc['baz']
     assert doc.d == doc['d']
 
     assert doc.attributes == attributes
 
+
 def test_attribute_deletion():
 
-    attributes = {'foo' : 'bar','baz' : 1243, 'd' : {1 :3,4 :5},'l' : [1,2,3,4]}
+    attributes = {'foo': 'bar', 'baz': 1243, 'd': {1: 3, 4: 5}, 'l': [1, 2, 3, 4]}
 
     doc = Document(attributes)
 
@@ -52,12 +55,13 @@ def test_attribute_deletion():
     with pytest.raises(AttributeError):
         del doc.foo
 
+
 def test_lazy_attributes(mockup_backend):
 
     def get_lazy_doc():
-        return Document({'pk' : 1},lazy = True,default_backend = mockup_backend)
+        return Document({'pk': 1}, lazy=True, default_backend=mockup_backend)
 
-    #Fetchin of attribute by class attribute
+    # Fetchin of attribute by class attribute
 
     doc = get_lazy_doc()
 
@@ -65,7 +69,7 @@ def test_lazy_attributes(mockup_backend):
     assert doc.foo == 'bar'
     assert doc._lazy == False
 
-    #Fetching of attribute by dict
+    # Fetching of attribute by dict
 
     doc = get_lazy_doc()
 
@@ -73,7 +77,7 @@ def test_lazy_attributes(mockup_backend):
     assert doc['foo'] == 'bar'
     assert doc._lazy == False
 
-    #Getting all attributes
+    # Getting all attributes
 
     doc = get_lazy_doc()
 
@@ -83,7 +87,7 @@ def test_lazy_attributes(mockup_backend):
     assert attributes == mockup_backend.attributes
     assert doc._lazy == False
 
-    #Deletion by dict
+    # Deletion by dict
 
     doc = get_lazy_doc()
 
@@ -93,7 +97,7 @@ def test_lazy_attributes(mockup_backend):
         doc['foo']
     assert doc._lazy == False
 
-    #Deletion by attribute
+    # Deletion by attribute
 
     doc = get_lazy_doc()
 
@@ -103,7 +107,7 @@ def test_lazy_attributes(mockup_backend):
         doc.foo
     assert doc._lazy == False
 
-    #Update by dict
+    # Update by dict
 
     doc = get_lazy_doc()
 
@@ -112,7 +116,7 @@ def test_lazy_attributes(mockup_backend):
     assert doc._lazy == False
     assert doc['foo'] == 'faz'
 
-    #Update by attribute
+    # Update by attribute
 
     doc = get_lazy_doc()
 
@@ -122,10 +126,9 @@ def test_lazy_attributes(mockup_backend):
     assert doc.foo == 'faz'
     
 
-
 def test_container_operations():
 
-    attributes = {'foo' : 'bar','baz' : 1243, 'd' : {1 :3,4 :5},'l' : [1,2,3,4]}
+    attributes = {'foo': 'bar', 'baz': 1243, 'd': {1: 3, 4: 5}, 'l': [1, 2, 3, 4]}
 
     doc = Document(attributes)
 
@@ -138,6 +141,7 @@ def test_container_operations():
     assert list(doc.values()) == list(attributes.values())
     assert doc.items() == attributes.items()
 
+
 def test_different_primary_key_names():
 
     class MyDocument(Document):
@@ -145,7 +149,7 @@ def test_different_primary_key_names():
         class Meta:
             primary_key = 'foobar'
 
-    doc = MyDocument({'foo' : 'bar','foobar' : 1})
+    doc = MyDocument({'foo': 'bar', 'foobar': 1})
 
     assert doc.pk == 1
     doc.pk = 2

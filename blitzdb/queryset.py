@@ -1,5 +1,6 @@
 import abc
 
+
 class QuerySet(object):
 
     """
@@ -15,7 +16,7 @@ class QuerySet(object):
     ASCENDING = 1
     DESCENDING = -1
 
-    def __init__(self,backend,cls):
+    def __init__(self, backend, cls):
         """
         Initializes a query set.
         """
@@ -23,7 +24,7 @@ class QuerySet(object):
         self.backend = backend
 
     @abc.abstractmethod
-    def __getitem__(self,i):
+    def __getitem__(self, i):
         """
         Returns a specific element from a query set.
         """
@@ -35,7 +36,7 @@ class QuerySet(object):
         """
 
     @abc.abstractmethod
-    def filter(self,*args,**kwargs):
+    def filter(self, *args, **kwargs):
         """
         Performs a `filter` operation on all documents contained in the query set.
         See :py:meth:`blitzdb.backends.base.Backend.filter` for more details.
@@ -49,7 +50,7 @@ class QuerySet(object):
         pass
 
     @abc.abstractmethod
-    def __ne__(self,other):
+    def __ne__(self, other):
         """
         Checks if two query sets are unequal.
 
@@ -58,7 +59,7 @@ class QuerySet(object):
         pass
     
     @abc.abstractmethod
-    def __eq__(self,other):
+    def __eq__(self, other):
         """
         Checks if two query sets are equal. Implement this in your derived query set class.
         

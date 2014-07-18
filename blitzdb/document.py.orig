@@ -128,6 +128,7 @@ class BaseDocument(object):
         else:
             self._lazy = True
 
+<<<<<<< HEAD
     def __getitem__(self,key):
         try:
             lazy = super(BaseDocument,self).__getattribute__('_lazy')
@@ -142,6 +143,9 @@ class BaseDocument(object):
         return self.attributes[key]
 
     def __getattribute__(self,key):
+=======
+    def __getattribute__(self, key):
+>>>>>>> cf37b7c2151b4678d1590d4a95f6fbe181fccff5
         """
         Checks if the `_lazy` attribute of the document is set. If this is the case, the function
         lazily loads the document from the database by calling `revert` and sets `_lazy = False'
@@ -167,10 +171,16 @@ class BaseDocument(object):
                 pass
             if key in self.lazy_attributes:
                 return self.lazy_attributes[key]
+<<<<<<< HEAD
             elif self._autoload:
                 self.revert()
                 self._lazy = False
         return super(BaseDocument,self).__getattribute__(key)
+=======
+            else:
+                raise AttributeError("Undefined attribute: %s" % key)
+        return super(BaseDocument, self).__getattribute__(key)
+>>>>>>> cf37b7c2151b4678d1590d4a95f6fbe181fccff5
 
     def keys(self):
         return self.attributes.keys()
@@ -210,6 +220,12 @@ class BaseDocument(object):
         except KeyError:
             raise AttributeError(key)
 
+<<<<<<< HEAD
+=======
+    def __getitem__(self, key):
+        return self.attributes[key]
+
+>>>>>>> cf37b7c2151b4678d1590d4a95f6fbe181fccff5
     __setitem__ = __setattr__
 
     def __delitem__(self, key):

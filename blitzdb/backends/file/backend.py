@@ -1,10 +1,10 @@
 import blitzdb
 
 from blitzdb.backends.file.queryset import QuerySet
-from blitzdb.backends.file.store import TransactionalStore,Store
-from blitzdb.backends.file.index import TransactionalIndex,Index
-from blitzdb.backends.base import Backend as BaseBackend,NotInTransaction,InTransaction
-from blitzdb.backends.file.serializers import PickleSerializer,JsonSerializer,MarshalSerializer
+from blitzdb.backends.file.store import TransactionalStore, Store
+from blitzdb.backends.file.index import TransactionalIndex, Index
+from blitzdb.backends.base import Backend as BaseBackend, NotInTransaction, InTransaction
+from blitzdb.backends.file.serializers import PickleSerializer, JsonSerializer, MarshalSerializer
 from blitzdb.backends.file.queries import compile_query
 
 import six
@@ -19,27 +19,28 @@ import copy
 from collections import defaultdict
 
 store_classes = {
-    'transactional' : TransactionalStore,
-    'basic' : Store,
+    'transactional': TransactionalStore,
+    'basic': Store,
 }
 
 index_classes = {
-    'transactional' : TransactionalIndex,
-    'basic' : Index
+    'transactional': TransactionalIndex,
+    'basic': Index
 }
 
 serializer_classes = {
-    'pickle' : PickleSerializer,
-    'json' : JsonSerializer,
-    'marshal' : MarshalSerializer
+    'pickle': PickleSerializer,
+    'json': JsonSerializer,
+    'marshal': MarshalSerializer
 }
 
-#will only be available if cjson is installed
+# will only be available if cjson is installed
 try:
     from blitzdb.backends.file.serializers import CJsonSerializer
     serializer_classes['cjson'] = CJsonSerializer
 except ImportError:
     pass
+
 
 class DatabaseIndexError(BaseException):
     """
@@ -48,6 +49,7 @@ class DatabaseIndexError(BaseException):
     To recover from this error, you can call the `rebuild_index` function of the file backend with the
     affected collection and key as parameters.
     """
+
 
 class Backend(BaseBackend):
 
@@ -67,19 +69,19 @@ class Backend(BaseBackend):
 
     """
 
-    #the default configuration values.
+    # the default configuration values.
     default_config = {
-        'indexes' : {},
-        'store_class' : 'transactional',
-        'index_class' : 'transactional',
-        'index_store_class' : 'basic',
-        'serializer_class' : 'json', 
-        'autocommit' : False,
+        'indexes': {},
+        'store_class': 'transactional',
+        'index_class': 'transactional',
+        'index_store_class': 'basic',
+        'serializer_class': 'json', 
+        'autocommit': False,
     }
 
     config_defaults = {}
 
-    def __init__(self,path,config = None,overwrite_config = False,**kwargs):
+    def __init__(self, path, config=None, overwrite_config=False, **kwargs):
 
         self._path = os.path.abspath(path)
         if not os.path.exists(path):
@@ -88,19 +90,19 @@ class Backend(BaseBackend):
         self.collections = {}
         self.stores = {}
         self.in_transaction = False
-        self.indexes = defaultdict(lambda : {})
-        self.index_stores = defaultdict(lambda : {})
-        self.load_config(config,overwrite_config)
+        self.indexes = defaultdict(lambda: {})
+        self.index_stores = defaultdict(lambda: {})
+        self.load_config(config, overwrite_config)
 
-        super(Backend,self).__init__(**kwargs)
+        super(Backend, self).__init__(**kwargs)
 
     @property
     def autocommit(self):
         return True if 'autocommit' in self.config and self.config['autocommit'] else False
 
     @autocommit.setter
-    def autocommit(self,value):
-        if not value in (True,False):
+    def autocommit(self, value):
+        if value not in (True, False):
             raise TypeError("Value must be boolean!")
         self.config['autocommit'] = value
 
@@ -108,10 +110,10 @@ class Backend(BaseBackend):
         """
         Starts a new transaction
         """
-        if self.in_transaction:#we're already in a transaction...
+        if self.in_transaction:  # we're already in a transaction...
             self.commit()
         self.in_transaction = True
-        for collection,store in self.stores.items():
+        for collection, store in self.stores.items():
             store.begin()
             indexes = self.indexes[collection]
             for index in indexes.values():
@@ -139,18 +141,18 @@ class Backend(BaseBackend):
         """
         if not self.in_transaction:
             raise NotInTransaction
-        for collection,store in self.stores.items():
+        for collection, store in self.stores.items():
             store.rollback()
             indexes = self.indexes[collection]
             indexes_to_rebuild = []
-            for key,index in indexes.items():
+            for key, index in indexes.items():
                 try:
                     index.rollback()
                 except NotInTransaction:
-                    #this index is "dirty" and needs to be rebuilt (probably it has been created within a transaction)
+                    # this index is "dirty" and needs to be rebuilt (probably it has been created within a transaction)
                     indexes_to_rebuild.append(key)
             if indexes_to_rebuild:
-                self.rebuild_indexes(collection,indexes_to_rebuild)
+                self.rebuild_indexes(collection, indexes_to_rebuild)
         self.in_transaction = False
 
     def commit(self):
@@ -171,16 +173,16 @@ class Backend(BaseBackend):
         self.in_transaction = False
         self.begin()
 
-    def rebuild_index(self,collection,key):
+    def rebuild_index(self, collection, key):
         """
         Rebuild a given index using the objects stored in the database.
 
         :param collection: The name of the collection for which to rebuild the index
         :param key: The key of the index to be rebuilt
         """
-        return self.rebuild_indexes(collection,[key])
+        return self.rebuild_indexes(collection, [key])
 
-    def create_index(self,cls_or_collection,params = None,fields = None,ephemeral = False):
+    def create_index(self, cls_or_collection, params=None, fields=None, ephemeral=False):
         """
         Creates a new index on the given collection or class with the given parameters.
 
@@ -224,16 +226,16 @@ class Backend(BaseBackend):
         """
 
         if params:
-            return self.create_indexes(cls_or_collection,[params],ephemeral = ephemeral)
+            return self.create_indexes(cls_or_collection, [params], ephemeral=ephemeral)
         elif fields:
             params = []
             if len(fields.items()) > 1:
                 raise ValueError("File backend currently does not support multi-key indexes, sorry :/")
-            return self.create_indexes(cls_or_collection,[{'key' : list(fields.keys())[0]}],ephemeral = ephemeral)
+            return self.create_indexes(cls_or_collection, [{'key': list(fields.keys())[0]}], ephemeral=ephemeral)
         else:
             raise AttributeError("You must either specify params or fields!")
 
-    def get_pk_index(self,collection):
+    def get_pk_index(self, collection):
         """
         Returns the primary key index for a given collection:
 
@@ -245,14 +247,14 @@ class Backend(BaseBackend):
         cls = self.collections[collection]
 
         if not cls.get_pk_name() in self.indexes[collection]:
-            self.create_index(cls.get_pk_name(),collection)
+            self.create_index(cls.get_pk_name(), collection)
         return self.indexes[collection][cls.get_pk_name()]
 
-    def load_config(self,config = None,overwrite_config = False):
-        config_file = self._path+"/config.json"
+    def load_config(self, config=None, overwrite_config=False):
+        config_file = self._path + "/config.json"
         if os.path.exists(config_file):
-            with open(config_file,"rb") as config_file:
-                #configuration is always stored in JSON format
+            with open(config_file, "rb") as config_file:
+                # configuration is always stored in JSON format
                 self._config = JsonSerializer.deserialize(config_file.read())
         else:
             if config:
@@ -262,16 +264,16 @@ class Backend(BaseBackend):
         if overwrite_config and config:
             self._config.update(config)
 
-        for key,value in self.default_config.items():
-            if not key in self._config:
+        for key, value in self.default_config.items():
+            if key not in self._config:
                 self._config[key] = value
-        if not 'version' in self._config:
+        if 'version' not in self._config:
             self._config['version'] = blitzdb.__version__
         self.save_config()
 
     def save_config(self):
-        config_file = self._path+"/config.json"
-        with open(config_file,"wb") as config_file:
+        config_file = self._path + "/config.json"
+        with open(config_file, "wb") as config_file:
             config_file.write(JsonSerializer.serialize(self._config))
 
     @property
@@ -279,7 +281,7 @@ class Backend(BaseBackend):
         return self._config
 
     @config.setter
-    def config(self,config):
+    def config(self, config):
         self._config = config
         self.save_config()
         
@@ -287,56 +289,56 @@ class Backend(BaseBackend):
     def path(self):
         return self._path
 
-    def get_collection_store(self,collection):
-        if not collection in self.stores:
-            self.stores[collection] = self.StoreClass({'path':self.path+"/"+collection+"/objects"})
+    def get_collection_store(self, collection):
+        if collection not in self.stores:
+            self.stores[collection] = self.StoreClass({'path': self.path + "/" + collection + "/objects"})
         return self.stores[collection]
 
-    def get_index_store(self,collection,store_key):
-        if not store_key in self.index_stores[collection]:
-            self.index_stores[collection][store_key] = self.IndexStoreClass({'path':self.path+"/"+collection+"/indexes/"+store_key})
+    def get_index_store(self, collection, store_key):
+        if store_key not in self.index_stores[collection]:
+            self.index_stores[collection][store_key] = self.IndexStoreClass({'path': self.path + "/" + collection + "/indexes/" + store_key})
         return self.index_stores[collection][store_key]
 
-    def register(self,cls,parameters = None):
-        super(Backend,self).register(cls,parameters)
+    def register(self, cls, parameters=None):
+        super(Backend, self).register(cls, parameters)
         self.init_indexes(self.get_collection_for_cls(cls))
 
-    def get_storage_key_for(self,obj):
+    def get_storage_key_for(self, obj):
         collection = self.get_collection_for_obj(obj)
         pk_index = self.get_pk_index(collection)
         try:
             return pk_index.get_keys_for(obj.pk)[0]
-        except (KeyError,IndexError):
+        except (KeyError, IndexError):
             raise obj.DoesNotExist
 
-    def init_indexes(self,collection):
+    def init_indexes(self, collection):
         cls = self.collections[collection]
         if collection in self._config['indexes']:
-            #If not pk index is present, we create one on the fly...
+            # If not pk index is present, we create one on the fly...
             if not [idx for idx in self._config['indexes'][collection].values() if idx['key'] == cls.get_pk_name()]:
-                self.create_index(collection,{'key':cls.get_pk_name()})
+                self.create_index(collection, {'key': cls.get_pk_name()})
             
-            #We sort the indexes such that pk is always created first...
-            for index_params in sorted(self._config['indexes'][collection].values(),key = lambda x: 0 if x['key'] == cls.get_pk_name() else 1):
-                index = self.create_index(collection,index_params)
+            # We sort the indexes such that pk is always created first...
+            for index_params in sorted(self._config['indexes'][collection].values(), key=lambda x: 0 if x['key'] == cls.get_pk_name() else 1):
+                index = self.create_index(collection, index_params)
         else:
-            #If no indexes are given, we just create a primary key index...
-            self.create_index(collection,{'key':cls.get_pk_name()})
+            # If no indexes are given, we just create a primary key index...
+            self.create_index(collection, {'key': cls.get_pk_name()})
 
-    def rebuild_indexes(self,collection,keys):
+    def rebuild_indexes(self, collection, keys):
         if not keys:
             return
-        all_objects = self.filter(collection,{})
+        all_objects = self.filter(collection, {})
         for key in keys:
             index = self.indexes[collection][key]
             index.clear()
         for key in keys:
             index = self.indexes[collection][key]
             for obj in all_objects:
-                index.add_key(obj.attributes,obj._store_key)
+                index.add_key(obj.attributes, obj._store_key)
             index.commit()
 
-    def create_indexes(self,cls_or_collection,params_list,ephemeral = False):
+    def create_indexes(self, cls_or_collection, params_list, ephemeral=False):
         indexes = []
         keys = []
 
@@ -349,21 +351,21 @@ class Backend(BaseBackend):
             collection = cls_or_collection
 
         for params in params_list:
-            if not isinstance(params,dict):
-                params = {'key' : params}
+            if not isinstance(params, dict):
+                params = {'key': params}
             if params['key'] in self.indexes[collection]:
-                return #Index already exists
-            if not 'id' in params:
+                return  # Index already exists
+            if 'id' not in params:
                 params['id'] = uuid.uuid4().hex 
             if ephemeral:
                 index_store = None
             else:
-                index_store = self.get_index_store(collection,params['id'])
+                index_store = self.get_index_store(collection, params['id'])
 
-            index = self.IndexClass(params,serializer = lambda x:self.serialize(x,autosave = False),deserializer = lambda x : self.deserialize(x),store = index_store)
+            index = self.IndexClass(params, serializer=lambda x: self.serialize(x, autosave=False), deserializer=lambda x: self.deserialize(x), store=index_store)
             self.indexes[collection][params['key']] = index
 
-            if not collection in self._config['indexes']:
+            if collection not in self._config['indexes']:
                 self._config['indexes'][collection] = {}
 
             if not ephemeral:
@@ -371,32 +373,32 @@ class Backend(BaseBackend):
                 self.save_config()
 
             indexes.append(index)
-            if not index.loaded:#if the index failed to load from disk we rebuild it
+            if not index.loaded:  # if the index failed to load from disk we rebuild it
                 keys.append(params['key'])
 
-        self.rebuild_indexes(collection,keys)
+        self.rebuild_indexes(collection, keys)
         return indexes
 
-    def get_collection_indexes(self,collection):
+    def get_collection_indexes(self, collection):
         return self.indexes[collection] if collection in self.indexes else {}
 
-    def encode_attributes(self,attributes):
+    def encode_attributes(self, attributes):
         return self.SerializerClass.serialize(attributes)
 
-    def decode_attributes(self,data):
+    def decode_attributes(self, data):
         return self.SerializerClass.deserialize(data)
 
-    def get_object(self,cls,key):
+    def get_object(self, cls, key):
         collection = self.get_collection_for_cls(cls)
         store = self.get_collection_store(collection)
         try:
             data = self.deserialize(self.decode_attributes(store.get_blob(key)))
         except IOError:
             raise cls.DoesNotExist
-        obj = self.create_instance(cls,data)
+        obj = self.create_instance(cls, data)
         return obj
 
-    def save(self,obj):
+    def save(self, obj):
         collection = self.get_collection_for_obj(obj)
         indexes = self.get_collection_indexes(collection)
         store = self.get_collection_store(collection)
@@ -404,28 +406,28 @@ class Backend(BaseBackend):
         if obj.pk == None:
             obj.autogenerate_pk()
 
-        if hasattr(obj,'pre_save') and callable(obj.pre_save):
+        if hasattr(obj, 'pre_save') and callable(obj.pre_save):
             obj.pre_save()
 
         serialized_attributes = self.serialize(obj.attributes)
         data = self.encode_attributes(serialized_attributes)
     
         try:
-            store_key = self.get_pk_index(collection).get_keys_for(obj.pk,include_uncommitted = True).pop()
+            store_key = self.get_pk_index(collection).get_keys_for(obj.pk, include_uncommitted=True).pop()
         except IndexError:
             store_key = uuid.uuid4().hex
     
-        store.store_blob(data,store_key)
+        store.store_blob(data, store_key)
 
-        for key,index in indexes.items():
-            index.add_key(obj.attributes,store_key)
+        for key, index in indexes.items():
+            index.add_key(obj.attributes, store_key)
 
         if self.config['autocommit']:
             self.commit()
 
         return obj
 
-    def delete_by_store_keys(self,collection,store_keys):
+    def delete_by_store_keys(self, collection, store_keys):
 
         store = self.get_collection_store(collection)
         indexes = self.get_collection_indexes(collection)     
@@ -433,7 +435,7 @@ class Backend(BaseBackend):
         for store_key in store_keys:
             try:
                 store.delete_blob(store_key)
-            except (KeyError,IOError):
+            except (KeyError, IOError):
                 pass
             for index in indexes.values():
                 index.remove_key(store_key)
@@ -441,22 +443,22 @@ class Backend(BaseBackend):
         if self.config['autocommit']:
             self.commit()
 
-    def delete(self,obj):        
+    def delete(self, obj):        
         collection = self.get_collection_for_obj(obj)
         primary_index = self.get_pk_index(collection)
-        if hasattr(obj,'pre_delete') and callable(obj.pre_delete):
+        if hasattr(obj, 'pre_delete') and callable(obj.pre_delete):
             obj.pre_delete()
-        return self.delete_by_store_keys(collection,primary_index.get_keys_for(obj.pk))
+        return self.delete_by_store_keys(collection, primary_index.get_keys_for(obj.pk))
 
-    def get(self,cls,query):
-        objects = self.filter(cls,query,limit = 1)
+    def get(self, cls, query):
+        objects = self.filter(cls, query, limit=1)
         if len(objects) == 0:
             raise cls.DoesNotExist
         elif len(objects) > 1:
             raise cls.MultipleDocumentsReturned
         return objects[0]
 
-    def sort(self,cls_or_collection,keys,key,order = QuerySet.ASCENDING):
+    def sort(self, cls_or_collection, keys, key, order=QuerySet.ASCENDING):
 
         if not isinstance(cls_or_collection, six.string_types):
             collection = self.get_collection_for_cls(cls_or_collection)
@@ -465,37 +467,37 @@ class Backend(BaseBackend):
             collection = cls_or_collection
             cls = self.get_cls_for_collection(collection)
 
-        if not isinstance(key,list) and not isinstance(key,tuple):
-            sort_keys = [(key,order)]
+        if not isinstance(key, list) and not isinstance(key, tuple):
+            sort_keys = [(key, order)]
         else:
             sort_keys = key
 
         indexes = self.get_collection_indexes(collection)
         
         indexes_to_create = []
-        for sort_key,order in sort_keys:
-            if not sort_key in indexes:
+        for sort_key, order in sort_keys:
+            if sort_key not in indexes:
                 indexes_to_create.append(sort_key)
 
-        self.create_indexes(cls,indexes_to_create,ephemeral = True)
+        self.create_indexes(cls, indexes_to_create, ephemeral=True)
 
-        def sort_by_keys(keys,sort_keys):
+        def sort_by_keys(keys, sort_keys):
             if not sort_keys:
                 return keys
-            (sort_key,order) = sort_keys[0]
-            _sorted_keys =  indexes[sort_key].sort_keys(keys,order)
-            return [sort_by_keys(k,sort_keys[1:]) for k in _sorted_keys]
+            (sort_key, order) = sort_keys[0]
+            _sorted_keys = indexes[sort_key].sort_keys(keys, order)
+            return [sort_by_keys(k, sort_keys[1:]) for k in _sorted_keys]
 
         def flatten(l):
             fl = []
-            [fl.extend(flatten(elem)) if isinstance(elem,list) else fl.append(elem) for elem in l]
+            [fl.extend(flatten(elem)) if isinstance(elem, list) else fl.append(elem) for elem in l]
             return fl
 
-        return flatten(sort_by_keys(keys,sort_keys))
+        return flatten(sort_by_keys(keys, sort_keys))
 
-    def filter(self,cls_or_collection,query,sort_by = None,limit = None,offset = None,initial_keys = None):
+    def filter(self, cls_or_collection, query, sort_by=None, limit=None, offset=None, initial_keys=None):
 
-        if not isinstance(query,dict):
+        if not isinstance(query, dict):
             raise AttributeError("Query parameters must be dict!")
 
         if not isinstance(cls_or_collection, six.string_types):
@@ -507,26 +509,25 @@ class Backend(BaseBackend):
 
         store = self.get_collection_store(collection)
         indexes = self.get_collection_indexes(collection)
-        compiled_query = compile_query(self.serialize(query,autosave = False))
+        compiled_query = compile_query(self.serialize(query, autosave=False))
 
         indexes_to_create = []
 
-        def query_function(key,expression):
+        def query_function(key, expression):
             if key == None:
-                return QuerySet(self,cls,store,self.get_pk_index(collection).get_all_keys())
-            qs =  QuerySet(self,cls,store,indexes[key].get_keys_for(expression))
+                return QuerySet(self, cls, store, self.get_pk_index(collection).get_all_keys())
+            qs = QuerySet(self, cls, store, indexes[key].get_keys_for(expression))
             return qs
 
-        def index_collector(key,expressions):
+        def index_collector(key, expressions):
             if key not in indexes and key not in indexes_to_create and key != None:
                 indexes_to_create.append(key)
-            return QuerySet(self,cls,store,[])
+            return QuerySet(self, cls, store, [])
 
-        #We collect all the indexes that we need to create
+        # We collect all the indexes that we need to create
         compiled_query(index_collector)
     
         if indexes_to_create:
-            self.create_indexes(cls,indexes_to_create,ephemeral = True)
+            self.create_indexes(cls, indexes_to_create, ephemeral=True)
     
         return compiled_query(query_function)
-

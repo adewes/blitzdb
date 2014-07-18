@@ -9,6 +9,7 @@ from blitzdb.backends.base import NotInTransaction
 from blitzdb.backends.mongo.queryset import QuerySet
 import uuid
 
+
 class Backend(BaseBackend):
 
     """
@@ -30,22 +31,22 @@ class Backend(BaseBackend):
         backend = MongoBackend(my_db)
     """
 
-    #magic value to replace '.' characters in dictionary keys (which breaks MongoDB)
+    # magic value to replace '.' characters in dictionary keys (which breaks MongoDB)
     DOT_MAGIC_VALUE = ":a5b8afc131:"
 
-    def __init__(self,db,autocommit = False,**kwargs):
+    def __init__(self, db, autocommit=False, **kwargs):
         self.db = db
         self.classes = {}
         self.collections = {}
         self._autocommit = autocommit
-        self._save_cache = defaultdict(lambda  : {})
-        self._delete_cache = defaultdict(lambda : {})
-        self._update_cache = defaultdict(lambda : {})
+        self._save_cache = defaultdict(lambda: {})
+        self._delete_cache = defaultdict(lambda: {})
+        self._update_cache = defaultdict(lambda: {})
         self.in_transaction = False
-        super(Backend,self).__init__(**kwargs)
+        super(Backend, self).__init__(**kwargs)
 
     def begin(self):
-        if self.in_transaction:#we're already in a transaction...
+        if self.in_transaction:  # we're already in a transaction...
             self.commit()
         self.in_transaction = True
 
@@ -53,37 +54,37 @@ class Backend(BaseBackend):
         if not self.in_transaction:
             raise NotInTransaction("Not in a transaction!")
         
-        self._save_cache = defaultdict(lambda : {})
-        self._delete_cache = defaultdict(lambda : {})
-        self._update_cache = defaultdict(lambda : {})
+        self._save_cache = defaultdict(lambda: {})
+        self._delete_cache = defaultdict(lambda: {})
+        self._update_cache = defaultdict(lambda: {})
         
         self.in_transaction = False
 
     def commit(self):
-        for collection,cache in self._save_cache.items():
-            for pk,attributes in cache.items():
+        for collection, cache in self._save_cache.items():
+            for pk, attributes in cache.items():
                 try:
                     self.db[collection].save(attributes)
                 except:
-                    logger.error("Error when saving the document with pk %s in collection %s" % (attributes['pk'],collection))
-                    logger.error("Attributes (excerpt):"+str(dict(attributes.items()[:100])) )
+                    logger.error("Error when saving the document with pk %s in collection %s" % (attributes['pk'], collection))
+                    logger.error("Attributes (excerpt):" + str(dict(attributes.items()[:100])))
                     raise
 
-        for collection,cache in self._delete_cache.items():
+        for collection, cache in self._delete_cache.items():
             for pk in cache:
-                self.db[collection].remove({'_id' : pk})
+                self.db[collection].remove({'_id': pk})
 
-        for collection,cache in self._update_cache.items():
-            for pk,attributes in cache.items():
+        for collection, cache in self._update_cache.items():
+            for pk, attributes in cache.items():
                 update_dict = {}
-                for key in ('$set','$unset'):
+                for key in ('$set', '$unset'):
                     if key in attributes and attributes[key]:
                         update_dict[key] = attributes[key]
-                self.db[collection].update({'_id' : pk},update_dict)
+                self.db[collection].update({'_id': pk}, update_dict)
 
-        self._save_cache = defaultdict(lambda  : {})
-        self._delete_cache = defaultdict(lambda : {})
-        self._update_cache = defaultdict(lambda : {})
+        self._save_cache = defaultdict(lambda: {})
+        self._delete_cache = defaultdict(lambda: {})
+        self._update_cache = defaultdict(lambda: {})
 
         self.in_transaction = True
 
@@ -92,39 +93,39 @@ class Backend(BaseBackend):
         return self._autocommit
 
     @autocommit.setter
-    def autocommit(self,value):
-        if not value in (True,False):
+    def autocommit(self, value):
+        if value not in (True, False):
             raise TypeError("Value must be boolean!")
         self._autocommit = value
 
-    def delete_by_primary_keys(self,cls,pks):
+    def delete_by_primary_keys(self, cls, pks):
         collection = self.get_collection_for_cls(cls)
         if self.autocommit:
             for pk in pks:
-                self.db[collection].remove({'_id' : pk})
+                self.db[collection].remove({'_id': pk})
         else:
-            self._delete_cache[collection].update(dict([(pk,True) for pk in pks]))
+            self._delete_cache[collection].update(dict([(pk, True) for pk in pks]))
 
-    def delete(self,obj):
+    def delete(self, obj):
         collection = self.get_collection_for_cls(obj.__class__)
         if obj.pk == None:
             raise obj.DoesNotExist
-        if hasattr(obj,'pre_delete') and callable(obj.pre_delete):
+        if hasattr(obj, 'pre_delete') and callable(obj.pre_delete):
             obj.pre_delete()
         if self.autocommit:
-            self.db[collection].remove({'_id' : obj.pk})
+            self.db[collection].remove({'_id': obj.pk})
         else:
             self._delete_cache[collection][obj.pk] = True
             if obj.pk in self._save_cache[collection]:
                 del self._save_cache[collection][obj.pk]            
 
-    def save_multiple(self,objs):
+    def save_multiple(self, objs):
         if not objs:
             return
         serialized_attributes_list = []
         collection = self.get_collection_for_cls(objs[0].__class__)
         for obj in objs:
-            if hasattr(obj,'pre_save') and callable(obj.pre_save):
+            if hasattr(obj, 'pre_save') and callable(obj.pre_save):
                 obj.pre_save()
             if obj.pk == None:
                 obj.pk = uuid.uuid4().hex
@@ -139,12 +140,12 @@ class Backend(BaseBackend):
                 if attributes['pk'] in self._delete_cache[collection]:
                     del self._delete_cache[collection][attributes['pk']]
 
-    def save(self,obj):
+    def save(self, obj):
         return self.save_multiple([obj])
 
-    def update(self,obj,set_fields = None,unset_fields = None,update_obj = True):
+    def update(self, obj, set_fields=None, unset_fields=None, update_obj=True):
         collection = self.get_collection_for_cls(obj.__class__)
-        if hasattr(obj,'pre_save') and callable(obj.pre_save):
+        if hasattr(obj, 'pre_save') and callable(obj.pre_save):
             obj.pre_save()
 
         if obj.pk == None:
@@ -152,10 +153,10 @@ class Backend(BaseBackend):
 
         def serialize_fields(fields):
 
-            if isinstance(fields,list) or isinstance(fields,tuple):
-                update_dict = dict([(key,obj[key]) for key in fields])
+            if isinstance(fields, list) or isinstance(fields, tuple):
+                update_dict = dict([(key, obj[key]) for key in fields])
                 serialized_attributes = self.serialize(update_dict)
-            elif isinstance(fields,dict):
+            elif isinstance(fields, dict):
                 serialized_attributes = self.serialize(fields)
                 if update_obj:
                     obj.attributes.update(fields)
@@ -178,24 +179,24 @@ class Backend(BaseBackend):
         if set_attributes:
             update_dict['$set'] = set_attributes
         if unset_attributes:
-            update_dict['$unset'] = dict([(key,'') for key in unset_attributes])
+            update_dict['$unset'] = dict([(key, '') for key in unset_attributes])
 
         if self.autocommit:
-            self.db[collection].update({'_id' : obj.pk},update_dict)
+            self.db[collection].update({'_id': obj.pk}, update_dict)
         else:
             if obj.pk in self._delete_cache[collection]:
                 raise obj.DoesNotExist("update() on document that is marked for deletion!")
             if obj.pk in self._update_cache[collection]:
                 update_cache = self._update_cache[collection][obj.pk]
                 if set_attributes:
-                    if not '$set' in update_cache:
+                    if '$set' not in update_cache:
                         update_cache['$set'] = {}
-                    for key,value in set_attributes.items():
+                    for key, value in set_attributes.items():
                         if '$unset' in update_cache and key in update_cache['$unset']:
                             del update_cache['$unset'][key]
                         update_cache['$set'][key] = value
                 if unset_attributes:
-                    if not '$unset' in update_cache:
+                    if '$unset' not in update_cache:
                         update_cache['$unset'] = {}
                     for key in unset_attributes:
                         if '$set' in update_cache and key in update_cache['$set']:
@@ -204,70 +205,70 @@ class Backend(BaseBackend):
             else:
                 self._update_cache[collection][obj.pk] = update_dict
 
-    def serialize(self,obj,convert_keys_to_str = True,embed_level = 0,encoders = None,autosave = True,for_query = False):
+    def serialize(self, obj, convert_keys_to_str=True, embed_level=0, encoders=None, autosave=True, for_query=False):
 
         def encode_dict(obj):
-            return dict([(key.replace(".",self.DOT_MAGIC_VALUE),value) for key,value in obj.items()])
+            return dict([(key.replace(".", self.DOT_MAGIC_VALUE), value) for key, value in obj.items()])
 
-        dict_encoders = [(lambda obj:True if isinstance(obj,dict) else False,encode_dict)]
-        return super(Backend,self).serialize(obj,convert_keys_to_str = convert_keys_to_str,embed_level = embed_level, encoders = encoders + dict_encoders if encoders else dict_encoders,autosave = autosave,for_query = for_query)
+        dict_encoders = [(lambda obj:True if isinstance(obj, dict) else False, encode_dict)]
+        return super(Backend, self).serialize(obj, convert_keys_to_str=convert_keys_to_str, embed_level=embed_level, encoders=encoders + dict_encoders if encoders else dict_encoders, autosave=autosave, for_query=for_query)
 
-    def deserialize(self,obj,decoders = None):
+    def deserialize(self, obj, decoders=None):
 
         def decode_dict(obj):
-            return dict([(key.replace(self.DOT_MAGIC_VALUE,"."),value) for key,value in obj.items()])
+            return dict([(key.replace(self.DOT_MAGIC_VALUE, "."), value) for key, value in obj.items()])
 
-        dict_decoders = [(lambda obj:True if isinstance(obj,dict) and '_type' in obj and obj['_type'] == 'dict' and 'items' in obj else False,decode_dict)]
-        return super(Backend,self).deserialize(obj,decoders = dict_decoders + decoders if decoders else dict_decoders)
+        dict_decoders = [(lambda obj:True if isinstance(obj, dict) and '_type' in obj and obj['_type'] == 'dict' and 'items' in obj else False, decode_dict)]
+        return super(Backend, self).deserialize(obj, decoders=dict_decoders + decoders if decoders else dict_decoders)
 
-    def create_indexes(self,cls_or_collection,params_list):
+    def create_indexes(self, cls_or_collection, params_list):
         for params in params_list:
-            self.create_index(cls_or_collection,**params)
+            self.create_index(cls_or_collection, **params)
 
-    def ensure_indexes(self,include_pk = True):
+    def ensure_indexes(self, include_pk=True):
         for cls in self.classes:
             meta_attributes = self.get_meta_attributes(cls)
             if include_pk:
-                self.create_index(cls,fields = {'pk' : 1})
+                self.create_index(cls, fields={'pk': 1})
             if 'indexes' in meta_attributes:
-                self.create_indexes(cls,meta_attributes['indexes'])
+                self.create_indexes(cls, meta_attributes['indexes'])
 
-    def create_index(self,cls_or_collection,*args,**kwargs):
+    def create_index(self, cls_or_collection, *args, **kwargs):
         if not isinstance(cls_or_collection, six.string_types):
             collection = self.get_collection_for_cls(cls_or_collection)
         else:
             collection = cls_or_collection
 
-        if not 'fields' in kwargs:
+        if 'fields' not in kwargs:
             raise AttributeError("You must specify the 'fields' parameter when creating an index!")
         if 'opts' in kwargs:
             opts = kwargs['opts']
         else:
             opts = {}
-        self.db[collection].ensure_index(list(kwargs['fields'].items()),**opts)
+        self.db[collection].ensure_index(list(kwargs['fields'].items()), **opts)
 
-    def compile_query(self,query):
-        if isinstance(query,dict):
-            return dict([(self.compile_query(key),self.compile_query(value)) for key,value in query.items()])
-        elif isinstance(query,list) or isinstance(query,QuerySet) or isinstance(query,tuple):
-            return  [self.compile_query(x) for x in query]
+    def compile_query(self, query):
+        if isinstance(query, dict):
+            return dict([(self.compile_query(key), self.compile_query(value)) for key, value in query.items()])
+        elif isinstance(query, list) or isinstance(query, QuerySet) or isinstance(query, tuple):
+            return [self.compile_query(x) for x in query]
         else:
-            return self.serialize(query,autosave = False,for_query = True)
+            return self.serialize(query, autosave=False, for_query=True)
 
-    def get(self,cls_or_collection,properties,raw = False,only = None):
+    def get(self, cls_or_collection, properties, raw=False, only=None):
         if not isinstance(cls_or_collection, six.string_types):
             collection = self.get_collection_for_cls(cls_or_collection)
         else:
             collection = cls_or_collection
         cls = self.get_cls_for_collection(collection)
-        queryset = self.filter(cls_or_collection,properties,raw = raw,only = only)
+        queryset = self.filter(cls_or_collection, properties, raw=raw, only=only)
         if len(queryset) == 0:
             raise cls.DoesNotExist
         elif len(queryset) > 1:
             raise cls.MultipleDocumentsReturned
         return queryset[0]
 
-    def filter(self,cls_or_collection,query,sort_by = None,limit = None,offset = None,raw = False,only = None):
+    def filter(self, cls_or_collection, query, sort_by=None, limit=None, offset=None, raw=False, only=None):
         """
         Filter objects from the database that correspond to a given set of properties.
 
@@ -294,4 +295,4 @@ class Backend(BaseBackend):
         if only != None:
             args['fields'] = only
 
-        return QuerySet(self,cls,self.db[collection].find(compiled_query,**args),raw = raw,only = only)
+        return QuerySet(self, cls, self.db[collection].find(compiled_query, **args), raw=raw, only=only)
