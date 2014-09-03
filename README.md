@@ -7,7 +7,7 @@
 
 **BlitzDB**, or just **Blitz** is a document-based, object-oriented, transactional database written purely in Python. Among other things, it provides a **powerful querying language**, **deep indexing of documents**, **compressed data storage** and **automatic referencing of embedded documents**. It is reasonably fast, can be easily embedded in any Python application and does not have any external dependencies (except when using a third-party backend). In addition, you can use it as a **frontend** to other database engines such as MongoDB in case you should need more power.
 
-##[BlitzDB Main Website & Documentation](http://blitz-db.readthedocs.org)
+##[Go To Main Documentation](http://blitzdb.readthedocs.org)
 
 ##Key Features
 
