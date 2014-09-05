@@ -38,6 +38,7 @@ The detailed documentation for this project is hosted on [ReadTheDocs](http://bl
 
 ##Changelog
 
+* 0.2.5: Fixed bug in the next mehtod of the QuerySet class in the file backend.
 * 0.2.4: Added support for projections and update operations to the MongoDB backend.
 * 0.2.3: Bugfix-Release: Fixed bug in transaction data caching in MongoDB backend.
 * 0.2.2: Fix for slice operators in MongoDB backend.

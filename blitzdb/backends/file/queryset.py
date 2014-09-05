@@ -25,7 +25,7 @@ class QuerySet(BaseQuerySet):
         if self._i >= len(self):
             raise StopIteration
         self._i += 1
-        return self[i - 1]
+        return self[self._i - 1]
 
     __next__ = next
 
@@ -41,6 +41,7 @@ class QuerySet(BaseQuerySet):
         self.store = store
         self.keys = list(keys)
         self.objects = {}
+        self.rewind()
 
     def __getitem__(self, i):
         if isinstance(i, slice):

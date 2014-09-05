@@ -7,6 +7,32 @@ from blitzdb.backends.base import NotInTransaction
 from blitzdb.backends.mongo.queryset import QuerySet
 import uuid
 
+"""
+Base model for SQL backend:
+
+Indexes: If single-valued, use extra column in table to store them.
+         If multi-valued, use m2m table to store them
+
+
+Example:
+
+Table Actor:
+
+data -> JSON blob
+name -> Name
+
+
+Table Actor_Movies
+
+movie_pk    actor_pk
+
+filter query -> Select data over indices (parse $in, $or, $and, ...)
+sort query -> Sort query set by given index
+
+->Queries only possible over fields on which indices have been defined.
+
+"""
+
 
 class Backend(BaseBackend):
 

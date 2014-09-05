@@ -59,6 +59,23 @@ def test_missing_keys_in_slice(backend, small_test_data):
     assert actors[:len(actors)] == actors[0:len(actors)]
 
 
+def test_query_set(backend):
+
+    actors = [Actor({'foo': 'bar', 'value': 10}),
+              Actor({'foo': 'baz', 'value': 10}),
+              Actor({'foo': 'baz', 'value': 11}),
+              Actor({'foo': 'bar', 'value': 11})
+              ]
+
+    for actor in actors:
+        backend.save(actor)
+
+    backend.commit()
+    
+    queryset = backend.filter(Actor, {'foo': 'bar','value' : 10})
+
+    assert queryset.next() == actors[0]
+
 def test_and_queries(backend):
 
     backend.save(Actor({'foo': 'bar', 'value': 10}))

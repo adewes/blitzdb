@@ -75,9 +75,9 @@ class Backend(object):
             the database without having registered the `Book` class, the references to that class will not get
             parsed properly and will just show up as dictionaries containing a primary key and a collection name.
 
-            Also, when :py:meth:`blitzdb.backends.base.Backend.autoregister` is used to register a class, you can't pass in any parameters
-            to customize e.g. the collection name for that class (you can of course do this throught the `Meta`
-            attribute of the class)
+            Also, when :py:meth:`blitzdb.backends.base.Backend.autoregister` is used to register a class, 
+            you can't pass in any parameters to customize e.g. the collection name for that class 
+            (you can of course do this throught the `Meta` attribute of the class)
         """
         if not parameters:
             parameters = {}
@@ -211,14 +211,20 @@ class Backend(object):
             for matcher, decoder in decoders:
                 if matcher(obj):
                     obj = decoder(obj)
-
         if isinstance(obj, dict):
-            if '__collection__' in obj and 'pk' in obj and obj['__collection__'] in self.collections:
+            if '__pk__' in obj:
+                pk_field = '__pk__'
+            elif 'pk' in obj:
+                pk_field = 'pk'
+            else:
+                pk_field = None
+            if '__collection__' in obj and obj['__collection__'] in self.collections and pk_field:
+                #for backwards compatibility
                 attributes = copy.deepcopy(obj)
-                del attributes['pk']
+                del attributes[pk_field]
                 del attributes['__collection__']
                 output_obj = self.create_instance(obj['__collection__'], attributes, lazy=True)
-                output_obj.pk = obj['pk']
+                output_obj.pk = obj[pk_field]
             else:
                 output_obj = {}
                 for (key, value) in obj.items():

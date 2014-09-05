@@ -211,14 +211,23 @@ class Backend(BaseBackend):
             return dict([(key.replace(".", self.DOT_MAGIC_VALUE), value) for key, value in obj.items()])
 
         dict_encoders = [(lambda obj:True if isinstance(obj, dict) else False, encode_dict)]
-        return super(Backend, self).serialize(obj, convert_keys_to_str=convert_keys_to_str, embed_level=embed_level, encoders=encoders + dict_encoders if encoders else dict_encoders, autosave=autosave, for_query=for_query)
+        return super(Backend, self).serialize(obj, 
+                                              convert_keys_to_str=convert_keys_to_str, 
+                                              embed_level=embed_level, 
+                                              encoders=encoders + dict_encoders if encoders else dict_encoders, 
+                                              autosave=autosave, 
+                                              for_query=for_query)
 
     def deserialize(self, obj, decoders=None):
 
         def decode_dict(obj):
             return dict([(key.replace(self.DOT_MAGIC_VALUE, "."), value) for key, value in obj.items()])
 
-        dict_decoders = [(lambda obj:True if isinstance(obj, dict) and '_type' in obj and obj['_type'] == 'dict' and 'items' in obj else False, decode_dict)]
+        dict_decoders = [(lambda obj:True if isinstance(obj, dict) 
+                                                and '_type' in obj 
+                                                and obj['_type'] == 'dict' 
+                                                and 'items' in obj 
+                                                else False, decode_dict)]
         return super(Backend, self).deserialize(obj, decoders=dict_decoders + decoders if decoders else dict_decoders)
 
     def create_indexes(self, cls_or_collection, params_list):
