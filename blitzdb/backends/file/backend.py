@@ -496,7 +496,7 @@ class Backend(BaseBackend):
         return flatten(sort_by_keys(keys, sort_keys))
 
     def filter(self, cls_or_collection, query, sort_by=None, limit=None, offset=None, initial_keys=None):
-
+        
         if not isinstance(query, dict):
             raise AttributeError("Query parameters must be dict!")
 
@@ -526,8 +526,10 @@ class Backend(BaseBackend):
 
         # We collect all the indexes that we need to create
         compiled_query(index_collector)
-    
+        
         if indexes_to_create:
             self.create_indexes(cls, indexes_to_create, ephemeral=True)
-    
-        return compiled_query(query_function)
+        
+        query_set = compiled_query(query_function)
+        
+        return query_set.sort(sort_by) if sort_by else query_set #compiled_query(query_function)
