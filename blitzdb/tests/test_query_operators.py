@@ -9,6 +9,8 @@ from blitzdb.tests.helpers.movie_data import Actor, Director, Movie, generate_te
 
 from .fixtures import *
 
+jackie_chan = Actor({'name': 'Jackie Chan', 'gross_income_m': 3.456, 'appearances': 122, 'is_funny': True, 'birth_year': 1954})
+
 
 def test_regex_operator(backend, small_test_data):
 
@@ -104,11 +106,8 @@ def test_lt(backend):
     # Test with normal conditions
 
     # Test with null elements
-    try:
-        query = {'appearances': {'$lt': jackie_chan.appearances}}
-        assert len(backend.filter(Actor, query)) == len([])
-    except NameError:
-        pass
+    query = {'appearances': {'$lt': jackie_chan.appearances}}
+    assert len(backend.filter(Actor, query)) == len([])
     # Test with null elements
 
     # Test with illegal values
@@ -159,11 +158,8 @@ def test_gt(backend):
     # Test with normal conditions
 
     # Test with null elements
-    try:
-        query = {'appearances': {'$gt': jackie_chan.appearances}}
-        assert len(backend.filter(Actor, query)) == len([])
-    except NameError:
-        pass
+    query = {'appearances': {'$gt': jackie_chan.appearances}}
+    assert len(backend.filter(Actor, query)) == len([])
     # Test with null elements
 
     # Test with illegal values
@@ -211,11 +207,8 @@ def test_gte(backend):
     # Test with normal conditions
 
     # Test with null elements
-    try:
-        query = {'appearances': {'$gte': jackie_chan.appearances}}
-        assert len(backend.filter(Actor, query)) == len([])
-    except NameError:
-        pass
+    query = {'appearances': {'$gte': jackie_chan.appearances}}
+    assert len(backend.filter(Actor, query)) == len([])
     # Test with null elements
 
     # Test with illegal values
@@ -263,11 +256,8 @@ def test_lte(backend):
     # Test with normal conditions
 
     # Test with null elements
-    try:
-        query = {'appearances': {'$lte': jackie_chan.appearances}}
-        assert len(backend.filter(Actor, query)) == len([])
-    except NameError:
-        pass
+    query = {'appearances': {'$lte': jackie_chan.appearances}}
+    assert len(backend.filter(Actor, query)) == len([])
     # Test with null elements
 
     # Test with illegal values
@@ -306,11 +296,8 @@ def test_exists(backend):
     # Test with empty list
 
     # Test with String and unknown values
-    try:
-        query = {'name': {'$exists': jackie_chan.name}}
-        assert len(backend.filter(Actor, query)) == len([])
-    except NameError:
-        pass
+    query = {'name': {'$exists': jackie_chan.name}}
+    assert len(backend.filter(Actor, query)) == len([])
     # Test with String and unknown values
 
     # Test with float/int
@@ -424,11 +411,8 @@ def test_all(backend):
     # Test with no result
 
     # Test with unknown values
-    try:
-        query = {'name': {'$all': [jackie_chan.name]}}
-        assert len(backend.filter(Actor, query)) == len([])
-    except NameError:
-        pass
+    query = {'name': {'$all': [jackie_chan.name]}}
+    assert len(backend.filter(Actor, query)) == len([])
     # Test with unknown values
 
     # Test with int
@@ -519,11 +503,8 @@ def test_ne(backend):
     # Test with no result
 
     # Test with unknown values
-    try:
-        query = {'name': {'$ne': jackie_chan.name}}
-        assert len(backend.filter(Actor, query)) == len([charlie_chaplin, david_hasselhoff, leonardo_di_caprio, marlon_brando])
-    except NameError:
-        pass
+    query = {'name': {'$ne': jackie_chan.name}}
+    assert len(backend.filter(Actor, query)) == len([charlie_chaplin, david_hasselhoff, leonardo_di_caprio, marlon_brando])
     # Test with unknown values
 
     # Test with int
@@ -620,11 +601,8 @@ def test_and(backend):
     # Test with no result
 
     # Test with unknown values
-    try:
-        query = {'$and': [{'name': jackie_chan.name}, {'birth_year': 1889}]}
-        assert len(backend.filter(Actor, query)) == len([])
-    except NameError:
-        pass
+    query = {'$and': [{'name': jackie_chan.name}, {'birth_year': 1889}]}
+    assert len(backend.filter(Actor, query)) == len([])
     # Test with unknown values
 
     # Test with crossed type
@@ -693,11 +671,8 @@ def test_or(backend):
     # Test with no result
 
     # Test with unknown values
-    try:
-        query = {'$or': [{'name': jackie_chan.name}, {'birth_year': 1889}]}
-        assert len(backend.filter(Actor, query)) == len([charlie_chaplin])
-    except NameError:
-        pass
+    query = {'$or': [{'name': jackie_chan.name}, {'birth_year': 1889}]}
+    assert len(backend.filter(Actor, query)) == len([charlie_chaplin])
     # Test with unknown values
 
     # Test with crossed type
@@ -766,11 +741,8 @@ def test_regex(backend):
     # Test with no result
 
     # Test with unknown values
-    try:
-        query = {'name': {'$regex': jackie_chan.name}}
-        assert len(backend.filter(Actor, query)) == len([])
-    except NameError:
-        pass
+    query = {'name': {'$regex': jackie_chan.name}}
+    assert len(backend.filter(Actor, query)) == len([])
     # Test with unknown values
 
     # Test with crossed type
