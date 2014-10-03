@@ -256,7 +256,7 @@ def test_lte(backend):
     # Test with normal conditions
 
     # Test with null elements
-    query = {'appearances': {'$lte': jackie_chan.appearances}}
+    query = {'appearances': {'$lte': None}}
     assert len(backend.filter(Actor, query)) == len([])
     # Test with null elements
 
