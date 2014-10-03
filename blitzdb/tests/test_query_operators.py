@@ -111,14 +111,6 @@ def test_lt(backend):
     assert len(backend.filter(Actor, query)) == len([])
     # Test with null elements
 
-    # Test with illegal values
-    try:
-        query = {'gross_income_m': {'$lt': math.sqrt(-1)}}
-        assert len(backend.filter(Actor, query)) == len([])
-    except ValueError:
-        pass
-    # Test with illegal values
-
 
 def test_gt(backend):
     # DB setup
@@ -162,11 +154,6 @@ def test_gt(backend):
     query = {'appearances': {'$gt': None}}  # gets interpreted as 0 (zero)
     assert len(backend.filter(Actor, query)) == 4
     # Test with null elements
-
-    # Test with illegal values
-    with pytest.raises(ValueError):
-        query = {'gross_income_m': {'$gt': math.sqrt(-1)}}
-        assert len(backend.filter(Actor, query)) == len([])
 
 
 def test_gte(backend):
@@ -212,11 +199,6 @@ def test_gte(backend):
     assert len(backend.filter(Actor, query)) == 4
     # Test with null elements
 
-    # Test with illegal values
-    with pytest.raises(ValueError):
-        query = {'gross_income_m': {'$gte': math.sqrt(-1)}}
-        assert len(backend.filter(Actor, query)) == len([])
-
 
 def test_lte(backend):
     # DB setup
@@ -260,11 +242,6 @@ def test_lte(backend):
     query = {'appearances': {'$lte': None}}
     assert len(backend.filter(Actor, query)) == len([])
     # Test with null elements
-
-    # Test with illegal values
-    with pytest.raises(ValueError):
-        query = {'gross_income_m': {'$lte': math.sqrt(-1)}}
-        assert len(backend.filter(Actor, query)) == len([])
 
 
 def test_exists(backend):
@@ -380,16 +357,6 @@ def test_all(backend):
         pass
     # Test with unknwon attribute
 
-    # Test with illegal values
-    try:
-        query = {'appearances': {'$all': [0 / 0, math.sqrt(-1)]}}
-        assert len(backend.filter(Actor, query)) == len([])
-    except ZeroDivisionError:
-        pass
-    except ValueError:
-        pass
-    # Test with illegal values
-
 
 def test_ne(backend):
     # DB setup
@@ -467,22 +434,6 @@ def test_ne(backend):
         pass
     # Test with unknwon attribute
 
-    # Test with illegal values
-    try:
-        query = {'appearances': {'$ne': math.sqrt(-1)}}
-        assert len(backend.filter(Actor, query)) == len([])
-    except ValueError:
-        pass
-    # Test with illegal values
-
-    # Test with illegal values
-    try:
-        query = {'appearances': {'$ne': 0 / 0}}
-        assert len(backend.filter(Actor, query)) == len([])
-    except ZeroDivisionError:
-        pass
-    # Test with illegal values
-
 
 def test_and(backend):
     # DB setup
@@ -542,22 +493,6 @@ def test_and(backend):
     assert len(backend.filter(Actor, query)) == len([])
     # Test with unknwon attribute
 
-    # Test with illegal values
-    try:
-        query = {'$and': [{'name': charlie_chaplin.name}, {'birth_year': 0 / 0}]}
-        assert len(backend.filter(Actor, query)) == len([])
-    except ZeroDivisionError:
-        pass
-    # Test with illegal values
-
-    # Test with illegal values
-    try:
-        query = {'$and': [{'name': charlie_chaplin.name}, {'birth_year': math.sqrt(-1)}]}
-        assert len(backend.filter(Actor, query)) == len([])
-    except ValueError:
-        pass
-    # Test with illegal values
-
 
 def test_or(backend):
     # DB setup
@@ -611,22 +546,6 @@ def test_or(backend):
     query = {'$or': [{'named': charlie_chaplin.name}, {'birth_year': 1889}]}
     assert len(backend.filter(Actor, query)) == len([charlie_chaplin])
     # Test with unknwon attribute
-
-    # Test with illegal values
-    try:
-        query = {'$or': [{'name': charlie_chaplin.name}, {'birth_year': 0 / 0}]}
-        assert len(backend.filter(Actor, query)) == len([])
-    except ZeroDivisionError:
-        pass
-    # Test with illegal values
-
-    # Test with illegal values
-    try:
-        query = {'$or': [{'name': charlie_chaplin.name}, {'birth_year': math.sqrt(-1)}]}
-        assert len(backend.filter(Actor, query)) == len([])
-    except ValueError:
-        pass
-    # Test with illegal values
     
 
 def test_regex(backend):
