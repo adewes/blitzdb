@@ -86,8 +86,8 @@ class Backend(object):
         else:
             collection_name = cls.__name__.lower()
 
-        if collection_name in self.collections:
-            logger.warning("Overwriting existing collection %s!" % collection_name)
+#        if collection_name in self.collections:
+#            logger.warning("Overwriting existing collection %s!" % collection_name)
 
         delete_list = []
         for new_cls, new_params in self.classes.items():
@@ -165,7 +165,7 @@ class Backend(object):
         elif isinstance(obj, Document):
             collection = self.get_collection_for_obj(obj)
             if embed_level > 0:
-                output_obj = serialize_with_opts(obj.attributes, embed_level=embed_level - 1)
+                output_obj = serialize_with_opts(obj.eager.attributes, embed_level=embed_level - 1)
             elif obj.embed:
                 output_obj = obj.serialize(embed=True)
             else:
@@ -268,7 +268,7 @@ class Backend(object):
         """
         return self.get_collection_for_cls(obj.__class__)
 
-    def get_collection_for_cls(self, cls):
+    def get_collection_for_cls(self, cls): 
         """
         Returns the collection name for a given document class.
 
