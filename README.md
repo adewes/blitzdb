@@ -52,6 +52,12 @@ The detailed documentation for this project is hosted on [ReadTheDocs](http://bl
 * 0.1.3: Sorting of query sets is now supported (still experimental)
 * 0.1.2: Small bugfixes, BlitzDB version number now contained in DB config dict
 * 0.1.1: BlitzDB is now Python3 compatible (thanks to David Koblas)
+
+
+##Third-Party Contributions
+
+* [Flask-BlitzDB](https://github.com/puredistortion/flask-blitzdb) Flask adapter for BlitzDB. Blitz + Flask = Awesome!
+
 ##Examples
 
 To get an idea of what you can do with Blitz, here are some examples.
