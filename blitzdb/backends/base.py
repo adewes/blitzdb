@@ -165,7 +165,10 @@ class Backend(object):
         elif isinstance(obj, Document):
             collection = self.get_collection_for_obj(obj)
             if embed_level > 0:
-                output_obj = serialize_with_opts(obj.eager.attributes, embed_level=embed_level - 1)
+                try:
+                    output_obj = serialize_with_opts(obj.eager.attributes, embed_level=embed_level - 1)
+                except obj.DoesNotExist:
+                    output_obj = serialize_with_opts(obj.attributes, embed_level=embed_level - 1)
             elif obj.embed:
                 output_obj = obj.serialize(embed=True)
             else:
