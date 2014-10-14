@@ -9,6 +9,9 @@ from blitzdb.backends.base import NotInTransaction
 from blitzdb.backends.mongo.queryset import QuerySet
 import uuid
 
+import logging
+
+logger = logging.getLogger(__name__)
 
 class Backend(BaseBackend):
 
