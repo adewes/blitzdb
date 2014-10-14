@@ -2,7 +2,7 @@ from distutils.core import setup
 from setuptools import find_packages
 
 setup(name='blitzdb',
-version='0.2.5',
+version='0.2.6',
 author='Andreas Dewes - 7scientists',
 author_email='andreas@7scientists.com',
 license='MIT',
@@ -44,6 +44,8 @@ If you should encounter any problems when using BlitzDB, please feel free to `su
 Changelog
 =========
 
+* 0.2.6: Bugfix-Release: Fixed an issue with the $exists operator for the file backend.
+* 0.2.5: Bugfix-Release
 * 0.2.4: Added support for projections and update operations to the MongoDB backend.
 * 0.2.3: Bugfix-Release: Fixed bug in transaction data caching in MongoDB backend.
 * 0.2.2: Fix for slice operators in MongoDB backend.
