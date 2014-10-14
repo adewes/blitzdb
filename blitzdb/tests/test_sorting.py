@@ -38,6 +38,23 @@ def test_basic_sorting(backend):
     for i in range(1, len(actors)):
         assert actors[i - 1].birth_year >= actors[i].birth_year
 
+    actors = backend.filter(Actor, {}).sort([('birth_year', -1)])
+    for i in range(1, len(actors)):
+        assert actors[i - 1].birth_year >= actors[i].birth_year
+
+    # Verify thet the filter sort_by is working corectly
+    actors = backend.filter(Actor, {}, sort_by='birth_year')
+    for i in range(1, len(actors)):
+        assert actors[i - 1].birth_year <= actors[i].birth_year
+
+    actors = backend.filter(Actor, {}, sort_by=[('seq', 1)])
+    for i in range(1, len(actors)):
+        assert actors[i - 1].birth_year <= actors[i].birth_year
+
+    actors = backend.filter(Actor, {}, sort_by=[('seq', -1)])
+    for i in range(1, len(actors)):
+        assert actors[i - 1].birth_year >= actors[i].birth_year
+
     """
     Objects with missing sort keys should be returned first when
     sorting in ascending order, else last.
