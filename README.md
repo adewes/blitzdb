@@ -146,6 +146,6 @@ godfather_cast = backend.filter(Actor,{'movies' : the_godfather})
 star_wars_iv = Movie({'name' : 'Star Wars - Episode IV: A New Hope','year': 1977})
 star_wars_iv.save()
 
-movies_from_the_seventies = backend.filter(Movie,{'year': lambda year : True if year >= 1970 and year < 1980 else False})
+movies_from_the_seventies = backend.filter(Movie,{'year': lambda year : year >= 1970 and year < 1980})
 #Will return Star Wars & The Godfather (man, what a decade!)
 ```
