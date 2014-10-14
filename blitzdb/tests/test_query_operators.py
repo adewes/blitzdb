@@ -4,10 +4,13 @@ import subprocess
 import random
 import time
 import math
+from collections import Counter
 
 from blitzdb.tests.helpers.movie_data import Actor, Director, Movie, generate_test_data
 
 from .fixtures import *
+
+jackie_chan = Actor({'name': 'Jackie Chan', 'gross_income_m': 3.456, 'appearances': 122, 'is_funny': True, 'birth_year': 1954})
 
 
 def test_regex_operator(backend, small_test_data):
@@ -104,20 +107,9 @@ def test_lt(backend):
     # Test with normal conditions
 
     # Test with null elements
-    try:
-        query = {'appearances': {'$lt': jackie_chan.appearances}}
-        assert len(backend.filter(Actor, query)) == len([])
-    except NameError:
-        pass
+    query = {'appearances': {'$lt': None}}
+    assert len(backend.filter(Actor, query)) == len([])
     # Test with null elements
-
-    # Test with illegal values
-    try:
-        query = {'gross_income_m': {'$lt': math.sqrt(-1)}}
-        assert len(backend.filter(Actor, query)) == len([])
-    except ValueError:
-        pass
-    # Test with illegal values
 
 
 def test_gt(backend):
@@ -159,17 +151,9 @@ def test_gt(backend):
     # Test with normal conditions
 
     # Test with null elements
-    try:
-        query = {'appearances': {'$gt': jackie_chan.appearances}}
-        assert len(backend.filter(Actor, query)) == len([])
-    except NameError:
-        pass
+    query = {'appearances': {'$gt': None}}  # gets interpreted as 0 (zero)
+    assert len(backend.filter(Actor, query)) == 4
     # Test with null elements
-
-    # Test with illegal values
-    with pytest.raises(ValueError):
-        query = {'gross_income_m': {'$gt': math.sqrt(-1)}}
-        assert len(backend.filter(Actor, query)) == len([])
 
 
 def test_gte(backend):
@@ -211,17 +195,9 @@ def test_gte(backend):
     # Test with normal conditions
 
     # Test with null elements
-    try:
-        query = {'appearances': {'$gte': jackie_chan.appearances}}
-        assert len(backend.filter(Actor, query)) == len([])
-    except NameError:
-        pass
+    query = {'appearances': {'$gte': None}}  # gets interpreted as 0 (zero)
+    assert len(backend.filter(Actor, query)) == 4
     # Test with null elements
-
-    # Test with illegal values
-    with pytest.raises(ValueError):
-        query = {'gross_income_m': {'$gte': math.sqrt(-1)}}
-        assert len(backend.filter(Actor, query)) == len([])
 
 
 def test_lte(backend):
@@ -263,17 +239,9 @@ def test_lte(backend):
     # Test with normal conditions
 
     # Test with null elements
-    try:
-        query = {'appearances': {'$lte': jackie_chan.appearances}}
-        assert len(backend.filter(Actor, query)) == len([])
-    except NameError:
-        pass
+    query = {'appearances': {'$lte': None}}
+    assert len(backend.filter(Actor, query)) == len([])
     # Test with null elements
-
-    # Test with illegal values
-    with pytest.raises(ValueError):
-        query = {'gross_income_m': {'$lte': math.sqrt(-1)}}
-        assert len(backend.filter(Actor, query)) == len([])
 
 
 def test_exists(backend):
@@ -281,111 +249,34 @@ def test_exists(backend):
     backend.filter(Actor, {}).delete()
 
     marlon_brando = Actor({'name': 'Marlon Brando', 'gross_income_m': 1.453, 'appearances': 78, 'is_funny': False, 'birth_year': 1924})
-    leonardo_di_caprio = Actor({'name': 'Leonardo di Caprio', 'gross_income_m': 12.453, 'appearances': 34, 'is_funny': 'it depends', 'birth_year': 1974})
-    david_hasselhoff = Actor({'name': 'David Hasselhoff', 'gross_income_m': 12.453, 'appearances': 173, 'is_funny': True, 'birth_year': 1952})
-    charlie_chaplin = Actor({'name': 'Charlie Chaplin', 'gross_income_m': 0.371, 'appearances': 473, 'is_funny': True, 'birth_year': 1889})
+    leonardo_di_caprio = Actor({'name': 'Leonardo di Caprio', 'gross_income_m': 12.453, 'appearances': 34, 'is_funny': 'it depends'})
+    david_hasselhoff = Actor({'name': 'David Hasselhoff', 'gross_income_m': 12.453, 'appearances': 173})
+    charlie_chaplin = Actor({'name': 'Charlie Chaplin', 'gross_income_m': 0.371})
 
-    backend.save(marlon_brando)
-    backend.save(leonardo_di_caprio)
-    backend.save(david_hasselhoff)
-    backend.save(charlie_chaplin)
+    actors = [marlon_brando, leonardo_di_caprio, david_hasselhoff,
+              charlie_chaplin]
+    for actor in actors:
+        backend.save(actor)
 
     backend.commit()
-    assert len(backend.filter(Actor, {})) == 4
+    assert len(backend.filter(Actor, {})) == len(actors)
     # DB setup
 
-    # Test with list
-    query = {'name': {'$exists': [david_hasselhoff.name, marlon_brando.name, leonardo_di_caprio.name, charlie_chaplin.name]}}
-    assert len(backend.filter(Actor, query)) == len([charlie_chaplin, marlon_brando, leonardo_di_caprio, david_hasselhoff])
-    # Test with list
+    # Let's count the number of documents which have particular attribute
+    all_attributes = [attribute
+                      for actor in actors
+                      for attribute in actor.attributes.keys()
+                      if attribute != 'pk']
+    attributes_occurrences_counter = Counter(all_attributes)
 
-    # Test with empty list
-    query = {'name': {'$exists': []}}
-    actors = backend.filter(Actor, query)
-    assert len(backend.filter(Actor, query)) == len([charlie_chaplin, marlon_brando, leonardo_di_caprio, david_hasselhoff])
-    # Test with empty list
+    for attribute, count in attributes_occurrences_counter.items():
+        # Test number of documents which have current attribute
+        query = {attribute: {'$exists': True}}
+        assert len(backend.filter(Actor, query)) == count
 
-    # Test with String and unknown values
-    try:
-        query = {'name': {'$exists': jackie_chan.name}}
-        assert len(backend.filter(Actor, query)) == len([])
-    except NameError:
-        pass
-    # Test with String and unknown values
-
-    # Test with float/int
-    try:
-        query = {'appearances': {'$exists': 78.0}}
-        assert len(backend.filter(Actor, query)) == len([])
-    except AssertionError:
-        print("Issue: exists with string should give empty list/raise error")
-    # Test with float/int
-
-    # Test with float/int
-    try:
-        query = {'gross_income_m': {'$exists': leonardo_di_caprio.appearances}}
-        assert len(backend.filter(Actor, query)) == len([])
-    except AssertionError:
-        print("Issue: exists with int should give empty list/raise error")
-    # Test with float/int
-
-    # Test with boolean
-    query = {'is_funny': {'$exists': True}}
-    assert len(backend.filter(Actor, query)) == len([marlon_brando, david_hasselhoff, charlie_chaplin, leonardo_di_caprio])
-    # Test with boolean
-
-    # Test with string
-    try:
-        query = {'is_funny': {'$exists': 'it depends'}}
-        assert len(backend.filter(Actor, query)) == len([])
-    except AssertionError:
-        print("Issue: exists with string should give empty list/raise error")
-    # Test with string
-
-    # Test with mixed values/list
-    try:
-        query = {'is_funny': {'$exists': [True, 'it depends', marlon_brando.name, leonardo_di_caprio.appearances, charlie_chaplin.gross_income_m]}}
-        assert len(backend.filter(Actor, query)) == len([])
-    except AssertionError:
-        print("Issue: exists with mixed-type list should give empty list/raise error")
-    # Test with mixed values/list
-
-    # Test with normal conditions
-    try:
-        query = {'name': {'$exists': False}}
-        assert len(backend.filter(Actor, query)) == len([])
-    except AssertionError:
-        print("Issue: ('name' : {$exists : false}} should give empty list")
-    # Test with normal conditions
-
-    # Test with unknown attribute
-    query = {'named': {'$exists': True}}
-    assert len(backend.filter(Actor, query)) == len([])
-    # Test with unknwon attribute
-
-    # Test with unknown attribute
-    try:
-        query = {'named': {'$exists': False}}
-        assert len(backend.filter(Actor, query)) == len([charlie_chaplin, david_hasselhoff, marlon_brando, leonardo_di_caprio])
-    except AssertionError:
-        print("Issue: exists: false with unknwoned attribute should give full results")
-    # Test with unknwon attribute
-
-    # Test with illegal values
-    try:
-        query = {'appearances': {'$exists': 0 / 0}}
-        assert len(backend.filter(Actor, query)) == len([])
-    except ZeroDivisionError:
-        pass
-    # Test with illegal values
-
-    # Test with illegal values
-    try:
-        query = {'appearances': {'$exists': math.sqrt(-1)}}
-        assert len(backend.filter(Actor, query)) == len([])
-    except ValueError:
-        pass
-    # Test with illegal values
+        # Also test number of documents which do not have current attribute
+        query = {attribute: {'$exists': False}}
+        assert len(backend.filter(Actor, query)) == len(actors) - count
 
 
 def test_all(backend):
@@ -424,11 +315,8 @@ def test_all(backend):
     # Test with no result
 
     # Test with unknown values
-    try:
-        query = {'name': {'$all': [jackie_chan.name]}}
-        assert len(backend.filter(Actor, query)) == len([])
-    except NameError:
-        pass
+    query = {'name': {'$all': [jackie_chan.name]}}
+    assert len(backend.filter(Actor, query)) == len([])
     # Test with unknown values
 
     # Test with int
@@ -468,16 +356,6 @@ def test_all(backend):
     except AssertionError:
         pass
     # Test with unknwon attribute
-
-    # Test with illegal values
-    try:
-        query = {'appearances': {'$all': [0 / 0, math.sqrt(-1)]}}
-        assert len(backend.filter(Actor, query)) == len([])
-    except ZeroDivisionError:
-        pass
-    except ValueError:
-        pass
-    # Test with illegal values
 
 
 def test_ne(backend):
@@ -519,11 +397,8 @@ def test_ne(backend):
     # Test with no result
 
     # Test with unknown values
-    try:
-        query = {'name': {'$ne': jackie_chan.name}}
-        assert len(backend.filter(Actor, query)) == len([charlie_chaplin, david_hasselhoff, leonardo_di_caprio, marlon_brando])
-    except NameError:
-        pass
+    query = {'name': {'$ne': jackie_chan.name}}
+    assert len(backend.filter(Actor, query)) == len([charlie_chaplin, david_hasselhoff, leonardo_di_caprio, marlon_brando])
     # Test with unknown values
 
     # Test with int
@@ -558,22 +433,6 @@ def test_ne(backend):
     except AssertionError:
         pass
     # Test with unknwon attribute
-
-    # Test with illegal values
-    try:
-        query = {'appearances': {'$ne': math.sqrt(-1)}}
-        assert len(backend.filter(Actor, query)) == len([])
-    except ValueError:
-        pass
-    # Test with illegal values
-
-    # Test with illegal values
-    try:
-        query = {'appearances': {'$ne': 0 / 0}}
-        assert len(backend.filter(Actor, query)) == len([])
-    except ZeroDivisionError:
-        pass
-    # Test with illegal values
 
 
 def test_and(backend):
@@ -620,11 +479,8 @@ def test_and(backend):
     # Test with no result
 
     # Test with unknown values
-    try:
-        query = {'$and': [{'name': jackie_chan.name}, {'birth_year': 1889}]}
-        assert len(backend.filter(Actor, query)) == len([])
-    except NameError:
-        pass
+    query = {'$and': [{'name': jackie_chan.name}, {'birth_year': 1889}]}
+    assert len(backend.filter(Actor, query)) == len([])
     # Test with unknown values
 
     # Test with crossed type
@@ -636,22 +492,6 @@ def test_and(backend):
     query = {'$and': [{'named': charlie_chaplin.name}, {'birth_year': 1889}]}
     assert len(backend.filter(Actor, query)) == len([])
     # Test with unknwon attribute
-
-    # Test with illegal values
-    try:
-        query = {'$and': [{'name': charlie_chaplin.name}, {'birth_year': 0 / 0}]}
-        assert len(backend.filter(Actor, query)) == len([])
-    except ZeroDivisionError:
-        pass
-    # Test with illegal values
-
-    # Test with illegal values
-    try:
-        query = {'$and': [{'name': charlie_chaplin.name}, {'birth_year': math.sqrt(-1)}]}
-        assert len(backend.filter(Actor, query)) == len([])
-    except ValueError:
-        pass
-    # Test with illegal values
 
 
 def test_or(backend):
@@ -693,11 +533,8 @@ def test_or(backend):
     # Test with no result
 
     # Test with unknown values
-    try:
-        query = {'$or': [{'name': jackie_chan.name}, {'birth_year': 1889}]}
-        assert len(backend.filter(Actor, query)) == len([charlie_chaplin])
-    except NameError:
-        pass
+    query = {'$or': [{'name': jackie_chan.name}, {'birth_year': 1889}]}
+    assert len(backend.filter(Actor, query)) == len([charlie_chaplin])
     # Test with unknown values
 
     # Test with crossed type
@@ -709,22 +546,6 @@ def test_or(backend):
     query = {'$or': [{'named': charlie_chaplin.name}, {'birth_year': 1889}]}
     assert len(backend.filter(Actor, query)) == len([charlie_chaplin])
     # Test with unknwon attribute
-
-    # Test with illegal values
-    try:
-        query = {'$or': [{'name': charlie_chaplin.name}, {'birth_year': 0 / 0}]}
-        assert len(backend.filter(Actor, query)) == len([])
-    except ZeroDivisionError:
-        pass
-    # Test with illegal values
-
-    # Test with illegal values
-    try:
-        query = {'$or': [{'name': charlie_chaplin.name}, {'birth_year': math.sqrt(-1)}]}
-        assert len(backend.filter(Actor, query)) == len([])
-    except ValueError:
-        pass
-    # Test with illegal values
     
 
 def test_regex(backend):
@@ -766,11 +587,8 @@ def test_regex(backend):
     # Test with no result
 
     # Test with unknown values
-    try:
-        query = {'name': {'$regex': jackie_chan.name}}
-        assert len(backend.filter(Actor, query)) == len([])
-    except NameError:
-        pass
+    query = {'name': {'$regex': jackie_chan.name}}
+    assert len(backend.filter(Actor, query)) == len([])
     # Test with unknown values
 
     # Test with crossed type
