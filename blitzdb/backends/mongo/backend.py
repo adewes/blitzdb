@@ -277,7 +277,7 @@ class Backend(BaseBackend):
             raise cls.MultipleDocumentsReturned
         return queryset[0]
 
-    def filter(self, cls_or_collection, query, sort_by=None, limit=None, offset=None, raw=False, only=None):
+    def filter(self, cls_or_collection, query, raw=False, only=None):
         """
         Filter objects from the database that correspond to a given set of properties.
 

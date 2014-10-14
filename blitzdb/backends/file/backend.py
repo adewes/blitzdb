@@ -451,7 +451,7 @@ class Backend(BaseBackend):
         return self.delete_by_store_keys(collection, primary_index.get_keys_for(obj.pk))
 
     def get(self, cls, query):
-        objects = self.filter(cls, query, limit=1)
+        objects = self.filter(cls, query)
         if len(objects) == 0:
             raise cls.DoesNotExist
         elif len(objects) > 1:
@@ -495,7 +495,7 @@ class Backend(BaseBackend):
 
         return flatten(sort_by_keys(keys, sort_keys))
 
-    def filter(self, cls_or_collection, query, sort_by=None, limit=None, offset=None, initial_keys=None):
+    def filter(self, cls_or_collection, query, initial_keys=None):
         
         if not isinstance(query, dict):
             raise AttributeError("Query parameters must be dict!")
@@ -532,4 +532,4 @@ class Backend(BaseBackend):
         
         query_set = compiled_query(query_function)
         
-        return query_set.sort(sort_by) if sort_by else query_set #compiled_query(query_function)
+        return query_set

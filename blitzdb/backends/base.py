@@ -333,7 +333,7 @@ class Backend(object):
         """
 
     @abc.abstractmethod
-    def filter(self, cls, properties, sort_by=None, limit=None, offset=None):
+    def filter(self, cls, **kwargs):
         """
         Filter objects from the database that correspond to a given set of properties.
 
