@@ -8,6 +8,7 @@ from blitzdb.backends.base import Backend as BaseBackend
 from blitzdb.backends.base import NotInTransaction
 from blitzdb.backends.mongo.queryset import QuerySet
 import uuid
+import pymongo
 
 import logging
 
@@ -157,7 +158,7 @@ class Backend(BaseBackend):
         def serialize_fields(fields):
 
             if isinstance(fields, list) or isinstance(fields, tuple):
-                update_dict = dict([(key, obj[key]) for key in fields])
+                update_dict = dict([(key, obj[key]) for key in fields if key in obj])
                 serialized_attributes = self.serialize(update_dict)
             elif isinstance(fields, dict):
                 serialized_attributes = self.serialize(fields)
@@ -257,7 +258,11 @@ class Backend(BaseBackend):
             opts = kwargs['opts']
         else:
             opts = {}
-        self.db[collection].ensure_index(list(kwargs['fields'].items()), **opts)
+        try:
+            self.db[collection].ensure_index(list(kwargs['fields'].items()), **opts)
+        except pymongo.errors.OperationFailure as failure:
+            self.db[collection].drop_index(list(kwargs['fields'].items()))
+            self.db[collection].ensure_index(list(kwargs['fields'].items()), **opts)
 
     def compile_query(self, query):
         if isinstance(query, dict):

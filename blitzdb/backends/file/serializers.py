@@ -71,5 +71,4 @@ try:
             return cjson.decode(data)
 
 except ImportError:
-    # we fall back to the normal JSON serializer
-    sys.stderr.write("Warning: cjson could not be imported, CJsonSerializer will not be available.\n")
+    pass

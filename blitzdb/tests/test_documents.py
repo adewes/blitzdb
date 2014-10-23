@@ -2,7 +2,7 @@ import pytest
 import copy
 
 from blitzdb import Document
-
+import six
 
 @pytest.fixture(scope="function")
 def mockup_backend():
@@ -17,6 +17,13 @@ def mockup_backend():
 
     return Backend()
 
+def test_unicode():
+
+    doc = Document({'pk' : 'foo'})
+    if six.PY2:
+        assert unicode(str(doc)) == unicode(doc)
+    else:
+        assert doc.__unicode__ == doc.__str__
 
 def test_basic_attributes():
 

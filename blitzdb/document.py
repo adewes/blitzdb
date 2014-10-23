@@ -5,6 +5,10 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+import six
+
+if six.PY3:
+    unicode = str
 
 class MetaDocument(type):
 
@@ -253,11 +257,14 @@ class BaseDocument(object):
             return True
         return False
 
-    def __str__(self):
-        return unicode(self).encode("utf-8")
-
     def __unicode__(self):
         return self.__class__.__name__ + "({'pk' : '%s'},lazy = %s)" % (str(self.pk), str(self._lazy))
+
+    if six.PY3:
+        __str__ = __unicode__
+    else:
+        def __str__(self):
+            return unicode(self).encode("utf-8")
 
     def _represent(self, n=1):
 
