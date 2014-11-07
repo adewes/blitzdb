@@ -176,8 +176,17 @@ class BaseDocument(object):
                 self._lazy = False
         return super(BaseDocument,self).__getattribute__(key)
 
+    def get(self,key,default = None):
+        return self[key] if key in self else default
+
+    def has_key(self,key):
+        return True if key in self else False
+
     def keys(self):
         return self.attributes.keys()
+
+    def clear(self):
+        self.attributes.clear()
 
     def values(self):
         return self.attributes.values()
@@ -223,7 +232,7 @@ class BaseDocument(object):
             raise KeyError(key)
 
     def __copy__(self):
-        d = self.__class__(self.attributes.copy(), lazy=self._lazy, default_backen=self._default_backend)
+        d = self.__class__(self.attributes.copy(), lazy=self._lazy, default_backend = self._default_backend)
         return d
 
     def __deepcopy__(self, memo):

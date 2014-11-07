@@ -2,7 +2,7 @@ from distutils.core import setup
 from setuptools import find_packages
 
 setup(name='blitzdb',
-version='0.2.7',
+version='0.2.8',
 author='Andreas Dewes - 7scientists',
 author_email='andreas@7scientists.com',
 license='MIT',
@@ -44,6 +44,7 @@ If you should encounter any problems when using BlitzDB, please feel free to `su
 Changelog
 =========
 
+* 0.2.8: Added `get`, `has_key` and `clear` methods to `Document` class
 * 0.2.7: Fixed problem with __unicode__ function in Python 3.
 * 0.2.6: Bugfix-Release: Fixed an issue with the $exists operator for the file backend.
 * 0.2.5: Bugfix-Release
