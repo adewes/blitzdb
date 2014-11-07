@@ -97,7 +97,10 @@ def exists_query(expression):
 
     def _exists(index, expression=expression):
         ev = expression() if callable(expression) else expression
-        return [store_key for value, store_keys in index.get_index().items() for store_key in store_keys] 
+        if ev:
+            return [store_key for value, store_keys in index.get_index().items() for store_key in store_keys] 
+        else:
+            return index.get_undefined_keys()
 
     return _exists
 

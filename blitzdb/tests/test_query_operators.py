@@ -280,8 +280,8 @@ def test_exists(backend):
     # DB setup
     backend.filter(Actor, {}).delete()
 
-    marlon_brando = Actor({'name': 'Marlon Brando', 'gross_income_m': 1.453, 'appearances': 78, 'is_funny': False, 'birth_year': 1924})
-    leonardo_di_caprio = Actor({'name': 'Leonardo di Caprio', 'gross_income_m': 12.453, 'appearances': 34, 'is_funny': 'it depends', 'birth_year': 1974})
+    marlon_brando = Actor({'name': 'Marlon Brando', 'gross_income_m': 1.453, 'appearances': 78, 'is_funny': False, 'birth_year': 1924,'foo' : True})
+    leonardo_di_caprio = Actor({'name': 'Leonardo di Caprio', 'gross_income_m': 12.453, 'appearances': 34, 'is_funny': 'it depends','foo' : 'bar', 'birth_year': 1974})
     david_hasselhoff = Actor({'name': 'David Hasselhoff', 'gross_income_m': 12.453, 'appearances': 173, 'is_funny': True, 'birth_year': 1952})
     charlie_chaplin = Actor({'name': 'Charlie Chaplin', 'gross_income_m': 0.371, 'appearances': 473, 'is_funny': True, 'birth_year': 1889})
 
@@ -294,98 +294,13 @@ def test_exists(backend):
     assert len(backend.filter(Actor, {})) == 4
     # DB setup
 
-    # Test with list
-    query = {'name': {'$exists': [david_hasselhoff.name, marlon_brando.name, leonardo_di_caprio.name, charlie_chaplin.name]}}
-    assert len(backend.filter(Actor, query)) == len([charlie_chaplin, marlon_brando, leonardo_di_caprio, david_hasselhoff])
-    # Test with list
-
-    # Test with empty list
-    query = {'name': {'$exists': []}}
-    actors = backend.filter(Actor, query)
-    assert len(backend.filter(Actor, query)) == len([charlie_chaplin, marlon_brando, leonardo_di_caprio, david_hasselhoff])
-    # Test with empty list
-
-    # Test with String and unknown values
-    try:
-        query = {'name': {'$exists': jackie_chan.name}}
-        assert len(backend.filter(Actor, query)) == len([])
-    except NameError:
-        pass
-    # Test with String and unknown values
-
-    # Test with float/int
-    try:
-        query = {'appearances': {'$exists': 78.0}}
-        assert len(backend.filter(Actor, query)) == len([])
-    except AssertionError:
-        print("Issue: exists with string should give empty list/raise error")
-    # Test with float/int
-
-    # Test with float/int
-    try:
-        query = {'gross_income_m': {'$exists': leonardo_di_caprio.appearances}}
-        assert len(backend.filter(Actor, query)) == len([])
-    except AssertionError:
-        print("Issue: exists with int should give empty list/raise error")
-    # Test with float/int
-
-    # Test with boolean
-    query = {'is_funny': {'$exists': True}}
-    assert len(backend.filter(Actor, query)) == len([marlon_brando, david_hasselhoff, charlie_chaplin, leonardo_di_caprio])
-    # Test with boolean
-
-    # Test with string
-    try:
-        query = {'is_funny': {'$exists': 'it depends'}}
-        assert len(backend.filter(Actor, query)) == len([])
-    except AssertionError:
-        print("Issue: exists with string should give empty list/raise error")
-    # Test with string
-
-    # Test with mixed values/list
-    try:
-        query = {'is_funny': {'$exists': [True, 'it depends', marlon_brando.name, leonardo_di_caprio.appearances, charlie_chaplin.gross_income_m]}}
-        assert len(backend.filter(Actor, query)) == len([])
-    except AssertionError:
-        print("Issue: exists with mixed-type list should give empty list/raise error")
-    # Test with mixed values/list
-
     # Test with normal conditions
-    try:
-        query = {'name': {'$exists': False}}
-        assert len(backend.filter(Actor, query)) == len([])
-    except AssertionError:
-        print("Issue: ('name' : {$exists : false}} should give empty list")
-    # Test with normal conditions
+    query = {'foo': {'$exists': True}}
+    assert len(backend.filter(Actor, query)) == 2
+    assert all([actor in backend.filter(Actor, query) for actor in [marlon_brando,leonardo_di_caprio]])
 
-    # Test with unknown attribute
-    query = {'named': {'$exists': True}}
-    assert len(backend.filter(Actor, query)) == len([])
-    # Test with unknwon attribute
-
-    # Test with unknown attribute
-    try:
-        query = {'named': {'$exists': False}}
-        assert len(backend.filter(Actor, query)) == len([charlie_chaplin, david_hasselhoff, marlon_brando, leonardo_di_caprio])
-    except AssertionError:
-        print("Issue: exists: false with unknwoned attribute should give full results")
-    # Test with unknwon attribute
-
-    # Test with illegal values
-    try:
-        query = {'appearances': {'$exists': 0 / 0}}
-        assert len(backend.filter(Actor, query)) == len([])
-    except ZeroDivisionError:
-        pass
-    # Test with illegal values
-
-    # Test with illegal values
-    try:
-        query = {'appearances': {'$exists': math.sqrt(-1)}}
-        assert len(backend.filter(Actor, query)) == len([])
-    except ValueError:
-        pass
-    # Test with illegal values
+    query = {'foo': {'$exists': False}}
+    assert all([actor in backend.filter(Actor, query) for actor in [david_hasselhoff,charlie_chaplin]])
 
 
 def test_all(backend):

@@ -291,12 +291,12 @@ class Backend(BaseBackend):
 
     def get_collection_store(self, collection):
         if collection not in self.stores:
-            self.stores[collection] = self.StoreClass({'path': self.path + "/" + collection + "/objects"})
+            self.stores[collection] = self.StoreClass({'path': self.path + "/" + collection + "/objects",'version' : self._config['version']})
         return self.stores[collection]
 
     def get_index_store(self, collection, store_key):
         if store_key not in self.index_stores[collection]:
-            self.index_stores[collection][store_key] = self.IndexStoreClass({'path': self.path + "/" + collection + "/indexes/" + store_key})
+            self.index_stores[collection][store_key] = self.IndexStoreClass({'path': self.path + "/" + collection + "/indexes/" + store_key,'version' : self._config['version']})
         return self.index_stores[collection][store_key]
 
     def register(self, cls, parameters=None):
