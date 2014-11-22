@@ -3,7 +3,7 @@ import blitzdb
 from blitzdb.backends.file.queryset import QuerySet
 from blitzdb.backends.file.store import TransactionalStore, Store
 from blitzdb.backends.file.index import TransactionalIndex, Index
-from blitzdb.backends.base import Backend as BaseBackend, NotInTransaction, InTransaction
+from blitzdb.backends.base import Backend as BaseBackend, NotInTransaction
 from blitzdb.backends.file.serializers import PickleSerializer, JsonSerializer, MarshalSerializer
 from blitzdb.backends.file.queries import compile_query
 
@@ -11,10 +11,7 @@ import six
 import os
 import os.path
 
-import hashlib
-import datetime
 import uuid
-import copy
 
 from collections import defaultdict
 
