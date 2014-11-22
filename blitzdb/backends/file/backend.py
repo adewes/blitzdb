@@ -54,29 +54,34 @@ except ImportError:
 
 
 class DatabaseIndexError(BaseException):
-    """
-    Gets raised when the index of the database is corrupted (ideally this should never happen).
 
-    To recover from this error, you can call the `rebuild_index` function of the file backend with the
-    affected collection and key as parameters.
+    """Gets raised when the index of the database is corrupted.
+
+    Ideally this should never happen. To recover from this error, you can call
+    the `rebuild_index` function of the file backend with the affected
+    collection and key as parameters.
+
     """
 
 
 class Backend(BaseBackend):
 
-    """
-    A file-based database backend. Uses flat files to store objects on the hard disk and file-based
-    indexes to optimize querying.
+    """A file-based database backend.
+
+    Uses flat files to store objects on the hard disk and file-based indexes to
+    optimize querying.
 
     :param path: The path to the database. If non-existant it will be created
-    :param config: The configuration dictionary. If not specified, Blitz will try to load it from disk.
-                   If this fails, the default configuration will be used instead.
+    :param config:
+        The configuration dictionary. If not specified, Blitz will try to load
+        it from disk.  If this fails, the default configuration will be used
+        instead.
 
     .. warning::
-
-                    It might seem tempting to use the `autocommit` config and not having to worry about calling
-                    `commit` by hand. Please be advised that this can incur a significant overhead in write
-                    time since a `commit` will trigger a complete rewrite of all indexes to disk.
+        It might seem tempting to use the `autocommit` config and not having to
+        worry about calling `commit` by hand. Please be advised that this can
+        incur a significant overhead in write time since a `commit` will
+        trigger a complete rewrite of all indexes to disk.
 
     """
 
@@ -118,9 +123,7 @@ class Backend(BaseBackend):
         self.config['autocommit'] = value
 
     def begin(self):
-        """
-        Starts a new transaction
-        """
+        """Start a new transaction."""
         if self.in_transaction:  # we're already in a transaction...
             self.commit()
         self.in_transaction = True
@@ -147,9 +150,7 @@ class Backend(BaseBackend):
         return serializer_classes[self.config['serializer_class']]
 
     def rollback(self):
-        """
-        Rolls back a transaction
-        """
+        """Roll back a transaction."""
         if not self.in_transaction:
             raise NotInTransaction
         for collection, store in self.stores.items():
@@ -167,13 +168,14 @@ class Backend(BaseBackend):
         self.in_transaction = False
 
     def commit(self):
-        """
-        Commits all pending transactions to the database.
+        """Commit all pending transactions to the database.
 
         .. admonition:: Warning
 
-            This operation can be **expensive** in runtime if a large number of documents (>100.000) is contained
-            in the database, since it will cause all database indexes to be written to disk.
+            This operation can be **expensive** in runtime if a large number of
+            documents (>100.000) is contained in the database, since it will
+            cause all database indexes to be written to disk.
+
         """
         for collection in self.collections:
             store = self.get_collection_store(collection)
@@ -185,44 +187,49 @@ class Backend(BaseBackend):
         self.begin()
 
     def rebuild_index(self, collection, key):
-        """
-        Rebuild a given index using the objects stored in the database.
+        """Rebuild a given index using the objects stored in the database.
 
-        :param collection: The name of the collection for which to rebuild the index
+        :param collection:
+            The name of the collection for which to rebuild the index
         :param key: The key of the index to be rebuilt
         """
         return self.rebuild_indexes(collection, [key])
 
     def create_index(self, cls_or_collection, params=None, fields=None, ephemeral=False):
-        """
-        Creates a new index on the given collection or class with the given parameters.
+        """Create new index on the given collection/class with given parameters.
 
-        :param cls_or_collection: The name of the collection or the class for which to create an index
+        :param cls_or_collection:
+            The name of the collection or the class for which to create an
+            index
         :param params: The parameters of the index
         :param ephemeral: Whether to create a persistent or an ephemeral index
 
-        `params` expects either a dictionary of parameters or a string value. In the latter case, it
-        will interpret the string as the name of the key for which an index is to be created.
+        `params` expects either a dictionary of parameters or a string value.
+        In the latter case, it will interpret the string as the name of the key
+        for which an index is to be created.
 
-        If `ephemeral = True`, the index will be created only in memory and will not be written to
-        disk when :py:meth:`.commit` is called. This is useful for optimizing query performance.
+        If `ephemeral = True`, the index will be created only in memory and
+        will not be written to disk when :py:meth:`.commit` is called. This is
+        useful for optimizing query performance.
 
         ..notice::
 
-           By default, BlitzDB will create ephemeral indexes for all keys over which you perform queries,
-           so after you've run a query on a given key for the first time, the second run will usually be
-           much faster.
+           By default, BlitzDB will create ephemeral indexes for all keys over
+           which you perform queries, so after you've run a query on a given
+           key for the first time, the second run will usually be much faster.
 
         **Specifying keys**
 
-        Keys can be specified just like in MongoDB, using a dot ('.') to specify nested keys.
+        Keys can be specified just like in MongoDB, using a dot ('.') to
+        specify nested keys.
 
         .. code-block:: python
 
            actor = Actor({'name' : 'Charlie Chaplin',
             'foo' : {'value' : 'bar'}})
 
-        If you want to create an index on `actor['foo']['value']` , you can just say
+        If you want to create an index on `actor['foo']['value']` , you can
+        just say
 
         .. code-block:: python
 
@@ -230,9 +237,10 @@ class Backend(BaseBackend):
 
         .. warning::
 
-            Transcendental indexes (i.e. indexes transcending the boundaries of referenced objects)
-            are currently not supported by Blitz, which means you can't create an index on an attribute
-            value of a document that is embedded in another document.
+            Transcendental indexes (i.e. indexes transcending the boundaries of
+            referenced objects) are currently not supported by Blitz, which
+            means you can't create an index on an attribute value of a document
+            that is embedded in another document.
 
         """
 
@@ -247,14 +255,13 @@ class Backend(BaseBackend):
             raise AttributeError("You must either specify params or fields!")
 
     def get_pk_index(self, collection):
-        """
-        Returns the primary key index for a given collection:
+        """Return the primary key index for a given collection.
 
         :param collection: the collection for which to return the primary index
 
         :returns: the primary key index of the given collection
-        """
 
+        """
         cls = self.collections[collection]
 
         if not cls.get_pk_name() in self.indexes[collection]:
