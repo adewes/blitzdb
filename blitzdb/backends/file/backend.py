@@ -450,7 +450,7 @@ class Backend(BaseBackend):
         indexes = self.get_collection_indexes(collection)
         store = self.get_collection_store(collection)
 
-        if obj.pk == None:
+        if obj.pk is None:
             obj.autogenerate_pk()
 
         if hasattr(obj, 'pre_save') and callable(obj.pre_save):
@@ -571,7 +571,7 @@ class Backend(BaseBackend):
         indexes_to_create = []
 
         def query_function(key, expression):
-            if key == None:
+            if key is None:
                 return QuerySet(
                     self,
                     cls,
@@ -589,7 +589,7 @@ class Backend(BaseBackend):
         def index_collector(key, expressions):
             if (key not in indexes
                     and key not in indexes_to_create
-                    and key != None):
+                    and key is not None):
                 indexes_to_create.append(key)
             return QuerySet(self, cls, store, [])
 
