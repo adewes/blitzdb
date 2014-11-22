@@ -75,7 +75,7 @@ class Backend(BaseBackend):
         'store_class': 'transactional',
         'index_class': 'transactional',
         'index_store_class': 'basic',
-        'serializer_class': 'json', 
+        'serializer_class': 'json',
         'autocommit': False,
     }
 
@@ -284,7 +284,7 @@ class Backend(BaseBackend):
     def config(self, config):
         self._config = config
         self.save_config()
-        
+
     @property
     def path(self):
         return self._path
@@ -317,7 +317,7 @@ class Backend(BaseBackend):
             # If not pk index is present, we create one on the fly...
             if not [idx for idx in self._config['indexes'][collection].values() if idx['key'] == cls.get_pk_name()]:
                 self.create_index(collection, {'key': cls.get_pk_name()})
-            
+
             # We sort the indexes such that pk is always created first...
             for index_params in sorted(self._config['indexes'][collection].values(), key=lambda x: 0 if x['key'] == cls.get_pk_name() else 1):
                 index = self.create_index(collection, index_params)
@@ -356,7 +356,7 @@ class Backend(BaseBackend):
             if params['key'] in self.indexes[collection]:
                 return  # Index already exists
             if 'id' not in params:
-                params['id'] = uuid.uuid4().hex 
+                params['id'] = uuid.uuid4().hex
             if ephemeral:
                 index_store = None
             else:
@@ -411,12 +411,12 @@ class Backend(BaseBackend):
 
         serialized_attributes = self.serialize(obj.attributes)
         data = self.encode_attributes(serialized_attributes)
-    
+
         try:
             store_key = self.get_pk_index(collection).get_keys_for(obj.pk, include_uncommitted=True).pop()
         except IndexError:
             store_key = uuid.uuid4().hex
-    
+
         store.store_blob(data, store_key)
 
         for key, index in indexes.items():
@@ -430,7 +430,7 @@ class Backend(BaseBackend):
     def delete_by_store_keys(self, collection, store_keys):
 
         store = self.get_collection_store(collection)
-        indexes = self.get_collection_indexes(collection)     
+        indexes = self.get_collection_indexes(collection)
 
         for store_key in store_keys:
             try:
@@ -439,11 +439,11 @@ class Backend(BaseBackend):
                 pass
             for index in indexes.values():
                 index.remove_key(store_key)
-        
+
         if self.config['autocommit']:
             self.commit()
 
-    def delete(self, obj):        
+    def delete(self, obj):
         collection = self.get_collection_for_obj(obj)
         primary_index = self.get_pk_index(collection)
         if hasattr(obj, 'pre_delete') and callable(obj.pre_delete):
@@ -473,7 +473,7 @@ class Backend(BaseBackend):
             sort_keys = key
 
         indexes = self.get_collection_indexes(collection)
-        
+
         indexes_to_create = []
         for sort_key, order in sort_keys:
             if sort_key not in indexes:
@@ -496,7 +496,7 @@ class Backend(BaseBackend):
         return flatten(sort_by_keys(keys, sort_keys))
 
     def filter(self, cls_or_collection, query, initial_keys=None):
-        
+
         if not isinstance(query, dict):
             raise AttributeError("Query parameters must be dict!")
 
@@ -526,10 +526,10 @@ class Backend(BaseBackend):
 
         # We collect all the indexes that we need to create
         compiled_query(index_collector)
-        
+
         if indexes_to_create:
             self.create_indexes(cls, indexes_to_create, ephemeral=True)
-        
+
         query_set = compiled_query(query_function)
-        
+
         return query_set
