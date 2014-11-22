@@ -119,7 +119,7 @@ class Backend(BaseBackend):
     @autocommit.setter
     def autocommit(self, value):
         if value not in (True, False):
-            raise TypeError("Value must be boolean!")
+            raise TypeError('Value must be boolean!')
         self.config['autocommit'] = value
 
     def begin(self):
@@ -252,15 +252,15 @@ class Backend(BaseBackend):
             params = []
             if len(fields.items()) > 1:
                 raise ValueError(
-                    "File backend currently "
-                    "does not support multi-key indexes, sorry :/"
+                    'File backend currently '
+                    'does not support multi-key indexes, sorry :/'
                 )
             return self.create_indexes(
                 cls_or_collection,
                 [{'key': list(fields.keys())[0]}],
                 ephemeral=ephemeral)
         else:
-            raise AttributeError("You must either specify params or fields!")
+            raise AttributeError('You must either specify params or fields!')
 
     def get_pk_index(self, collection):
         """Return the primary key index for a given collection.
@@ -277,9 +277,9 @@ class Backend(BaseBackend):
         return self.indexes[collection][cls.get_pk_name()]
 
     def load_config(self, config=None, overwrite_config=False):
-        config_file = self._path + "/config.json"
+        config_file = self._path + '/config.json'
         if os.path.exists(config_file):
-            with open(config_file, "rb") as config_file:
+            with open(config_file, 'rb') as config_file:
                 # configuration is always stored in JSON format
                 self._config = JsonSerializer.deserialize(config_file.read())
         else:
@@ -298,8 +298,8 @@ class Backend(BaseBackend):
         self.save_config()
 
     def save_config(self):
-        config_file = self._path + "/config.json"
-        with open(config_file, "wb") as config_file:
+        config_file = self._path + '/config.json'
+        with open(config_file, 'wb') as config_file:
             config_file.write(JsonSerializer.serialize(self._config))
 
     @property
@@ -319,7 +319,7 @@ class Backend(BaseBackend):
         if collection not in self.stores:
             self.stores[collection] = self.StoreClass(
                 {
-                    'path': self.path + "/" + collection + "/objects",
+                    'path': self.path + '/' + collection + '/objects',
                     'version': self._config['version'],
                 }
             )
@@ -330,7 +330,7 @@ class Backend(BaseBackend):
             self.index_stores[collection][store_key] = self.IndexStoreClass(
                 {
                     'path': (
-                        self.path + "/" + collection + "/indexes/" + store_key
+                        self.path + '/' + collection + '/indexes/' + store_key
                     ),
                     'version': self._config['version'],
                 }
@@ -555,7 +555,7 @@ class Backend(BaseBackend):
     def filter(self, cls_or_collection, query, initial_keys=None):
 
         if not isinstance(query, dict):
-            raise AttributeError("Query parameters must be dict!")
+            raise AttributeError('Query parameters must be dict!')
 
         if not isinstance(cls_or_collection, six.string_types):
             collection = self.get_collection_for_cls(cls_or_collection)
