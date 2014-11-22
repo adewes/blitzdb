@@ -361,7 +361,7 @@ class Backend(BaseBackend):
             for index_params in sorted(
                     self._config['indexes'][collection].values(),
                     key=lambda x: 0 if x['key'] == cls.get_pk_name() else 1):
-                index = self.create_index(collection, index_params)
+                self.create_index(collection, index_params)
         else:
             # If no indexes are given, we just create a primary key index...
             self.create_index(collection, {'key': cls.get_pk_name()})
