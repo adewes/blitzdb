@@ -114,7 +114,7 @@ class Backend(BaseBackend):
 
     @property
     def autocommit(self):
-        return True if 'autocommit' in self.config and self.config['autocommit'] else False
+        return 'autocommit' in self.config and self.config['autocommit']
 
     @autocommit.setter
     def autocommit(self, value):
