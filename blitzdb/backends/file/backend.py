@@ -542,12 +542,12 @@ class Backend(BaseBackend):
 
         def flatten(l):
             fl = []
-            [
-                fl.extend(flatten(elem))
-                if isinstance(elem, list)
-                else fl.append(elem)
-                for elem in l
-            ]
+            for elem in l:
+                if isinstance(elem, list):
+                    fl.extend(flatten(elem))
+                else:
+                    fl.append(elem)
+
             return fl
 
         return flatten(sort_by_keys(keys, sort_keys))
