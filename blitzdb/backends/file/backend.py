@@ -1,32 +1,33 @@
+import os
+import os.path
+import uuid
+
+from collections import defaultdict
+
 import blitzdb
 
-from blitzdb.backends.file.queryset import QuerySet
-from blitzdb.backends.file.store import (
-    TransactionalStore,
-    Store,
-)
-from blitzdb.backends.file.index import (
-    TransactionalIndex,
-    Index,
-)
 from blitzdb.backends.base import (
     Backend as BaseBackend,
     NotInTransaction,
 )
-from blitzdb.backends.file.serializers import (
-    PickleSerializer,
-    JsonSerializer,
-    MarshalSerializer,
+from blitzdb.backends.file.index import (
+    Index,
+    TransactionalIndex,
 )
 from blitzdb.backends.file.queries import compile_query
+from blitzdb.backends.file.queryset import QuerySet
+from blitzdb.backends.file.serializers import (
+    JsonSerializer,
+    MarshalSerializer,
+    PickleSerializer,
+)
+from blitzdb.backends.file.store import (
+    Store,
+    TransactionalStore,
+)
 
 import six
-import os
-import os.path
 
-import uuid
-
-from collections import defaultdict
 
 store_classes = {
     'transactional': TransactionalStore,
