@@ -2,7 +2,7 @@ from distutils.core import setup
 from setuptools import find_packages
 
 setup(name='blitzdb',
-version='0.2.9',
+version='0.2.10',
 author='Andreas Dewes - 7scientists',
 author_email='andreas@7scientists.com',
 license='MIT',
