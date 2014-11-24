@@ -357,7 +357,7 @@ class BaseDocument(object):
 
     @pk.setter
     def pk(self, value):
-        self._attributes[self.Meta.primary_key] = value    
+        self._attributes[self.Meta.primary_key] = value
 
     @property
     def attributes(self):

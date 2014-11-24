@@ -38,6 +38,7 @@ The detailed documentation for this project is hosted on [ReadTheDocs](http://bl
 
 ##Changelog
 
+* 0.2.9: Bugfix-Release: Fix serialization problem with file backend.
 * 0.2.8: Added `get`, `has_key` and `clear` methods to `Document` class
 * 0.2.7: Fixed problem with __unicode__ function in Python 3.
 * 0.2.6: Bugfix-Release: Fixed an issue with the $exists operator for the file backend.

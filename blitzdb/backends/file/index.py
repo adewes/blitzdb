@@ -89,7 +89,7 @@ class Index(object):
 
     def save_to_data(self, in_place=False):
         if in_place:
-            return list(self._index.items())
+            return [list(self._index.items()),self._undefined_keys.keys()]
         return ([(key, values[:]) for key, values in self._index.items()],self._undefined_keys.keys())
 
     def load_from_data(self, data,with_undefined = False):
@@ -97,7 +97,7 @@ class Index(object):
             defined_values,undefined_values = data
         else:
             defined_values = data
-            undefined_value = None
+            undefined_values = None
         self._index = defaultdict(list, defined_values)
         self._reverse_index = defaultdict(list)
         [self._reverse_index[value].append(key) for key, values in self._index.items() for value in values]
