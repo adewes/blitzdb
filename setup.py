@@ -43,7 +43,7 @@ If you should encounter any problems when using BlitzDB, please feel free to `su
 
 Changelog
 =========
-
+* 0.2.10: Bugfix-Release: Fix Python 3 compatibility issue.
 * 0.2.9: Bugfix-Release: Fix serialization problem with file backend.
 * 0.2.8: Added `get`, `has_key` and `clear` methods to `Document` class
 * 0.2.7: Fixed problem with __unicode__ function in Python 3.
