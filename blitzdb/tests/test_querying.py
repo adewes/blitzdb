@@ -4,8 +4,10 @@ import pytest
 
 from .fixtures import *
 
-from blitzdb import Document
+from blitzdb import Document, FileBackend
 from blitzdb.tests.helpers.movie_data import Actor, Director, Movie
+from blitzdb.backends.file import IndexUniquenessError
+
 
 
 def test_basic_delete(backend, small_test_data):
@@ -71,7 +73,7 @@ def test_query_set(backend):
         backend.save(actor)
 
     backend.commit()
-    
+
     queryset = backend.filter(Actor, {'foo': 'bar','value' : 10})
 
     assert queryset.next() == actors[0]
@@ -84,7 +86,7 @@ def test_and_queries(backend):
     backend.save(Actor({'foo': 'bar', 'value': 11}))
 
     backend.commit()
-    
+
     assert len(backend.filter(Actor, {'foo': 'bar'})) == 2
     assert len(backend.filter(Actor, {'value': 10})) == 2
     assert len(backend.filter(Actor, {'foo': 'bar', 'value': 10})) == 1
@@ -106,18 +108,18 @@ def test_composite_queries(backend):
     backend.commit()
 
     for f in (lambda: True, lambda: backend.create_index(Actor, 'values')):
-    
-        assert len(backend.filter(Actor, {})) == 5 
-        assert len(backend.filter(Actor, {'values': [1, 2, 3, 4]})) == 1 
-        assert len(backend.filter(Actor, {'values': [1, 2, 3, 4, {'foo': 'bar'}]})) == 1 
-        assert len(backend.filter(Actor, {'values': [1, 2, 3, {'foo': 'bar'}, 4]})) == 0 
-        assert len(backend.filter(Actor, {'values': [1, 2, 3, 4, 5]})) == 0 
+
+        assert len(backend.filter(Actor, {})) == 5
+        assert len(backend.filter(Actor, {'values': [1, 2, 3, 4]})) == 1
+        assert len(backend.filter(Actor, {'values': [1, 2, 3, 4, {'foo': 'bar'}]})) == 1
+        assert len(backend.filter(Actor, {'values': [1, 2, 3, {'foo': 'bar'}, 4]})) == 0
+        assert len(backend.filter(Actor, {'values': [1, 2, 3, 4, 5]})) == 0
         assert len(backend.filter(Actor, {'values': [10, 9, 8, 7, 6, 5, 4, 3, 2, 1]})) == 0
 
         assert len(backend.filter(Actor, {'values': {'$all': [4, 3, 2, 1]}})) == 4
         assert len(backend.filter(Actor, {'values': {'$all': [4, 3, 2, 1, {'foo': 'bar'}]}})) == 1
         assert len(backend.filter(Actor, {'values': {'$all': [{'foo': 'bar'}]}})) == 1
-        assert len(backend.filter(Actor, {'values': {'$all': [4, 3, 2, 1, 14]}})) == 0 
+        assert len(backend.filter(Actor, {'values': {'$all': [4, 3, 2, 1, 14]}})) == 0
         assert len(backend.filter(Actor, {'values': {'$all': [10, 9, 8, 7, 6, 5, 4, 3, 2, 1]}})) == 1
         assert len(backend.filter(Actor, {'values': {'$in': [[1, 2, 3, 4], [7, 6, 5, 4, 3, 2, 1], [1, 2, 3, 5], 'foobar']}})) == 3
 
@@ -142,12 +144,12 @@ def test_operators(backend):
 
     for op, results in (('$gt', [david_hasselhoff]), ('$gte', [david_hasselhoff]), ('$lt', [charlie_chaplin]), ('$lte', [charlie_chaplin])):
 
-        query = {   
-            '$and': 
+        query = {
+            '$and':
             [
                 {'gross_income_m': {op: 1.0}},
                 {'is_funny': True}
-            ] 
+            ]
         }
 
         assert len(backend.filter(Actor, query)) == len(results)
@@ -155,8 +157,8 @@ def test_operators(backend):
 
     for op, results in (('$gt', [david_hasselhoff, charlie_chaplin, marlon_brando]), ('$gte', [marlon_brando, david_hasselhoff, charlie_chaplin]), ('$lt', [charlie_chaplin]), ('$lte', [charlie_chaplin])):
 
-        query = { 
-            '$and': 
+        query = {
+            '$and':
             [
                 {'$or': [
                     {'gross_income_m': {op: 1.0}},
@@ -166,7 +168,7 @@ def test_operators(backend):
                     {'is_funny': True},
                     {'name': 'Marlon Brando'},
                 ]},
-            ] 
+            ]
         }
 
         assert len(backend.filter(Actor, query)) == len(results)
@@ -293,3 +295,17 @@ def test_index_reloading(backend, small_test_data):
     backend.commit()
 
     assert list(backend.filter(Actor, {'movies': movies[0]})) == []
+
+
+def test_unique_index(backend):
+    # Not sure how to create unique indices in Mongo
+    if not isinstance(backend, FileBackend):
+        return
+    backend.create_index(Actor, "name", unique=True)
+    Actor({'name': 'Joe'}).save(backend)
+    Actor({'name': 'Frank'}).save(backend)
+    Actor({'name': 'Hans'}).save(backend)
+    backend.commit()
+    with pytest.raises(IndexUniquenessError):
+        Actor({'name': 'Joe'}).save(backend)
+        backend.commit()

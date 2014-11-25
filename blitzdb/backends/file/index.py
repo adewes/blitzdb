@@ -1,27 +1,34 @@
 from collections import defaultdict
 import copy
-from blitzdb.backends.file.utils import JsonEncoder
 from blitzdb.backends.base import NotInTransaction
 from blitzdb.backends.file.serializers import PickleSerializer as Serializer
+from blitzdb.backends.file.utils import JsonEncoder
 import time
+
+
+class IndexUniquenessError(BaseException):
+    """
+    Gets raised when a duplicate value is inserted into a unique index.
+    """
 
 
 class Index(object):
 
     """
-    An index accepts key/value pairs and stores them so that they can be 
+    An index accepts key/value pairs and stores them so that they can be
     efficiently retrieved.
     """
 
     #magic value we use when storing undefined values
     undefined_magic_value = '5baf58af9fb144a4ba2aa4374e931539'
 
-    def __init__(self, params, serializer, deserializer, store=None):
+    def __init__(self, params, serializer, deserializer, store=None, unique=False):
         self._params = params
         self._store = store
         self._serializer = serializer
         self._deserializer = deserializer
         self._splitted_key = self.key.split(".")
+        self._unique = unique
         self.clear()
         if store:
             self.ephemeral = False
@@ -54,7 +61,7 @@ class Index(object):
         saved_data = self.save_to_data(in_place=True)
         data = Serializer.serialize(saved_data)
         self._store.store_blob(data, 'all_keys_with_undefined')
-        
+
     def get_all_keys(self):
         all_keys = []
         [all_keys.extend(l) for l in self._index.values()]
@@ -147,12 +154,16 @@ class Index(object):
                 # We add an extra hash value for the list itself (this allows for querying the whole list)
                 values = value
                 hash_value = self.get_hash_for(value)
+                if self._unique and hash_value in self_index:
+                    raise IndexUniquenessError
                 self.add_hashed_value(hash_value, store_key)
             else:
                 values = [value]
 
             for value in values:
                 hash_value = self.get_hash_for(value)
+                if self._unique and hash_value in self._index:
+                    raise IndexUniquenessError
                 self.add_hashed_value(hash_value, store_key)
         else:
             self.add_undefined(store_key)
@@ -193,12 +204,12 @@ class TransactionalIndex(Index):
 
         for store_key, hash_values in self._add_cache.items():
             for hash_value in hash_values:
-                super(TransactionalIndex, self).add_hashed_value(hash_value, store_key)            
+                super(TransactionalIndex, self).add_hashed_value(hash_value, store_key)
         for store_key in self._remove_cache:
             super(TransactionalIndex, self).remove_key(store_key)
         if not self.ephemeral:
             self.save_to_store()
-    
+
         self._init_cache()
         self._in_transaction = True
 

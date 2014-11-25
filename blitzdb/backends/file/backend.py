@@ -75,7 +75,7 @@ class Backend(BaseBackend):
         'store_class': 'transactional',
         'index_class': 'transactional',
         'index_store_class': 'basic',
-        'serializer_class': 'json', 
+        'serializer_class': 'json',
         'autocommit': False,
     }
 
@@ -182,13 +182,14 @@ class Backend(BaseBackend):
         """
         return self.rebuild_indexes(collection, [key])
 
-    def create_index(self, cls_or_collection, params=None, fields=None, ephemeral=False):
+    def create_index(self, cls_or_collection, params=None, fields=None, ephemeral=False, unique=False):
         """
         Creates a new index on the given collection or class with the given parameters.
 
         :param cls_or_collection: The name of the collection or the class for which to create an index
         :param params: The parameters of the index
         :param ephemeral: Whether to create a persistent or an ephemeral index
+        :param unique: Whether the indexed field(s) must be unique
 
         `params` expects either a dictionary of parameters or a string value. In the latter case, it
         will interpret the string as the name of the key for which an index is to be created.
@@ -226,12 +227,12 @@ class Backend(BaseBackend):
         """
 
         if params:
-            return self.create_indexes(cls_or_collection, [params], ephemeral=ephemeral)
+            return self.create_indexes(cls_or_collection, [params], ephemeral=ephemeral, unique=unique)
         elif fields:
             params = []
             if len(fields.items()) > 1:
                 raise ValueError("File backend currently does not support multi-key indexes, sorry :/")
-            return self.create_indexes(cls_or_collection, [{'key': list(fields.keys())[0]}], ephemeral=ephemeral)
+            return self.create_indexes(cls_or_collection, [{'key': list(fields.keys())[0]}], ephemeral=ephemeral, unique=unique)
         else:
             raise AttributeError("You must either specify params or fields!")
 
@@ -284,7 +285,7 @@ class Backend(BaseBackend):
     def config(self, config):
         self._config = config
         self.save_config()
-        
+
     @property
     def path(self):
         return self._path
@@ -317,7 +318,7 @@ class Backend(BaseBackend):
             # If not pk index is present, we create one on the fly...
             if not [idx for idx in self._config['indexes'][collection].values() if idx['key'] == cls.get_pk_name()]:
                 self.create_index(collection, {'key': cls.get_pk_name()})
-            
+
             # We sort the indexes such that pk is always created first...
             for index_params in sorted(self._config['indexes'][collection].values(), key=lambda x: 0 if x['key'] == cls.get_pk_name() else 1):
                 index = self.create_index(collection, index_params)
@@ -338,7 +339,7 @@ class Backend(BaseBackend):
                 index.add_key(obj.attributes, obj._store_key)
             index.commit()
 
-    def create_indexes(self, cls_or_collection, params_list, ephemeral=False):
+    def create_indexes(self, cls_or_collection, params_list, ephemeral=False, unique=False):
         indexes = []
         keys = []
 
@@ -356,13 +357,13 @@ class Backend(BaseBackend):
             if params['key'] in self.indexes[collection]:
                 return  # Index already exists
             if 'id' not in params:
-                params['id'] = uuid.uuid4().hex 
+                params['id'] = uuid.uuid4().hex
             if ephemeral:
                 index_store = None
             else:
                 index_store = self.get_index_store(collection, params['id'])
 
-            index = self.IndexClass(params, serializer=lambda x: self.serialize(x, autosave=False), deserializer=lambda x: self.deserialize(x), store=index_store)
+            index = self.IndexClass(params, serializer=lambda x: self.serialize(x, autosave=False), deserializer=lambda x: self.deserialize(x), store=index_store, unique=unique)
             self.indexes[collection][params['key']] = index
 
             if collection not in self._config['indexes']:
@@ -411,12 +412,12 @@ class Backend(BaseBackend):
 
         serialized_attributes = self.serialize(obj.attributes)
         data = self.encode_attributes(serialized_attributes)
-    
+
         try:
             store_key = self.get_pk_index(collection).get_keys_for(obj.pk, include_uncommitted=True).pop()
         except IndexError:
             store_key = uuid.uuid4().hex
-    
+
         store.store_blob(data, store_key)
 
         for key, index in indexes.items():
@@ -430,7 +431,7 @@ class Backend(BaseBackend):
     def delete_by_store_keys(self, collection, store_keys):
 
         store = self.get_collection_store(collection)
-        indexes = self.get_collection_indexes(collection)     
+        indexes = self.get_collection_indexes(collection)
 
         for store_key in store_keys:
             try:
@@ -439,11 +440,11 @@ class Backend(BaseBackend):
                 pass
             for index in indexes.values():
                 index.remove_key(store_key)
-        
+
         if self.config['autocommit']:
             self.commit()
 
-    def delete(self, obj):        
+    def delete(self, obj):
         collection = self.get_collection_for_obj(obj)
         primary_index = self.get_pk_index(collection)
         if hasattr(obj, 'pre_delete') and callable(obj.pre_delete):
@@ -473,7 +474,7 @@ class Backend(BaseBackend):
             sort_keys = key
 
         indexes = self.get_collection_indexes(collection)
-        
+
         indexes_to_create = []
         for sort_key, order in sort_keys:
             if sort_key not in indexes:
@@ -496,7 +497,7 @@ class Backend(BaseBackend):
         return flatten(sort_by_keys(keys, sort_keys))
 
     def filter(self, cls_or_collection, query, initial_keys=None):
-        
+
         if not isinstance(query, dict):
             raise AttributeError("Query parameters must be dict!")
 
@@ -526,10 +527,10 @@ class Backend(BaseBackend):
 
         # We collect all the indexes that we need to create
         compiled_query(index_collector)
-        
+
         if indexes_to_create:
             self.create_indexes(cls, indexes_to_create, ephemeral=True)
-        
+
         query_set = compiled_query(query_function)
-        
+
         return query_set
