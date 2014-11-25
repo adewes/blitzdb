@@ -314,11 +314,8 @@ def test_all(backend):
     # Test with crossed type
 
     # Test with unknown attribute
-    try:
-        query = {'named': {'$all': [marlon_brando.name]}}
-        assert len(backend.filter(Actor, query)) == len([])
-    except AssertionError:
-        pass
+    query = {'named': {'$all': [marlon_brando.name]}}
+    assert len(backend.filter(Actor, query)) == len([])
     # Test with unknown attribute
 
 
@@ -518,11 +515,8 @@ def test_regex(backend):
     # Test with no result
 
     # Test with crossed type
-    try:
-        query = {'gross_income_m': {'$regex': r'^Marlon\s+.*$'}}
-        assert len(backend.filter(Actor, query)) == len([])
-    except TypeError:
-        pass
+    query = {'gross_income_m': {'$regex': r'^Marlon\s+.*$'}}
+    assert len(backend.filter(Actor, query)) == len([])
     # Test with crossed type
 
     # Test with unknown attribute
