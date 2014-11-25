@@ -319,7 +319,7 @@ def test_all(backend):
         assert len(backend.filter(Actor, query)) == len([])
     except AssertionError:
         pass
-    # Test with unknwon attribute
+    # Test with unknown attribute
 
 
 def test_ne(backend):
@@ -427,7 +427,7 @@ def test_and(backend):
     # Test with unknown attribute
     query = {'$and': [{'named': charlie_chaplin.name}, {'birth_year': 1889}]}
     assert len(backend.filter(Actor, query)) == len([])
-    # Test with unknwon attribute
+    # Test with unknown attribute
 
 
 def test_or(backend):
@@ -476,7 +476,7 @@ def test_or(backend):
     # Test with unknown attribute
     query = {'$or': [{'named': charlie_chaplin.name}, {'birth_year': 1889}]}
     assert len(backend.filter(Actor, query)) == len([charlie_chaplin])
-    # Test with unknwon attribute
+    # Test with unknown attribute
 
 
 def test_regex(backend):
@@ -528,4 +528,4 @@ def test_regex(backend):
     # Test with unknown attribute
     query = {'gross_income_bad': {'$regex': r'^Marlon\s+.*$'}}
     assert len(backend.filter(Actor, query)) == len([])
-    # Test with unknwon attribute
+    # Test with unknown attribute
