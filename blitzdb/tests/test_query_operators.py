@@ -103,14 +103,6 @@ def test_lt(backend):
     assert len(backend.filter(Actor, query)) == len([marlon_brando, charlie_chaplin])
     # Test with normal conditions
 
-    # Test with illegal values
-    try:
-        query = {'gross_income_m': {'$lt': math.sqrt(-1)}}
-        assert len(backend.filter(Actor, query)) == len([])
-    except ValueError:
-        pass
-    # Test with illegal values
-
 
 def test_gt(backend):
     # DB setup
@@ -149,11 +141,6 @@ def test_gt(backend):
     query = {'gross_income_m': {'$gt': marlon_brando.gross_income_m}}
     assert len(backend.filter(Actor, query)) == len([charlie_chaplin, david_hasselhoff])
     # Test with normal conditions
-
-    # Test with illegal values
-    with pytest.raises(ValueError):
-        query = {'gross_income_m': {'$gt': math.sqrt(-1)}}
-        assert len(backend.filter(Actor, query)) == len([])
 
 
 def test_gte(backend):
@@ -194,11 +181,6 @@ def test_gte(backend):
     assert len(backend.filter(Actor, query)) == len([marlon_brando, charlie_chaplin, david_hasselhoff])
     # Test with normal conditions
 
-    # Test with illegal values
-    with pytest.raises(ValueError):
-        query = {'gross_income_m': {'$gte': math.sqrt(-1)}}
-        assert len(backend.filter(Actor, query)) == len([])
-
 
 def test_lte(backend):
     # DB setup
@@ -237,11 +219,6 @@ def test_lte(backend):
     query = {'gross_income_m': {'$lte': david_hasselhoff.gross_income_m}}
     assert len(backend.filter(Actor, query)) == len([marlon_brando, charlie_chaplin, david_hasselhoff, leonardo_di_caprio])
     # Test with normal conditions
-
-    # Test with illegal values
-    with pytest.raises(ValueError):
-        query = {'gross_income_m': {'$lte': math.sqrt(-1)}}
-        assert len(backend.filter(Actor, query)) == len([])
 
 
 def test_exists(backend):
@@ -343,16 +320,6 @@ def test_all(backend):
     except AssertionError:
         pass
     # Test with unknwon attribute
-
-    # Test with illegal values
-    try:
-        query = {'appearances': {'$all': [0 / 0, math.sqrt(-1)]}}
-        assert len(backend.filter(Actor, query)) == len([])
-    except ZeroDivisionError:
-        pass
-    except ValueError:
-        pass
-    # Test with illegal values
 
 
 def test_ne(backend):
@@ -462,22 +429,6 @@ def test_and(backend):
     assert len(backend.filter(Actor, query)) == len([])
     # Test with unknwon attribute
 
-    # Test with illegal values
-    try:
-        query = {'$and': [{'name': charlie_chaplin.name}, {'birth_year': 0 / 0}]}
-        assert len(backend.filter(Actor, query)) == len([])
-    except ZeroDivisionError:
-        pass
-    # Test with illegal values
-
-    # Test with illegal values
-    try:
-        query = {'$and': [{'name': charlie_chaplin.name}, {'birth_year': math.sqrt(-1)}]}
-        assert len(backend.filter(Actor, query)) == len([])
-    except ValueError:
-        pass
-    # Test with illegal values
-
 
 def test_or(backend):
     # DB setup
@@ -527,22 +478,6 @@ def test_or(backend):
     assert len(backend.filter(Actor, query)) == len([charlie_chaplin])
     # Test with unknwon attribute
 
-    # Test with illegal values
-    try:
-        query = {'$or': [{'name': charlie_chaplin.name}, {'birth_year': 0 / 0}]}
-        assert len(backend.filter(Actor, query)) == len([])
-    except ZeroDivisionError:
-        pass
-    # Test with illegal values
-
-    # Test with illegal values
-    try:
-        query = {'$or': [{'name': charlie_chaplin.name}, {'birth_year': math.sqrt(-1)}]}
-        assert len(backend.filter(Actor, query)) == len([])
-    except ValueError:
-        pass
-    # Test with illegal values
-    
 
 def test_regex(backend):
     # DB setup
