@@ -103,14 +103,6 @@ def test_lt(backend):
     assert len(backend.filter(Actor, query)) == len([marlon_brando, charlie_chaplin])
     # Test with normal conditions
 
-    # Test with null elements
-    try:
-        query = {'appearances': {'$lt': jackie_chan.appearances}}
-        assert len(backend.filter(Actor, query)) == len([])
-    except NameError:
-        pass
-    # Test with null elements
-
     # Test with illegal values
     try:
         query = {'gross_income_m': {'$lt': math.sqrt(-1)}}
@@ -158,14 +150,6 @@ def test_gt(backend):
     assert len(backend.filter(Actor, query)) == len([charlie_chaplin, david_hasselhoff])
     # Test with normal conditions
 
-    # Test with null elements
-    try:
-        query = {'appearances': {'$gt': jackie_chan.appearances}}
-        assert len(backend.filter(Actor, query)) == len([])
-    except NameError:
-        pass
-    # Test with null elements
-
     # Test with illegal values
     with pytest.raises(ValueError):
         query = {'gross_income_m': {'$gt': math.sqrt(-1)}}
@@ -210,14 +194,6 @@ def test_gte(backend):
     assert len(backend.filter(Actor, query)) == len([marlon_brando, charlie_chaplin, david_hasselhoff])
     # Test with normal conditions
 
-    # Test with null elements
-    try:
-        query = {'appearances': {'$gte': jackie_chan.appearances}}
-        assert len(backend.filter(Actor, query)) == len([])
-    except NameError:
-        pass
-    # Test with null elements
-
     # Test with illegal values
     with pytest.raises(ValueError):
         query = {'gross_income_m': {'$gte': math.sqrt(-1)}}
@@ -261,14 +237,6 @@ def test_lte(backend):
     query = {'gross_income_m': {'$lte': david_hasselhoff.gross_income_m}}
     assert len(backend.filter(Actor, query)) == len([marlon_brando, charlie_chaplin, david_hasselhoff, leonardo_di_caprio])
     # Test with normal conditions
-
-    # Test with null elements
-    try:
-        query = {'appearances': {'$lte': jackie_chan.appearances}}
-        assert len(backend.filter(Actor, query)) == len([])
-    except NameError:
-        pass
-    # Test with null elements
 
     # Test with illegal values
     with pytest.raises(ValueError):
@@ -337,14 +305,6 @@ def test_all(backend):
     actors = backend.filter(Actor, query)
     assert len(backend.filter(Actor, query)) == len([])
     # Test with no result
-
-    # Test with unknown values
-    try:
-        query = {'name': {'$all': [jackie_chan.name]}}
-        assert len(backend.filter(Actor, query)) == len([])
-    except NameError:
-        pass
-    # Test with unknown values
 
     # Test with int
     query = {'appearances': {'$all': [78]}}
@@ -492,14 +452,6 @@ def test_and(backend):
     assert len(backend.filter(Actor, query)) == len([])
     # Test with no result
 
-    # Test with unknown values
-    try:
-        query = {'$and': [{'name': jackie_chan.name}, {'birth_year': 1889}]}
-        assert len(backend.filter(Actor, query)) == len([])
-    except NameError:
-        pass
-    # Test with unknown values
-
     # Test with crossed type
     query = {'$and': [{'name': charlie_chaplin.appearances}, {'birth_year': 'may be'}]}
     assert len(backend.filter(Actor, query)) == len([])
@@ -565,14 +517,6 @@ def test_or(backend):
     assert len(backend.filter(Actor, query)) == len([])
     # Test with no result
 
-    # Test with unknown values
-    try:
-        query = {'$or': [{'name': jackie_chan.name}, {'birth_year': 1889}]}
-        assert len(backend.filter(Actor, query)) == len([charlie_chaplin])
-    except NameError:
-        pass
-    # Test with unknown values
-
     # Test with crossed type
     query = {'$or': [{'name': charlie_chaplin.appearances}, {'birth_year': 'may be'}]}
     assert len(backend.filter(Actor, query)) == len([])
@@ -637,14 +581,6 @@ def test_regex(backend):
     query = {'name': {'$regex': r'^test@test.com'}}
     assert len(backend.filter(Actor, query)) == len([])
     # Test with no result
-
-    # Test with unknown values
-    try:
-        query = {'name': {'$regex': jackie_chan.name}}
-        assert len(backend.filter(Actor, query)) == len([])
-    except NameError:
-        pass
-    # Test with unknown values
 
     # Test with crossed type
     try:
