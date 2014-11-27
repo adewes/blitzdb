@@ -15,7 +15,7 @@ Querying Errors
 
     .. admonition:: Keep in Mind
 
-        Like the `MultipleObjectsReturned` exception, this exception is specific to
+        Like the `MultipleDocumentsReturned` exception, this exception is specific to
         the document class for which it is raised.
 
     example::
@@ -34,7 +34,7 @@ Querying Errors
         except Book.DoesNotExist:
             print "got Book.DoesNotExist exception!"
 
-.. class:: blitzdb.document.Document.MultipleObjectsReturned
+.. class:: blitzdb.document.Document.MultipleDocumentsReturned
 
     Gets raised when a query that should return only a single object (e.g. the `get` function of the backend)
     finds more than one matching document in the database. Like the `DoesNotExist` exception, it is specific
