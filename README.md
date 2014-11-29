@@ -38,6 +38,7 @@ The detailed documentation for this project is hosted on [ReadTheDocs](http://bl
 
 ##Changelog
 
+* 0.2.11: Allow setting the `collection` parameter through a `Document.Meta` attribute.
 * 0.2.10: Bugfix-Release: Fix Python 3 compatibility issue.
 * 0.2.9: Bugfix-Release: Fix serialization problem with file backend.
 * 0.2.8: Added `get`, `has_key` and `clear` methods to `Document` class

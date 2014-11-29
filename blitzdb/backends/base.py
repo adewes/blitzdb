@@ -79,15 +79,14 @@ class Backend(object):
             you can't pass in any parameters to customize e.g. the collection name for that class 
             (you can of course do this throught the `Meta` attribute of the class)
         """
-        if not parameters:
+        if parameters is None:
             parameters = {}
         if 'collection' in parameters:
             collection_name = parameters['collection']
+        elif hasattr(cls.Meta,'collection'):
+            collection_name = cls.Meta.collection
         else:
             collection_name = cls.__name__.lower()
-
-#        if collection_name in self.collections:
-#            logger.warning("Overwriting existing collection %s!" % collection_name)
 
         delete_list = []
         for new_cls, new_params in self.classes.items():
