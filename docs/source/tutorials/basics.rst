@@ -125,7 +125,7 @@ Alternatively, if we know the `primary key` of the object, we can just specify t
 
     **Pro-Tip**
 
-    If Blitz can't find a document matching your query, it will raise a :py:class:`Document.DoesNotExist <blitzdb.document.Document.DoesNotExist>` exception. Likewise, if it finds more than one document matching your query it will raise :py:class:`Document.MultipleObjectsReturned <blitzdb.document.Document.MultipleObjectsReturned>`. These exceptions are specific to the document class to which they belong and can be accessed as attributes of it, e.g. like this: 
+    If Blitz can't find a document matching your query, it will raise a :py:class:`Document.DoesNotExist <blitzdb.document.Document.DoesNotExist>` exception. Likewise, if it finds more than one document matching your query it will raise :py:class:`Document.MultipleDocumentsReturned <blitzdb.document.Document.MultipleDocumentsReturned>`. These exceptions are specific to the document class to which they belong and can be accessed as attributes of it, e.g. like this: 
 
     .. code-block:: python
 
@@ -134,7 +134,7 @@ Alternatively, if we know the `primary key` of the object, we can just specify t
         except Actor.DoesNotExist:
             #no 'Charlie' in the database
             pass
-        except Actor.MultipleObjectsReturned:
+        except Actor.MultipleDocumentsReturned:
             #more than one 'Charlie' in the database
             pass
 
