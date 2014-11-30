@@ -105,9 +105,9 @@ In addition, since Blitz is a **transactional database**, we have to call the :p
     #Will commit changes to disk
     backend.commit()
 
-.. note::
+.. note:: 
 
-    Use the :py:meth:`Backend.begin <blitzdb.backends.file.Backend.begin>` function to start a new database transaction and the :py:meth:`Backend.rollback <blitzdb.backends.file.Backend.rollback>` function to roll back the state of the database to the beginning of a transaction, if needed. By default, Blitz uses a **local isolation level** for transactions, so changes you make to the state of the database will be visible to parts of your program using the same backend, but will only be written to disk when :py:meth:`Backend.commit <blitzdb.backends.file.Backend.commit>` is invoked.
+    Use the :py:meth:`Backend.begin <blitzdb.backends.file.Backend.begin>` function to start a new database transaction and the :py:meth:`Backend.rollback <blitzdb.backends.file.Backend.rollback>` function to roll back the state of the database to the beginning of a transaction, if needed. By default, Blitz uses a **local isolation level** for transactions, so changes you make to the state of the database will be visible to parts of your program using the same backend, but will only be written to disk when :py:meth:`Backend.commit <blitzdb.backends.file.Backend.commit>` is invoked. 
 
 Retrieving Documents
 --------------------
@@ -208,14 +208,14 @@ Internally, BlitzDB converts any `Document` instance that it encounters inside a
 
 .. note::
 
-    When an object gets loaded from the database, references to other objects that it contains will get loaded **lazily**, i.e. they will get initialized with only their primary key and the name of the collection they can be found in. Their attributes will get automatically loaded if (and only if) you should request them.
+    When an object gets loaded from the database, references to other objects that it contains will get loaded **lazily**, i.e. they will get initialized with only their primary key and the name of the collection they can be found in. Their attributes will get automatically loaded if (and only if) you should request them. 
 
     Like this, Blitz avoids performing multiple reads from the database unless they are really needed. As a bonus, lazy loading also solves the problem of cyclic document references (like in the example above).
 
 Advanced Querying
 -----------------
 
-Like MongoDB, Blitz supports advanced query operators, which you can include in your query be prefixing them with a `$`. Currently, the following operator expressions are supported:
+Like MongoDB, Blitz supports advanced query operators, which you can include in your query be prefixing them with a `$`. Currently, the following operator expressions are supported: 
 
 * **$and** : Performs a boolean **AND** on two or more expressions
 * **$or** : Performs a boolean **OR** on two or more expressions
