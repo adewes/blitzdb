@@ -109,7 +109,7 @@ def regex_query(expression):
 
     def _regex(index, expression=expression):
         pattern = re.compile(expression)
-        return [store_key for value, store_keys in index.get_index().items() if re.match(pattern, value) for store_key in store_keys] 
+        return [store_key for value, store_keys in index.get_index().items() if isinstance(value, six.string_types) and re.match(pattern, value) for store_key in store_keys]
 
     return _regex
     
