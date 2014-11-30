@@ -1,10 +1,8 @@
 from __future__ import absolute_import
 
-import pytest
 
 from .fixtures import *
-from blitzdb import Document
-from blitzdb.tests.helpers.movie_data import Actor, Director, Movie
+from blitzdb.tests.helpers.movie_data import Movie
 
 
 def test_delete_transaction(transactional_backend, small_transactional_test_data):
