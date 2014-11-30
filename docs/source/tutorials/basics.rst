@@ -77,7 +77,7 @@ if none should be present. The backend provides various functions such as :py:me
 
 .. note::
 
-   You can choose between different formats to store your documents when using the file-based backend, using e.g. the `json`, `pickle` or `marshal` Python libraries. By default, all documents will be stored as gzipped JSON files.
+    You can choose between different formats to store your documents when using the file-based backend, using e.g. the `json`, `pickle` or `marshal` Python libraries. Choose the document format when creating the backend by passing a configuration dictionary, e.g. ``backend = FileBackend("./my-db", {'serializer_class': 'pickle'})`` (``'serializer_class'`` can also be ``'json'`` or ``'marshal'``). By default, all documents will be stored as gzipped JSON files.
 
 .. warning::
 
