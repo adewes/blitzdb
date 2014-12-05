@@ -31,11 +31,11 @@ The easiest way to install Blitz is through **pip** or **easy_install**
     #or...
     easy_install blitzdb
 
-For more detailed installation instructions, have a look at the [documentation](http://blitz-db.readthedocs.org).
+For more detailed installation instructions, have a look at the [documentation](http://blitzdb.readthedocs.org).
 
 ##Detailed Documentation
 
-The detailed documentation for this project is hosted on [ReadTheDocs](http://blitz-db.readthedocs.org), feel free to take a look!
+The detailed documentation for this project is hosted on [ReadTheDocs](http://blitzdb.readthedocs.org), feel free to take a look!
 
 ##Changelog
 
