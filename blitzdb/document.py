@@ -96,7 +96,7 @@ class BaseDocument(object):
     **Defining "non-database" attributes**
 
     Attributes that begin with an underscore (_) will not be stored in the :py:meth:`attributes`
-    dictionary but as normal instance attributes of the document. This is useful if you need to 
+    dictionary but as normal instance attributes of the document. This is useful if you need to
     define e.g. some helper variables that you don't want to store in the database.
     """
 
