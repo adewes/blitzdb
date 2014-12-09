@@ -96,7 +96,7 @@ class BaseDocument(object):
     **Defining "non-database" attributes**
 
     Attributes that begin with an underscore (_) will not be stored in the :py:meth:`attributes`
-    dictionary but as normal instance attributes of the document. This is useful if you need to 
+    dictionary but as normal instance attributes of the document. This is useful if you need to
     define e.g. some helper variables that you don't want to store in the database.
     """
 
@@ -267,7 +267,7 @@ class BaseDocument(object):
         return False
 
     def __unicode__(self):
-        return self.__class__.__name__ + "({'pk' : '%s'},lazy = %s)" % (str(self.pk), str(self._lazy))
+        return self.__class__.__name__ + "({%s : '%s'},lazy = %s)" % (self.get_pk_name(), self.pk, self._lazy)
 
     if six.PY3:
         __str__ = __unicode__
@@ -347,7 +347,7 @@ class BaseDocument(object):
         """
         primary_key = self.get_pk_name()
         if primary_key in self._attributes:
-            return self._attributes[self.Meta.primary_key]
+            return self._attributes[self.get_pk_name()]
         return None
 
     @property
@@ -357,7 +357,7 @@ class BaseDocument(object):
 
     @pk.setter
     def pk(self, value):
-        self._attributes[self.Meta.primary_key] = value
+        self._attributes[self.get_pk_name()] = value
 
     @property
     def attributes(self):
@@ -418,7 +418,7 @@ class BaseDocument(object):
             raise AttributeError("No backend given!")
         if self.pk == None:
             raise self.DoesNotExist("No primary key given!")
-        obj = self._default_backend.get(self.__class__, {'pk': self.pk})
+        obj = self._default_backend.get(self.__class__, {self.get_pk_name(): self.pk})
         self._attributes = obj.attributes
         self.initialize()
 
