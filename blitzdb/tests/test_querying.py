@@ -6,7 +6,6 @@ from .fixtures import *
 
 from blitzdb import Document, FileBackend
 from blitzdb.tests.helpers.movie_data import Actor, Director, Movie
-from blitzdb.backends.file import IndexUniquenessError
 
 
 
@@ -295,17 +294,3 @@ def test_index_reloading(backend, small_test_data):
     backend.commit()
 
     assert list(backend.filter(Actor, {'movies': movies[0]})) == []
-
-
-def test_unique_index(backend):
-    # Not sure how to create unique indices in Mongo
-    if not isinstance(backend, FileBackend):
-        return
-    backend.create_index(Actor, "name", unique=True)
-    Actor({'name': 'Joe'}).save(backend)
-    Actor({'name': 'Frank'}).save(backend)
-    Actor({'name': 'Hans'}).save(backend)
-    backend.commit()
-    with pytest.raises(IndexUniquenessError):
-        Actor({'name': 'Joe'}).save(backend)
-        backend.commit()
