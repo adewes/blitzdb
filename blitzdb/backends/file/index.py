@@ -6,10 +6,9 @@ from blitzdb.backends.file.utils import JsonEncoder
 import time
 
 
-class IndexUniquenessError(BaseException):
-    """
-    Gets raised when a duplicate value is inserted into a unique index.
-    """
+class Nonunique(StandardError):
+    """Index uniqueness constraint violated"""
+    pass
 
 
 class Index(object):
@@ -133,6 +132,8 @@ class Index(object):
     # The following two operations change the value of the index
 
     def add_hashed_value(self, hash_value, store_key):
+        if self._unique and hash_value in self._index:
+            raise Nonunique("Hash value %s already in index" % hash_value)
         if store_key not in self._index[hash_value]:
             self._index[hash_value].append(store_key)
         if hash_value not in self._reverse_index[store_key]:
@@ -147,23 +148,19 @@ class Index(object):
         except (KeyError, IndexError):
             undefined = True
 
-        # We remove old values
+        # We remove old values in _reverse_index
         self.remove_key(store_key)
         if not undefined:
             if isinstance(value, list) or isinstance(value, tuple):
                 # We add an extra hash value for the list itself (this allows for querying the whole list)
                 values = value
                 hash_value = self.get_hash_for(value)
-                if self._unique and hash_value in self_index:
-                    raise IndexUniquenessError
                 self.add_hashed_value(hash_value, store_key)
             else:
                 values = [value]
 
             for value in values:
                 hash_value = self.get_hash_for(value)
-                if self._unique and hash_value in self._index:
-                    raise IndexUniquenessError
                 self.add_hashed_value(hash_value, store_key)
         else:
             self.add_undefined(store_key)
@@ -220,6 +217,8 @@ class TransactionalIndex(Index):
         self._in_transaction = False
 
     def add_hashed_value(self, hash_value, store_key):
+        if self._unique and hash_value in self._index:
+            raise Nonunique("Hash value %s already in index" % hash_value)
         if hash_value not in self._add_cache[store_key]:
             self._add_cache[store_key].append(hash_value)
         if store_key not in self._reverse_add_cache[hash_value]:
