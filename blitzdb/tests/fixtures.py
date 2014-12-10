@@ -5,7 +5,6 @@ import time
 
 try:
     # TODO: Remove for final commit; mongodb tests too slow...
-    raise ImportError
     import pymongo
     from blitzdb.backends.mongo import Backend as MongoBackend
     test_mongo = True
