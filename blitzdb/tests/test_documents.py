@@ -41,6 +41,22 @@ def test_basic_attributes():
 
     assert doc.attributes == attributes
 
+def test_iteration():
+
+    attributes = {'foo': 'bar', 'baz': 1243, 'd': {1: 3, 4: 5}, 'l': [1, 2, 3, 4]}
+
+    doc = Document(attributes)
+
+    for key in doc:
+        assert key in attributes
+
+    for key,value in doc.items():
+        assert key in attributes
+        assert attributes[key] == value
+
+    for value in doc.values():
+        assert value in attributes.values()
+
 
 def test_attribute_deletion():
 

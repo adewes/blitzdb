@@ -197,6 +197,10 @@ class BaseDocument(object):
     def __contains__(self, key):
         return True if key in self.attributes else False
 
+    def __iter__(self):
+        for key in self.keys():
+            yield key
+
     def __getattr__(self, key):
         try:
             super(BaseDocument, self).__getattr__(key)

@@ -38,6 +38,7 @@ The detailed documentation for this project is hosted on [ReadTheDocs](http://bl
 
 ##Changelog
 
+* 0.2.12: Added support for proper attribute iteration to `Document`.
 * 0.2.11: Allow setting the `collection` parameter through a `Document.Meta` attribute.
 * 0.2.10: Bugfix-Release: Fix Python 3 compatibility issue.
 * 0.2.9: Bugfix-Release: Fix serialization problem with file backend.
@@ -58,7 +59,6 @@ The detailed documentation for this project is hosted on [ReadTheDocs](http://bl
 * 0.1.3: Sorting of query sets is now supported (still experimental)
 * 0.1.2: Small bugfixes, BlitzDB version number now contained in DB config dict
 * 0.1.1: BlitzDB is now Python3 compatible (thanks to David Koblas)
-
 
 ##Third-Party Contributions
 
