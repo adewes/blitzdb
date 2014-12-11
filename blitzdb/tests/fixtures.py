@@ -1,7 +1,6 @@
 import pytest
 import tempfile
 import subprocess
-import time
 
 try:
     import pymongo

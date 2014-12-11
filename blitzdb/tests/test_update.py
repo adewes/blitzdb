@@ -1,11 +1,8 @@
 from __future__ import absolute_import
 
-import pytest
-
 from .fixtures import *
 
-from blitzdb import Document
-from blitzdb.tests.helpers.movie_data import Actor, Director, Movie
+from blitzdb.tests.helpers.movie_data import Actor
 
 
 def test_update_by_list(mongodb_backend):

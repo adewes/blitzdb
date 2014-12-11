@@ -1,11 +1,9 @@
 from __future__ import absolute_import
 
-import pytest
 
 from .fixtures import *
 
 from blitzdb import Document
-from blitzdb.tests.helpers.movie_data import Actor, Director, Movie
 
 
 class MyDocument(Document):

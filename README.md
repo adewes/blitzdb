@@ -3,7 +3,8 @@
 [![Build Status](https://travis-ci.org/adewes/blitzdb.svg?branch=master)](https://travis-ci.org/adewes/blitzdb)
 [![PyPi version](https://pypip.in/v/blitzdb/badge.png)](https://pypi.python.org/pypi/blitzdb)
 [![PyPi downloads](https://pypip.in/d/blitzdb/badge.png)](https://pypi.python.org/pypi/blitzdb)
-**Python3 compatible!**
+[![Code Issues](http://www.quantifiedcode.com/project/ca53eca3429f4dde9cfef0cd2f2f3943/badge.svg)](http://www.quantifiedcode.com/app#/project/ca53eca3429f4dde9cfef0cd2f2f3943)
+[![Python 3](http://img.shields.io/badge/Python%203%20-compatible-brightgreen.svg)](https://www.python.org/download/releases/3.0/)
 
 **BlitzDB**, or just **Blitz** is a document-based, object-oriented, transactional database written purely in Python. Among other things, it provides a **powerful querying language**, **deep indexing of documents**, **compressed data storage** and **automatic referencing of embedded documents**. It is reasonably fast, can be easily embedded in any Python application and does not have any external dependencies (except when using a third-party backend). In addition, you can use it as a **frontend** to other database engines such as MongoDB in case you should need more power.
 
@@ -30,11 +31,11 @@ The easiest way to install Blitz is through **pip** or **easy_install**
     #or...
     easy_install blitzdb
 
-For more detailed installation instructions, have a look at the [documentation](http://blitz-db.readthedocs.org).
+For more detailed installation instructions, have a look at the [documentation](http://blitzdb.readthedocs.org).
 
 ##Detailed Documentation
 
-The detailed documentation for this project is hosted on [ReadTheDocs](http://blitz-db.readthedocs.org), feel free to take a look!
+The detailed documentation for this project is hosted on [ReadTheDocs](http://blitzdb.readthedocs.org), feel free to take a look!
 
 ##Changelog
 
