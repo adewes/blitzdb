@@ -57,7 +57,8 @@ class Index(object):
 
     def get_all_keys(self):
         all_keys = []
-        [all_keys.extend(l) for l in self._index.values()]
+        for l in self._index.values():
+            all_keys.extend(l)
         return all_keys
 
     def get_index(self):
@@ -119,11 +120,9 @@ class Index(object):
             undefined_values = None
         self._index = defaultdict(list, defined_values)
         self._reverse_index = defaultdict(list)
-        [
-            self._reverse_index[value].append(key)
-            for key, values in self._index.items()
-            for value in values
-        ]
+        for key, values in self._index.items():
+            for value in values:
+                self._reverse_index[value].append(key)
         if undefined_values:
             self._undefined_keys = {key: True for key in undefined_values}
         else:
