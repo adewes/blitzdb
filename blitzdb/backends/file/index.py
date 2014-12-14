@@ -9,7 +9,7 @@ import time
 class Index(object):
 
     """
-    An index accepts key/value pairs and stores them so that they can be 
+    An index accepts key/value pairs and stores them so that they can be
     efficiently retrieved.
     """
 
@@ -54,7 +54,7 @@ class Index(object):
         saved_data = self.save_to_data(in_place=True)
         data = Serializer.serialize(saved_data)
         self._store.store_blob(data, 'all_keys_with_undefined')
-        
+
     def get_all_keys(self):
         all_keys = []
         [all_keys.extend(l) for l in self._index.values()]
@@ -193,12 +193,12 @@ class TransactionalIndex(Index):
 
         for store_key, hash_values in self._add_cache.items():
             for hash_value in hash_values:
-                super(TransactionalIndex, self).add_hashed_value(hash_value, store_key)            
+                super(TransactionalIndex, self).add_hashed_value(hash_value, store_key)
         for store_key in self._remove_cache:
             super(TransactionalIndex, self).remove_key(store_key)
         if not self.ephemeral:
             self.save_to_store()
-    
+
         self._init_cache()
         self._in_transaction = True
 
