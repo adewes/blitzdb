@@ -1,9 +1,7 @@
 from collections import defaultdict
 import copy
-from blitzdb.backends.file.utils import JsonEncoder
 from blitzdb.backends.base import NotInTransaction
 from blitzdb.backends.file.serializers import PickleSerializer as Serializer
-import time
 
 
 class Index(object):
