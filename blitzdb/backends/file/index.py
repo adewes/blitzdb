@@ -21,7 +21,7 @@ class Index(object):
         self._store = store
         self._serializer = serializer
         self._deserializer = deserializer
-        self._splitted_key = self.key.split(".")
+        self._splitted_key = self.key.split('.')
         self.clear()
         if store:
             self.ephemeral = False
@@ -50,7 +50,7 @@ class Index(object):
 
     def save_to_store(self):
         if not self._store:
-            raise AttributeError("No datastore defined!")
+            raise AttributeError('No datastore defined!')
         saved_data = self.save_to_data(in_place=True)
         data = Serializer.serialize(saved_data)
         self._store.store_blob(data, 'all_keys_with_undefined')
@@ -65,7 +65,7 @@ class Index(object):
 
     def load_from_store(self):
         if not self._store:
-            raise AttributeError("No datastore defined!")
+            raise AttributeError('No datastore defined!')
         if self._store.has_blob('all_keys'):
             data = Serializer.deserialize(self._store.get_blob('all_keys'))
             self.load_from_data(data)
@@ -136,7 +136,7 @@ class Index(object):
         try:
             value = self.get_value(attributes)
             if value == self.undefined_magic_value:
-                raise IndexError("index value corresponds to undefined_magic_value: %s" % self.undefined_magic_value)
+                raise IndexError('index value corresponds to undefined_magic_value: %s' % self.undefined_magic_value)
         except (KeyError, IndexError):
             undefined = True
 
