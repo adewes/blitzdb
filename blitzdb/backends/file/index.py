@@ -13,7 +13,7 @@ class Index(object):
     efficiently retrieved.
     """
 
-    #magic value we use when storing undefined values
+    # magic value we use when storing undefined values
     undefined_magic_value = '5baf58af9fb144a4ba2aa4374e931539'
 
     def __init__(self, params, serializer, deserializer, store=None):
@@ -72,7 +72,7 @@ class Index(object):
             return True
         elif self._store.has_blob('all_keys_with_undefined'):
             data = Serializer.deserialize(self._store.get_blob('all_keys_with_undefined'))
-            self.load_from_data(data,with_undefined = True)
+            self.load_from_data(data, with_undefined=True)
             return True
         else:
             return False
@@ -89,12 +89,12 @@ class Index(object):
 
     def save_to_data(self, in_place=False):
         if in_place:
-            return [list(self._index.items()),list(self._undefined_keys.keys())]
-        return ([(key, values[:]) for key, values in self._index.items()],list(self._undefined_keys.keys()))
+            return [list(self._index.items()), list(self._undefined_keys.keys())]
+        return ([(key, values[:]) for key, values in self._index.items()], list(self._undefined_keys.keys()))
 
-    def load_from_data(self, data,with_undefined = False):
+    def load_from_data(self, data, with_undefined=False):
         if with_undefined:
-            defined_values,undefined_values = data
+            defined_values, undefined_values = data
         else:
             defined_values = data
             undefined_values = None
@@ -102,7 +102,7 @@ class Index(object):
         self._reverse_index = defaultdict(list)
         [self._reverse_index[value].append(key) for key, values in self._index.items() for value in values]
         if undefined_values:
-            self._undefined_keys = {key : True for key in undefined_values}
+            self._undefined_keys = {key: True for key in undefined_values}
         else:
             self._undefined_keys = {}
 
@@ -157,7 +157,7 @@ class Index(object):
         else:
             self.add_undefined(store_key)
 
-    def add_undefined(self,store_key):
+    def add_undefined(self, store_key):
         self._undefined_keys[store_key] = True
 
     def remove_key(self, store_key):
