@@ -71,7 +71,8 @@ class Index(object):
             self.load_from_data(data)
             return True
         elif self._store.has_blob('all_keys_with_undefined'):
-            data = Serializer.deserialize(self._store.get_blob('all_keys_with_undefined'))
+            blob = self._store.get_blob('all_keys_with_undefined')
+            data = Serializer.deserialize(blob)
             self.load_from_data(data, with_undefined=True)
             return True
         else:
@@ -79,9 +80,21 @@ class Index(object):
 
     def sort_keys(self, keys, order=1):
         # to do: check that all reverse index values are unambiguous
-        missing_keys = [key for key in keys if not len(self._reverse_index[key])]
-        keys_and_values = [(key, self._reverse_index[key][0]) for key in keys if key not in missing_keys]
-        sorted_keys = [kv[0] for kv in sorted(keys_and_values, key=lambda x: x[1], reverse=True if order < 0 else False)]
+        missing_keys = [
+            key
+            for key in keys
+            if not len(self._reverse_index[key])
+        ]
+        keys_and_values = [
+            (key, self._reverse_index[key][0])
+            for key in keys
+            if key not in missing_keys
+        ]
+        sorted_keys = [
+            kv[0]
+            for kv in sorted(keys_and_values,
+                             key=lambda x: x[1],
+                             reverse=True if order < 0 else False)]
         if order > 0:
             return missing_keys + sorted_keys
         else:
@@ -89,8 +102,14 @@ class Index(object):
 
     def save_to_data(self, in_place=False):
         if in_place:
-            return [list(self._index.items()), list(self._undefined_keys.keys())]
-        return ([(key, values[:]) for key, values in self._index.items()], list(self._undefined_keys.keys()))
+            return [
+                list(self._index.items()),
+                list(self._undefined_keys.keys())
+            ]
+        return (
+            [(key, values[:]) for key, values in self._index.items()],
+            list(self._undefined_keys.keys()),
+        )
 
     def load_from_data(self, data, with_undefined=False):
         if with_undefined:
@@ -100,7 +119,11 @@ class Index(object):
             undefined_values = None
         self._index = defaultdict(list, defined_values)
         self._reverse_index = defaultdict(list)
-        [self._reverse_index[value].append(key) for key, values in self._index.items() for value in values]
+        [
+            self._reverse_index[value].append(key)
+            for key, values in self._index.items()
+            for value in values
+        ]
         if undefined_values:
             self._undefined_keys = {key: True for key in undefined_values}
         else:
@@ -109,9 +132,15 @@ class Index(object):
     def get_hash_for(self, value):
         serialized_value = self._serializer(value)
         if isinstance(serialized_value, dict):
-            return hash(frozenset([self.get_hash_for(x) for x in serialized_value.items()]))
-        elif isinstance(serialized_value, list) or isinstance(serialized_value, tuple):
-            return hash(tuple([self.get_hash_for(x) for x in serialized_value]))
+            return hash(frozenset([
+                self.get_hash_for(x)
+                for x in serialized_value.items()
+            ]))
+        elif (isinstance(serialized_value, list)
+              or isinstance(serialized_value, tuple)):
+            return hash(tuple([
+                self.get_hash_for(x) for x in serialized_value
+            ]))
         return value
 
     def get_keys_for(self, value):
@@ -136,7 +165,9 @@ class Index(object):
         try:
             value = self.get_value(attributes)
             if value == self.undefined_magic_value:
-                raise IndexError('index value corresponds to undefined_magic_value: %s' % self.undefined_magic_value)
+                raise IndexError(
+                    'index value corresponds to undefined_magic_value: %s'
+                    % self.undefined_magic_value)
         except (KeyError, IndexError):
             undefined = True
 
@@ -144,7 +175,8 @@ class Index(object):
         self.remove_key(store_key)
         if not undefined:
             if isinstance(value, list) or isinstance(value, tuple):
-                # We add an extra hash value for the list itself (this allows for querying the whole list)
+                # We add an extra hash value for the list itself
+                # (this allows for querying the whole list)
                 values = value
                 hash_value = self.get_hash_for(value)
                 self.add_hashed_value(hash_value, store_key)
@@ -193,7 +225,8 @@ class TransactionalIndex(Index):
 
         for store_key, hash_values in self._add_cache.items():
             for hash_value in hash_values:
-                super(TransactionalIndex, self).add_hashed_value(hash_value, store_key)
+                super(TransactionalIndex, self).add_hashed_value(
+                    hash_value, store_key)
         for store_key in self._remove_cache:
             super(TransactionalIndex, self).remove_key(store_key)
         if not self.ephemeral:
