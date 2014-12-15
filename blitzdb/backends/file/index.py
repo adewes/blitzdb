@@ -4,7 +4,7 @@ import copy
 from collections import defaultdict
 
 from blitzdb.backends.base import NotInTransaction
-from blitzdb.backends.file.serializers import JsonSerializer as Serializer
+from blitzdb.backends.file.serializers import PickleSerializer as Serializer
 from blitzdb.queryset import QuerySet
 
 
