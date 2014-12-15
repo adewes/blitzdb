@@ -73,17 +73,17 @@ class Index(object):
         :rtype: object
 
         """
-        v = attributes
+        value = attributes
 
         # A splitted key like 'a.b.c' goes into nested properties
         # and the value is retrieved recursively
         for elem in self._splitted_key:
-            if isinstance(v, list):
+            if isinstance(value, list):
                 # Integer keys must be used for list properties
-                v = v[int(elem)]
+                value = value[int(elem)]
             else:
-                v = v[elem]
-        return v
+                value = value[elem]
+        return value
 
     def save_to_store(self):
         """Save index to store.
@@ -105,8 +105,8 @@ class Index(object):
 
         """
         all_keys = []
-        for l in self._index.values():
-            all_keys.extend(l)
+        for keys in self._index.values():
+            all_keys.extend(keys)
         return all_keys
 
     def get_index(self):
@@ -337,8 +337,8 @@ class Index(object):
 
         """
         if store_key in self._reverse_index:
-            for v in self._reverse_index[store_key]:
-                self._index[v].remove(store_key)
+            for value in self._reverse_index[store_key]:
+                self._index[value].remove(store_key)
             del self._reverse_index[store_key]
 
 
