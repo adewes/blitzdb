@@ -51,8 +51,8 @@ class Index(object):
 
     def clear(self):
         """Clear index."""
-        self._index = defaultdict(lambda: [])
-        self._reverse_index = defaultdict(lambda: [])
+        self._index = defaultdict(list)
+        self._reverse_index = defaultdict(list)
         self._undefined_keys = {}
 
     @property
@@ -363,8 +363,8 @@ class TransactionalIndex(Index):
 
     def _init_cache(self):
         """Initialize cache."""
-        self._add_cache = defaultdict(lambda: [])
-        self._reverse_add_cache = defaultdict(lambda: [])
+        self._add_cache = defaultdict(list)
+        self._reverse_add_cache = defaultdict(list)
         self._remove_cache = {}
 
     def begin(self):
