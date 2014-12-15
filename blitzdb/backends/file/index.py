@@ -36,7 +36,12 @@ class Index(object):
         self._serializer = serializer
         self._deserializer = deserializer
         self._splitted_key = self.key.split('.')
+
+        self._index = None
+        self._reverse_index = None
+        self._undefined_keys = None
         self.clear()
+
         if store:
             self.ephemeral = False
             self.loaded = self.load_from_store()
@@ -350,6 +355,10 @@ class TransactionalIndex(Index):
         """Initialize internal state."""
         super(TransactionalIndex, self).__init__(*args, **kwargs)
         self._in_transaction = False
+
+        self._add_cache = None
+        self._reverse_add_cache = None
+        self._remove_cache = None
         self._init_cache()
 
     def _init_cache(self):
