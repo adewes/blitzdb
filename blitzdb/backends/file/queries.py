@@ -183,8 +183,8 @@ def all_query(expression):
         """Return store key for documents that satisfy expression."""
         ev = expression() if callable(expression) else expression
         try:
-            ev_iter = iter(ev)
-        except TypeError as te:
+            iter(ev)
+        except TypeError:
             raise AttributeError('$in argument must be an iterable!')
         hashed_ev = [index.get_hash_for(v) for v in ev]
         store_keys = set([])
@@ -214,8 +214,8 @@ def in_query(expression):
         """Return store key for documents that satisfy expression."""
         ev = expression() if callable(expression) else expression
         try:
-            ev_iter = iter(ev)
-        except TypeError as te:
+            iter(ev)
+        except TypeError:
             raise AttributeError('$in argument must be an iterable!')
         hashed_ev = [index.get_hash_for(v) for v in ev]
         store_keys = set()
