@@ -150,8 +150,8 @@ def exists_query(expression):
         if ev:
             return [
                 store_key
-                for value, store_keys
-                in index.get_index().items()
+                for store_keys
+                in index.get_index().values()
                 for store_key in store_keys
             ]
         else:
