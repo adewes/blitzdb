@@ -1,3 +1,4 @@
+"""Query operators for the file backend."""
 import re
 
 import six
@@ -7,8 +8,9 @@ if six.PY3:
 
 
 def and_query(expressions):
-
+    """Apply logical and operator to expressions."""
     def _and(query_function, expressions=expressions):
+        """Return True if all expressions are satisfied."""
         compiled_expressions = [compile_query(e) for e in expressions]
         return reduce(
             lambda x, y: x & y,
@@ -19,8 +21,9 @@ def and_query(expressions):
 
 
 def or_query(expressions):
-
+    """Apply logical or operator to expressions."""
     def _or(query_function, expressions=expressions):
+        """Return True if any expression is satisfied."""
         compiled_expressions = [compile_query(e) for e in expressions]
         return reduce(
             lambda x, y: x | y,
@@ -31,7 +34,7 @@ def or_query(expressions):
 
 
 def filter_query(key, expression):
-
+    """Filter documents with a key that satisfies an expression."""
     if (isinstance(expression, dict)
             and len(expression) == 1
             and list(expression.keys())[0].startswith('$')):
@@ -40,16 +43,18 @@ def filter_query(key, expression):
         compiled_expression = expression
 
     def _get(query_function, key=key, expression=compiled_expression):
+        """Get document key and check against expression."""
         return query_function(key, expression)
 
     return _get
 
 
 def not_query(expression):
-
+    """Apply logical not operator to expression."""
     compiled_expression = compile_query(expression)
 
     def _not(index, expression=compiled_expression):
+        """Return store key for documents that satisfy expression."""
         all_keys = index.get_all_keys()
         returned_keys = expression(index)
         return [key for key in all_keys if key not in returned_keys]
@@ -58,8 +63,9 @@ def not_query(expression):
 
 
 def gte_query(expression):
-
+    """Apply greater than or equal operator to expression."""
     def _gte(index, expression=expression):
+        """Return store key for documents that satisfy expression."""
         ev = expression() if callable(expression) else expression
         return [
             store_key
@@ -73,8 +79,9 @@ def gte_query(expression):
 
 
 def lte_query(expression):
-
+    """Apply lesser than or equal operator to expression."""
     def _lte(index, expression=expression):
+        """Return store key for documents that satisfy expression."""
         ev = expression() if callable(expression) else expression
         return [
             store_key
@@ -88,8 +95,9 @@ def lte_query(expression):
 
 
 def gt_query(expression):
-
+    """Apply greater than operator to expression."""
     def _gt(index, expression=expression):
+        """Return store key for documents that satisfy expression."""
         ev = expression() if callable(expression) else expression
         return [
             store_key
@@ -103,8 +111,9 @@ def gt_query(expression):
 
 
 def lt_query(expression):
-
+    """Apply less than operator to expression."""
     def _lt(index, expression=expression):
+        """Return store key for documents that satisfy expression."""
         ev = expression() if callable(expression) else expression
         return [
             store_key
@@ -118,8 +127,9 @@ def lt_query(expression):
 
 
 def ne_query(expression):
-
+    """Apply not equal operator to expression."""
     def _ne(index, expression=expression):
+        """Return store key for documents that satisfy expression."""
         ev = expression() if callable(expression) else expression
         return [
             store_key
@@ -133,8 +143,9 @@ def ne_query(expression):
 
 
 def exists_query(expression):
-
+    """Check that documents have a key that satisfies expression."""
     def _exists(index, expression=expression):
+        """Return store key for documents that satisfy expression."""
         ev = expression() if callable(expression) else expression
         if ev:
             return [
@@ -150,8 +161,9 @@ def exists_query(expression):
 
 
 def regex_query(expression):
-
+    """Apply regular expression to result of expression."""
     def _regex(index, expression=expression):
+        """Return store key for documents that satisfy expression."""
         pattern = re.compile(expression)
         return [
             store_key
@@ -166,8 +178,9 @@ def regex_query(expression):
 
 
 def all_query(expression):
-
+    """Match arrays that contain all elements in the query."""
     def _all(index, expression=expression):
+        """Return store key for documents that satisfy expression."""
         ev = expression() if callable(expression) else expression
         try:
             ev_iter = iter(ev)
@@ -186,8 +199,9 @@ def all_query(expression):
 
 
 def elemMatch_query(expression):
-
+    """Select documents if element in array field matches all conditions."""
     def _elemMatch(index, expression=expression):
+        """Raise exception since this operator is not implemented yet."""
         raise ValueError(
             '$elemMatch query is currently not supported by file backend!')
 
@@ -195,8 +209,9 @@ def elemMatch_query(expression):
 
 
 def in_query(expression):
-
+    """Match any of the values that exist in an array specified in query."""
     def _in(index, expression=expression):
+        """Return store key for documents that satisfy expression."""
         ev = expression() if callable(expression) else expression
         try:
             ev_iter = iter(ev)
@@ -214,6 +229,7 @@ def in_query(expression):
 
 
 def compile_query(query):
+    """Compile each expression in query recursively."""
     if isinstance(query, dict):
         expressions = []
         for key, value in query.items():
