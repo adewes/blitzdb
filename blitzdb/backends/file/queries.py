@@ -172,7 +172,7 @@ def all_query(expression):
         try:
             ev_iter = iter(ev)
         except TypeError as te:
-            raise AttributeError("$in argument must be an iterable!")
+            raise AttributeError('$in argument must be an iterable!')
         hashed_ev = [index.get_hash_for(v) for v in ev]
         store_keys = set([])
         if len(hashed_ev) == 0:
@@ -189,7 +189,7 @@ def elemMatch_query(expression):
 
     def _elemMatch(index, expression=expression):
         raise ValueError(
-            "$elemMatch query is currently not supported by file backend!")
+            '$elemMatch query is currently not supported by file backend!')
 
     return _elemMatch
 
@@ -201,7 +201,7 @@ def in_query(expression):
         try:
             ev_iter = iter(ev)
         except TypeError as te:
-            raise AttributeError("$in argument must be an iterable!")
+            raise AttributeError('$in argument must be an iterable!')
         hashed_ev = [index.get_hash_for(v) for v in ev]
         store_keys = set()
 
@@ -219,7 +219,7 @@ def compile_query(query):
         for key, value in query.items():
             if key.startswith('$'):
                 if key not in query_funcs:
-                    raise AttributeError("Invalid operator: %s" % key)
+                    raise AttributeError('Invalid operator: %s' % key)
                 expressions.append(query_funcs[key](value))
             else:
                 expressions.append(filter_query(key, value))
