@@ -9,18 +9,19 @@ if six.PY3:
 
 
 def boolean_operator_query(boolean_operator):
-    """Apply boolean operator to expressions."""
-    def _query(expressions):
-        def _apply(query_function, expressions=expressions):
-            """Return True if all expressions are satisfied."""
+    """Generate boolean operator checking function."""
+    def _boolean_operator_query(expressions):
+        """Apply boolean operator to expressions."""
+        def _apply_boolean_operator(query_function, expressions=expressions):
+            """Return if expressions with boolean operator are satisfied."""
             compiled_expressions = [compile_query(e) for e in expressions]
             return reduce(
                 boolean_operator,
                 [e(query_function) for e in compiled_expressions]
             )
 
-        return _apply
-    return _query
+        return _apply_boolean_operator
+    return _boolean_operator_query
 
 
 def filter_query(key, expression):
@@ -53,9 +54,10 @@ def not_query(expression):
 
 
 def comparison_operator_query(comparison_operator):
-    """Apply binary operator to expression."""
-    def _query(expression):
-        def _apply(index, expression=expression):
+    """Generate comparison operator checking function."""
+    def _comparison_operator_query(expression):
+        """Apply binary operator to expression."""
+        def _apply_comparison_operator(index, expression=expression):
             """Return store key for documents that satisfy expression."""
             ev = expression() if callable(expression) else expression
             return [
@@ -65,8 +67,8 @@ def comparison_operator_query(comparison_operator):
                 if comparison_operator(value, ev)
                 for store_key in store_keys
             ]
-        return _apply
-    return _query
+        return _apply_comparison_operator
+    return _comparison_operator_query
 
 
 def exists_query(expression):
