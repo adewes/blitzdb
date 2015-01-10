@@ -63,84 +63,21 @@ def not_query(expression):
     return _not
 
 
-def gte_query(expression):
-    """Apply greater than or equal operator to expression."""
-    def _gte(index, expression=expression):
-        """Return store key for documents that satisfy expression."""
-        ev = expression() if callable(expression) else expression
-        return [
-            store_key
-            for value, store_keys
-            in index.get_index().items()
-            if value >= ev
-            for store_key in store_keys
-        ]
-
-    return _gte
-
-
-def lte_query(expression):
-    """Apply lesser than or equal operator to expression."""
-    def _lte(index, expression=expression):
-        """Return store key for documents that satisfy expression."""
-        ev = expression() if callable(expression) else expression
-        return [
-            store_key
-            for value, store_keys
-            in index.get_index().items()
-            if value <= ev
-            for store_key in store_keys
-        ]
-
-    return _lte
-
-
-def gt_query(expression):
-    """Apply greater than operator to expression."""
-    def _gt(index, expression=expression):
-        """Return store key for documents that satisfy expression."""
-        ev = expression() if callable(expression) else expression
-        return [
-            store_key
-            for value, store_keys
-            in index.get_index().items()
-            if value > ev
-            for store_key in store_keys
-        ]
-
-    return _gt
-
-
-def lt_query(expression):
-    """Apply less than operator to expression."""
-    def _lt(index, expression=expression):
-        """Return store key for documents that satisfy expression."""
-        ev = expression() if callable(expression) else expression
-        return [
-            store_key
-            for value, store_keys
-            in index.get_index().items()
-            if value < ev
-            for store_key in store_keys
-        ]
-
-    return _lt
-
-
-def ne_query(expression):
-    """Apply not equal operator to expression."""
-    def _ne(index, expression=expression):
-        """Return store key for documents that satisfy expression."""
-        ev = expression() if callable(expression) else expression
-        return [
-            store_key
-            for value, store_keys
-            in index.get_index().items()
-            if value != ev
-            for store_key in store_keys
-        ]
-
-    return _ne
+def comparison_operator_query(comparison_operator):
+    """Apply binary operator to expression."""
+    def _query(expression):
+        def _apply(index, expression=expression):
+            """Return store key for documents that satisfy expression."""
+            ev = expression() if callable(expression) else expression
+            return [
+                store_key
+                for value, store_keys
+                in index.get_index().items()
+                if comparison_operator(value, ev)
+                for store_key in store_keys
+            ]
+        return _apply
+    return _query
 
 
 def exists_query(expression):
@@ -258,11 +195,11 @@ query_funcs = {
     '$all': all_query,
     '$elemMatch': elemMatch_query,
     '$or': or_query,
-    '$gte': gte_query,
-    '$lte': lte_query,
-    '$gt': gt_query,
-    '$lt': lt_query,
-    '$ne': ne_query,
+    '$gte': comparison_operator_query(operator.ge),
+    '$lte': comparison_operator_query(operator.le),
+    '$gt': comparison_operator_query(operator.gt),
+    '$lt': comparison_operator_query(operator.lt),
+    '$ne': comparison_operator_query(operator.ne),
     '$not': not_query,
     '$in': in_query,
 }
