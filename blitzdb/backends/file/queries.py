@@ -10,7 +10,10 @@ def and_query(expressions):
 
     def _and(query_function, expressions=expressions):
         compiled_expressions = [compile_query(e) for e in expressions]
-        return reduce(lambda x, y: x & y, [e(query_function) for e in compiled_expressions])
+        return reduce(
+            lambda x, y: x & y,
+            [e(query_function) for e in compiled_expressions]
+        )
 
     return _and
 
@@ -19,14 +22,19 @@ def or_query(expressions):
 
     def _or(query_function, expressions=expressions):
         compiled_expressions = [compile_query(e) for e in expressions]
-        return reduce(lambda x, y: x | y, [e(query_function) for e in compiled_expressions])
+        return reduce(
+            lambda x, y: x | y,
+            [e(query_function) for e in compiled_expressions]
+        )
 
     return _or
 
 
 def filter_query(key, expression):
 
-    if isinstance(expression, dict) and len(expression) == 1 and list(expression.keys())[0].startswith('$'):
+    if (isinstance(expression, dict)
+            and len(expression) == 1
+            and list(expression.keys())[0].startswith('$')):
         compiled_expression = compile_query(expression)
     else:
         compiled_expression = expression
@@ -53,7 +61,13 @@ def gte_query(expression):
 
     def _gte(index, expression=expression):
         ev = expression() if callable(expression) else expression
-        return [store_key for value, store_keys in index.get_index().items() if value >= ev for store_key in store_keys]
+        return [
+            store_key
+            for value, store_keys
+            in index.get_index().items()
+            if value >= ev
+            for store_key in store_keys
+        ]
 
     return _gte
 
@@ -62,7 +76,13 @@ def lte_query(expression):
 
     def _lte(index, expression=expression):
         ev = expression() if callable(expression) else expression
-        return [store_key for value, store_keys in index.get_index().items() if value <= ev for store_key in store_keys]
+        return [
+            store_key
+            for value, store_keys
+            in index.get_index().items()
+            if value <= ev
+            for store_key in store_keys
+        ]
 
     return _lte
 
@@ -71,7 +91,13 @@ def gt_query(expression):
 
     def _gt(index, expression=expression):
         ev = expression() if callable(expression) else expression
-        return [store_key for value, store_keys in index.get_index().items() if value > ev for store_key in store_keys]
+        return [
+            store_key
+            for value, store_keys
+            in index.get_index().items()
+            if value > ev
+            for store_key in store_keys
+        ]
 
     return _gt
 
@@ -80,7 +106,13 @@ def lt_query(expression):
 
     def _lt(index, expression=expression):
         ev = expression() if callable(expression) else expression
-        return [store_key for value, store_keys in index.get_index().items() if value < ev for store_key in store_keys]
+        return [
+            store_key
+            for value, store_keys
+            in index.get_index().items()
+            if value < ev
+            for store_key in store_keys
+        ]
 
     return _lt
 
@@ -89,7 +121,13 @@ def ne_query(expression):
 
     def _ne(index, expression=expression):
         ev = expression() if callable(expression) else expression
-        return [store_key for value, store_keys in index.get_index().items() if value != ev for store_key in store_keys]
+        return [
+            store_key
+            for value, store_keys
+            in index.get_index().items()
+            if value != ev
+            for store_key in store_keys
+        ]
 
     return _ne
 
@@ -99,7 +137,12 @@ def exists_query(expression):
     def _exists(index, expression=expression):
         ev = expression() if callable(expression) else expression
         if ev:
-            return [store_key for value, store_keys in index.get_index().items() for store_key in store_keys]
+            return [
+                store_key
+                for value, store_keys
+                in index.get_index().items()
+                for store_key in store_keys
+            ]
         else:
             return index.get_undefined_keys()
 
@@ -110,7 +153,14 @@ def regex_query(expression):
 
     def _regex(index, expression=expression):
         pattern = re.compile(expression)
-        return [store_key for value, store_keys in index.get_index().items() if isinstance(value, six.string_types) and re.match(pattern, value) for store_key in store_keys]
+        return [
+            store_key
+            for value, store_keys
+            in index.get_index().items()
+            if (isinstance(value, six.string_types)
+                and re.match(pattern, value))
+            for store_key in store_keys
+        ]
 
     return _regex
 
@@ -138,7 +188,8 @@ def all_query(expression):
 def elemMatch_query(expression):
 
     def _elemMatch(index, expression=expression):
-        raise ValueError("$elemMatch query is currently not supported by file backend!")
+        raise ValueError(
+            "$elemMatch query is currently not supported by file backend!")
 
     return _elemMatch
 
@@ -175,7 +226,11 @@ def compile_query(query):
         if len(expressions) > 1:
             return and_query(expressions)
         else:
-            return expressions[0] if len(expressions) else lambda query_function: query_function(None, None)
+            return (
+                expressions[0]
+                if len(expressions)
+                else lambda query_function: query_function(None, None)
+            )
     else:
         return query
 
