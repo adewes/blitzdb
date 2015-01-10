@@ -8,30 +8,19 @@ if six.PY3:
     from functools import reduce
 
 
-def and_query(expressions):
-    """Apply logical and operator to expressions."""
-    def _and(query_function, expressions=expressions):
-        """Return True if all expressions are satisfied."""
-        compiled_expressions = [compile_query(e) for e in expressions]
-        return reduce(
-            operator.and_,
-            [e(query_function) for e in compiled_expressions]
-        )
+def boolean_operator_query(boolean_operator):
+    """Apply boolean operator to expressions."""
+    def _query(expressions):
+        def _apply(query_function, expressions=expressions):
+            """Return True if all expressions are satisfied."""
+            compiled_expressions = [compile_query(e) for e in expressions]
+            return reduce(
+                boolean_operator,
+                [e(query_function) for e in compiled_expressions]
+            )
 
-    return _and
-
-
-def or_query(expressions):
-    """Apply logical or operator to expressions."""
-    def _or(query_function, expressions=expressions):
-        """Return True if any expression is satisfied."""
-        compiled_expressions = [compile_query(e) for e in expressions]
-        return reduce(
-            operator.or_,
-            [e(query_function) for e in compiled_expressions]
-        )
-
-    return _or
+        return _apply
+    return _query
 
 
 def filter_query(key, expression):
@@ -178,7 +167,7 @@ def compile_query(query):
             else:
                 expressions.append(filter_query(key, value))
         if len(expressions) > 1:
-            return and_query(expressions)
+            return boolean_operator_query(operator.and_)(expressions)
         else:
             return (
                 expressions[0]
@@ -191,10 +180,10 @@ def compile_query(query):
 query_funcs = {
     '$regex': regex_query,
     '$exists': exists_query,
-    '$and': and_query,
+    '$and': boolean_operator_query(operator.and_),
     '$all': all_query,
     '$elemMatch': elemMatch_query,
-    '$or': or_query,
+    '$or': boolean_operator_query(operator.or_),
     '$gte': comparison_operator_query(operator.ge),
     '$lte': comparison_operator_query(operator.le),
     '$gt': comparison_operator_query(operator.gt),
