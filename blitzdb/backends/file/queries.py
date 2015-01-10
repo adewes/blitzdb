@@ -1,5 +1,6 @@
-import six
 import re
+
+import six
 
 if six.PY3:
     from functools import reduce
