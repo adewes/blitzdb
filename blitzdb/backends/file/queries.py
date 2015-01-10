@@ -1,4 +1,5 @@
 """Query operators for the file backend."""
+import operator
 import re
 
 import six
@@ -13,7 +14,7 @@ def and_query(expressions):
         """Return True if all expressions are satisfied."""
         compiled_expressions = [compile_query(e) for e in expressions]
         return reduce(
-            lambda x, y: x & y,
+            operator.and_,
             [e(query_function) for e in compiled_expressions]
         )
 
@@ -26,7 +27,7 @@ def or_query(expressions):
         """Return True if any expression is satisfied."""
         compiled_expressions = [compile_query(e) for e in expressions]
         return reduce(
-            lambda x, y: x | y,
+            operator.or_,
             [e(query_function) for e in compiled_expressions]
         )
 
