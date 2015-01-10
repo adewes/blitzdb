@@ -5,12 +5,12 @@ if six.PY3:
     from functools import reduce
 
 
-def and_query(expressions): 
+def and_query(expressions):
 
     def _and(query_function, expressions=expressions):
         compiled_expressions = [compile_query(e) for e in expressions]
         return reduce(lambda x, y: x & y, [e(query_function) for e in compiled_expressions])
-        
+
     return _and
 
 
@@ -52,7 +52,7 @@ def gte_query(expression):
 
     def _gte(index, expression=expression):
         ev = expression() if callable(expression) else expression
-        return [store_key for value, store_keys in index.get_index().items() if value >= ev for store_key in store_keys] 
+        return [store_key for value, store_keys in index.get_index().items() if value >= ev for store_key in store_keys]
 
     return _gte
 
@@ -61,7 +61,7 @@ def lte_query(expression):
 
     def _lte(index, expression=expression):
         ev = expression() if callable(expression) else expression
-        return [store_key for value, store_keys in index.get_index().items() if value <= ev for store_key in store_keys] 
+        return [store_key for value, store_keys in index.get_index().items() if value <= ev for store_key in store_keys]
 
     return _lte
 
@@ -70,7 +70,7 @@ def gt_query(expression):
 
     def _gt(index, expression=expression):
         ev = expression() if callable(expression) else expression
-        return [store_key for value, store_keys in index.get_index().items() if value > ev for store_key in store_keys] 
+        return [store_key for value, store_keys in index.get_index().items() if value > ev for store_key in store_keys]
 
     return _gt
 
@@ -79,7 +79,7 @@ def lt_query(expression):
 
     def _lt(index, expression=expression):
         ev = expression() if callable(expression) else expression
-        return [store_key for value, store_keys in index.get_index().items() if value < ev for store_key in store_keys] 
+        return [store_key for value, store_keys in index.get_index().items() if value < ev for store_key in store_keys]
 
     return _lt
 
@@ -88,7 +88,7 @@ def ne_query(expression):
 
     def _ne(index, expression=expression):
         ev = expression() if callable(expression) else expression
-        return [store_key for value, store_keys in index.get_index().items() if value != ev for store_key in store_keys] 
+        return [store_key for value, store_keys in index.get_index().items() if value != ev for store_key in store_keys]
 
     return _ne
 
@@ -98,7 +98,7 @@ def exists_query(expression):
     def _exists(index, expression=expression):
         ev = expression() if callable(expression) else expression
         if ev:
-            return [store_key for value, store_keys in index.get_index().items() for store_key in store_keys] 
+            return [store_key for value, store_keys in index.get_index().items() for store_key in store_keys]
         else:
             return index.get_undefined_keys()
 
@@ -112,7 +112,7 @@ def regex_query(expression):
         return [store_key for value, store_keys in index.get_index().items() if isinstance(value, six.string_types) and re.match(pattern, value) for store_key in store_keys]
 
     return _regex
-    
+
 
 def all_query(expression):
 
@@ -172,12 +172,12 @@ def compile_query(query):
             else:
                 expressions.append(filter_query(key, value))
         if len(expressions) > 1:
-            return and_query(expressions) 
-        else: 
+            return and_query(expressions)
+        else:
             return expressions[0] if len(expressions) else lambda query_function: query_function(None, None)
     else:
         return query
-    
+
 query_funcs = {
     '$regex': regex_query,
     '$exists': exists_query,
@@ -191,5 +191,5 @@ query_funcs = {
     '$lt': lt_query,
     '$ne': ne_query,
     '$not': not_query,
-    '$in': in_query,    
+    '$in': in_query,
 }
