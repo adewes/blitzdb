@@ -251,7 +251,7 @@ class Backend(BaseBackend):
         return self.indexes[collection][cls.get_pk_name()]
 
     def load_config(self, config=None, overwrite_config=False):
-        config_file = self._path + "/config.json"
+        config_file = os.path.join(self._path, "config.json")
         if os.path.exists(config_file):
             with open(config_file, "rb") as config_file:
                 # configuration is always stored in JSON format
@@ -272,7 +272,7 @@ class Backend(BaseBackend):
         self.save_config()
 
     def save_config(self):
-        config_file = self._path + "/config.json"
+        config_file = os.path.join(self._path, "config.json")
         with open(config_file, "wb") as config_file:
             config_file.write(JsonSerializer.serialize(self._config))
 
@@ -291,12 +291,18 @@ class Backend(BaseBackend):
 
     def get_collection_store(self, collection):
         if collection not in self.stores:
-            self.stores[collection] = self.StoreClass({'path': self.path + "/" + collection + "/objects",'version' : self._config['version']})
+            self.stores[collection] = self.StoreClass({
+                'path': os.path.join(self.path, collection, "objects"),
+                'version': self._config['version']
+            })
         return self.stores[collection]
 
     def get_index_store(self, collection, store_key):
         if store_key not in self.index_stores[collection]:
-            self.index_stores[collection][store_key] = self.IndexStoreClass({'path': self.path + "/" + collection + "/indexes/" + store_key,'version' : self._config['version']})
+            self.index_stores[collection][store_key] = self.IndexStoreClass({
+                'path': os.path.join(self.path, collection, "indexes",
+                                     store_key),
+                'version': self._config['version']})
         return self.index_stores[collection][store_key]
 
     def register(self, cls, parameters=None):
