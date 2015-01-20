@@ -21,7 +21,7 @@
 
 ##Use Cases
 
-Blitz can be used as a standalone document store for client application. Originally blitz was designed for use with the checkmate Python code analysis toolkit, where it stores statistical data. Since blitz stores all documents as single JSON files, it is possible to put the whole database under version-control.
+Blitz can be used as a standalone document store for client application. Originally blitz was designed for use with the [checkmate](https://github.com/quantifiedcode/checkmate) Python code analysis toolkit, where it stores statistical data. Since blitz stores all documents as single JSON files, it is possible to put the whole database under version-control.
 
 ##Installation
 
