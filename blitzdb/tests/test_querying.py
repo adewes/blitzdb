@@ -31,6 +31,29 @@ def test_keys_with_dots(backend):
     assert actor == backend.get(Actor, {'pk': 'test'})
 
 
+def test_delete(backend):
+
+    actor = Actor({'foo' : 'bar'})
+
+    backend.save(actor)
+    backend.commit()
+
+    assert actor.foo == 'bar'
+
+    assert backend.get(Actor,{'pk' : actor.pk}).foo == 'bar'
+
+    del actor.foo
+
+    with pytest.raises(AttributeError):
+        actor.foo
+
+    backend.save(actor)
+    backend.commit()
+
+    with pytest.raises(AttributeError):
+        backend.get(Actor,{'pk' : actor.pk}).foo
+
+
 def test_negative_indexing(backend, small_test_data):
 
     (movies, actors, directors) = small_test_data

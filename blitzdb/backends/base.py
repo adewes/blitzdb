@@ -199,7 +199,7 @@ class Backend(object):
             output_obj = obj
         return output_obj
 
-    def deserialize(self, obj, decoders=None):
+    def deserialize(self, obj, decoders=None,embedded = False):
         """
         Deserializes a given object, i.e. converts references to other (known) `Document` objects by lazy instances of the
         corresponding class. This allows the automatic fetching of related documents from the database as required.

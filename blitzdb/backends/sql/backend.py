@@ -10,49 +10,37 @@ import uuid
 """
 Base model for SQL backend:
 
-Indexes: If single-valued, use extra column in table to store them.
-         If multi-valued, use m2m table to store them
+Data storage:
 
+Define a JSON column in th underlying database
 
-Example:
+Indexes:
 
-Table Actor:
+Define additional columns in the table with a given type
 
-data -> JSON blob
-name -> Name
-
-
-Table Actor_Movies
-
-movie_pk    actor_pk
-
-filter query -> Select data over indices (parse $in, $or, $and, ...)
-sort query -> Sort query set by given index
-
-->Queries only possible over fields on which indices have been defined.
-
+M2M-Relationships: Let the user define them through helper documents
 """
 
 
 class Backend(BaseBackend):
 
     """
-    A MongoDB backend.
+    A SQL backend.
 
-    :param db: An instance of a `pymongo.database.Database <http://api.mongodb.org/python/current/api/pymongo/database.html>`_ class
+    :param db: An instance of a `sqlalchemy. 
+    <http://www.sqlalchemy.org>`_ class
 
     Example usage:
 
     .. code-block:: python
 
-        from pymongo import connection
-        from blitzdb.backends.mongo import Backend as MongoBackend
+        from sqlalchemy import
+        from blitzdb.backends.sql import Backend as SQLBackend
 
-        c = connection()
-        my_db = c.test_db
+        my_db = ...
 
-        #create a new BlitzDB backend using a MongoDB database
-        backend = MongoBackend(my_db)
+        #create a new BlitzDB backend using a SQLAlchemy database
+        backend = SQLBackend(my_db)
     """
 
     def __init__(self, db, **kwargs):
@@ -65,7 +53,7 @@ class Backend(BaseBackend):
         pass
 
     def rollback(self):
-        raise NotInTransaction("MongoDB backend does not support rollback!")
+        raise NotInTransaction("SQLAlchemy backend does not support rollback!")
 
     def commit(self):
         pass
@@ -75,17 +63,13 @@ class Backend(BaseBackend):
             collection = self.get_collection_for_cls(cls_or_collection)
         else:
             collection = cls_or_collection
-        attributes = self.db[collection].find_one(self.serialize(properties))
-        cls = self.get_cls_for_collection(collection)
-        if not attributes:
-            raise cls.DoesNotExist
-        return self.create_instance(cls, self.deserialize(attributes))
+        #...
 
     def delete(self, obj):
         collection = self.get_collection_for_cls(obj.__class__)
         if obj.pk == None:
             raise obj.DoesNotExist
-        self.db[collection].remove({'_id': obj.pk})
+        #...
 
     def save(self, obj):
         collection = self.get_collection_for_cls(obj.__class__)
@@ -93,10 +77,13 @@ class Backend(BaseBackend):
             obj.pk = uuid.uuid4().hex
         serialized_attributes = self.serialize(obj.attributes)
         serialized_attributes['_id'] = obj.pk
-        self.db[collection].save(serialized_attributes)
+        #...
 
     def serialize(self, obj, convert_keys_to_str=True, embed_level=0, encoders=None):
-        return super(Backend, self).serialize(obj, convert_keys_to_str=convert_keys_to_str, embed_level=embed_level, encoders=encoders)
+        return super(Backend, self).serialize(obj, 
+                                              convert_keys_to_str=convert_keys_to_str, 
+                                              embed_level=embed_level, 
+                                              encoders=encoders)
 
     def deserialize(self, obj, decoders=None):
         return super(Backend, self).deserialize(obj, decoders=decoders)
@@ -110,7 +97,8 @@ class Backend(BaseBackend):
 
     def compile_query(self, query):
         if isinstance(query, dict):
-            return dict([(self.compile_query(key), self.compile_query(value)) for key, value in query.items()])
+            return dict([(self.compile_query(key), self.compile_query(value)) 
+                         for key, value in query.items()])
         elif isinstance(query, list):
             return [self.compile_query(x) for x in query]
         else:
@@ -124,10 +112,8 @@ class Backend(BaseBackend):
 
         .. note::
 
-            This function supports all query operators that are available in MongoDB and returns a query set
-            that is based on a MongoDB cursor.
-
-
+            This function supports all query operators that are available in SQLAlchemy and returns a query set
+            that is based on a SQLAlchemy cursor.
         """
 
         if not isinstance(cls_or_collection, six.string_types):

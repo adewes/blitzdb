@@ -177,3 +177,22 @@ def test_different_primary_key_names():
     assert doc.pk == 1
     doc.pk = 2
     assert doc.attributes['foobar'] == 2
+
+
+def test_delete():
+
+    class MyDocument(Document):
+
+        class Meta:
+            primary_key = 'foobar'
+
+    doc = MyDocument({'foo': 'bar', 'foobar': 1})
+
+    assert doc.pk == 1
+
+    assert doc.foo == 'bar'
+
+    del doc.foo
+
+    with pytest.raises(AttributeError):
+        doc.foo
