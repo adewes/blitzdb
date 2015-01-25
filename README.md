@@ -61,6 +61,29 @@ The detailed documentation for this project is hosted on [ReadTheDocs](http://bl
 * 0.1.2: Small bugfixes, BlitzDB version number now contained in DB config dict
 * 0.1.1: BlitzDB is now Python3 compatible (thanks to David Koblas)
 
+##Contributors (in alphabetical order)
+
+*  @bwiessneth 
+*  Florian Lehmann - @cashaddy
+*  Karskrin - @cBrauge
+*  Chris Mutel - @cmutel
+*  Cecil Woebker - @cwoebker
+*  Ethan Blackburn - @EthanBlackburn
+*  Javier Collado - @jcollado
+*  Jason Xie - @jxieeducation
+*  David Koblas - @koblas
+*  Stéphane Wirtel - @matrixise
+*  Victor Miclovich - @miclovich
+*  Dmytro Kyrychuk - @orgkhnargh
+*  Christoph Neumann - @programmdesign
+*  Dale - @puredistortion
+*  tjado - @tejado
+*  Thomas Ballinger - @thomasballinger
+*  Tyler Kennedy - @TkTech
+*  Toby Champion - @tobych
+
+Thanks for all your contributions, without you BlitzDB wouldn't be what it is today :)
+
 ##Third-Party Contributions
 
 * [Flask-BlitzDB](https://github.com/puredistortion/flask-blitzdb) Flask adapter for BlitzDB. Blitz + Flask = Awesome!
