@@ -1,46 +1,51 @@
-import six
+"""Query operators for the file backend."""
+import operator
 import re
+
+import six
 
 if six.PY3:
     from functools import reduce
 
 
-def and_query(expressions): 
+def boolean_operator_query(boolean_operator):
+    """Generate boolean operator checking function."""
+    def _boolean_operator_query(expressions):
+        """Apply boolean operator to expressions."""
+        def _apply_boolean_operator(query_function, expressions=expressions):
+            """Return if expressions with boolean operator are satisfied."""
+            compiled_expressions = [compile_query(e) for e in expressions]
+            return reduce(
+                boolean_operator,
+                [e(query_function) for e in compiled_expressions]
+            )
 
-    def _and(query_function, expressions=expressions):
-        compiled_expressions = [compile_query(e) for e in expressions]
-        return reduce(lambda x, y: x & y, [e(query_function) for e in compiled_expressions])
-        
-    return _and
-
-
-def or_query(expressions):
-
-    def _or(query_function, expressions=expressions):
-        compiled_expressions = [compile_query(e) for e in expressions]
-        return reduce(lambda x, y: x | y, [e(query_function) for e in compiled_expressions])
-
-    return _or
+        return _apply_boolean_operator
+    return _boolean_operator_query
 
 
 def filter_query(key, expression):
-
-    if isinstance(expression, dict) and len(expression) == 1 and list(expression.keys())[0].startswith('$'):
+    """Filter documents with a key that satisfies an expression."""
+    if (isinstance(expression, dict)
+            and len(expression) == 1
+            and list(expression.keys())[0].startswith('$')):
         compiled_expression = compile_query(expression)
     else:
         compiled_expression = expression
 
     def _get(query_function, key=key, expression=compiled_expression):
+        """Get document key and check against expression."""
         return query_function(key, expression)
 
     return _get
 
 
 def not_query(expression):
-
+    """Apply logical not operator to expression."""
     compiled_expression = compile_query(expression)
 
     def _not(index, expression=compiled_expression):
+        """Return store key for documents that satisfy expression."""
         all_keys = index.get_all_keys()
         returned_keys = expression(index)
         return [key for key in all_keys if key not in returned_keys]
@@ -48,57 +53,36 @@ def not_query(expression):
     return _not
 
 
-def gte_query(expression):
-
-    def _gte(index, expression=expression):
-        ev = expression() if callable(expression) else expression
-        return [store_key for value, store_keys in index.get_index().items() if value >= ev for store_key in store_keys] 
-
-    return _gte
-
-
-def lte_query(expression):
-
-    def _lte(index, expression=expression):
-        ev = expression() if callable(expression) else expression
-        return [store_key for value, store_keys in index.get_index().items() if value <= ev for store_key in store_keys] 
-
-    return _lte
-
-
-def gt_query(expression):
-
-    def _gt(index, expression=expression):
-        ev = expression() if callable(expression) else expression
-        return [store_key for value, store_keys in index.get_index().items() if value > ev for store_key in store_keys] 
-
-    return _gt
-
-
-def lt_query(expression):
-
-    def _lt(index, expression=expression):
-        ev = expression() if callable(expression) else expression
-        return [store_key for value, store_keys in index.get_index().items() if value < ev for store_key in store_keys] 
-
-    return _lt
-
-
-def ne_query(expression):
-
-    def _ne(index, expression=expression):
-        ev = expression() if callable(expression) else expression
-        return [store_key for value, store_keys in index.get_index().items() if value != ev for store_key in store_keys] 
-
-    return _ne
+def comparison_operator_query(comparison_operator):
+    """Generate comparison operator checking function."""
+    def _comparison_operator_query(expression):
+        """Apply binary operator to expression."""
+        def _apply_comparison_operator(index, expression=expression):
+            """Return store key for documents that satisfy expression."""
+            ev = expression() if callable(expression) else expression
+            return [
+                store_key
+                for value, store_keys
+                in index.get_index().items()
+                if comparison_operator(value, ev)
+                for store_key in store_keys
+            ]
+        return _apply_comparison_operator
+    return _comparison_operator_query
 
 
 def exists_query(expression):
-
+    """Check that documents have a key that satisfies expression."""
     def _exists(index, expression=expression):
+        """Return store key for documents that satisfy expression."""
         ev = expression() if callable(expression) else expression
         if ev:
-            return [store_key for value, store_keys in index.get_index().items() for store_key in store_keys] 
+            return [
+                store_key
+                for store_keys
+                in index.get_index().values()
+                for store_key in store_keys
+            ]
         else:
             return index.get_undefined_keys()
 
@@ -106,22 +90,31 @@ def exists_query(expression):
 
 
 def regex_query(expression):
-
+    """Apply regular expression to result of expression."""
     def _regex(index, expression=expression):
+        """Return store key for documents that satisfy expression."""
         pattern = re.compile(expression)
-        return [store_key for value, store_keys in index.get_index().items() if isinstance(value, six.string_types) and re.match(pattern, value) for store_key in store_keys]
+        return [
+            store_key
+            for value, store_keys
+            in index.get_index().items()
+            if (isinstance(value, six.string_types)
+                and re.match(pattern, value))
+            for store_key in store_keys
+        ]
 
     return _regex
-    
+
 
 def all_query(expression):
-
+    """Match arrays that contain all elements in the query."""
     def _all(index, expression=expression):
+        """Return store key for documents that satisfy expression."""
         ev = expression() if callable(expression) else expression
         try:
-            ev_iter = iter(ev)
-        except TypeError as te:
-            raise AttributeError("$in argument must be an iterable!")
+            iter(ev)
+        except TypeError:
+            raise AttributeError('$in argument must be an iterable!')
         hashed_ev = [index.get_hash_for(v) for v in ev]
         store_keys = set([])
         if len(hashed_ev) == 0:
@@ -135,21 +128,24 @@ def all_query(expression):
 
 
 def elemMatch_query(expression):
-
+    """Select documents if element in array field matches all conditions."""
     def _elemMatch(index, expression=expression):
-        raise ValueError("$elemMatch query is currently not supported by file backend!")
+        """Raise exception since this operator is not implemented yet."""
+        raise ValueError(
+            '$elemMatch query is currently not supported by file backend!')
 
     return _elemMatch
 
 
 def in_query(expression):
-
+    """Match any of the values that exist in an array specified in query."""
     def _in(index, expression=expression):
+        """Return store key for documents that satisfy expression."""
         ev = expression() if callable(expression) else expression
         try:
-            ev_iter = iter(ev)
-        except TypeError as te:
-            raise AttributeError("$in argument must be an iterable!")
+            iter(ev)
+        except TypeError:
+            raise AttributeError('$in argument must be an iterable!')
         hashed_ev = [index.get_hash_for(v) for v in ev]
         store_keys = set()
 
@@ -162,34 +158,39 @@ def in_query(expression):
 
 
 def compile_query(query):
+    """Compile each expression in query recursively."""
     if isinstance(query, dict):
         expressions = []
         for key, value in query.items():
             if key.startswith('$'):
                 if key not in query_funcs:
-                    raise AttributeError("Invalid operator: %s" % key)
+                    raise AttributeError('Invalid operator: %s' % key)
                 expressions.append(query_funcs[key](value))
             else:
                 expressions.append(filter_query(key, value))
         if len(expressions) > 1:
-            return and_query(expressions) 
-        else: 
-            return expressions[0] if len(expressions) else lambda query_function: query_function(None, None)
+            return boolean_operator_query(operator.and_)(expressions)
+        else:
+            return (
+                expressions[0]
+                if len(expressions)
+                else lambda query_function: query_function(None, None)
+            )
     else:
         return query
-    
+
 query_funcs = {
     '$regex': regex_query,
     '$exists': exists_query,
-    '$and': and_query,
+    '$and': boolean_operator_query(operator.and_),
     '$all': all_query,
     '$elemMatch': elemMatch_query,
-    '$or': or_query,
-    '$gte': gte_query,
-    '$lte': lte_query,
-    '$gt': gt_query,
-    '$lt': lt_query,
-    '$ne': ne_query,
+    '$or': boolean_operator_query(operator.or_),
+    '$gte': comparison_operator_query(operator.ge),
+    '$lte': comparison_operator_query(operator.le),
+    '$gt': comparison_operator_query(operator.gt),
+    '$lt': comparison_operator_query(operator.lt),
+    '$ne': comparison_operator_query(operator.ne),
     '$not': not_query,
-    '$in': in_query,    
+    '$in': in_query,
 }
