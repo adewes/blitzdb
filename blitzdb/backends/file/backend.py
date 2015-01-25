@@ -197,7 +197,7 @@ class Backend(BaseBackend):
         return self.rebuild_indexes(collection, [key])
 
     def create_index(self, cls_or_collection,
-                     params=None, fields=None, ephemeral=False):
+                     params=None, fields=None, ephemeral=False, unique=False):
         """Create new index on the given collection/class with given parameters.
 
         :param cls_or_collection:
@@ -205,6 +205,7 @@ class Backend(BaseBackend):
             index
         :param params: The parameters of the index
         :param ephemeral: Whether to create a persistent or an ephemeral index
+        :param unique: Whether the indexed field(s) must be unique
 
         `params` expects either a dictionary of parameters or a string value.
         In the latter case, it will interpret the string as the name of the key
@@ -246,19 +247,12 @@ class Backend(BaseBackend):
 
         """
         if params:
-            return self.create_indexes(
-                cls_or_collection, [params], ephemeral=ephemeral)
+            return self.create_indexes(cls_or_collection, [params], ephemeral=ephemeral, unique=unique)
         elif fields:
             params = []
             if len(fields.items()) > 1:
-                raise ValueError(
-                    'File backend currently '
-                    'does not support multi-key indexes, sorry :/'
-                )
-            return self.create_indexes(
-                cls_or_collection,
-                [{'key': list(fields.keys())[0]}],
-                ephemeral=ephemeral)
+                raise ValueError("File backend currently does not support multi-key indexes, sorry :/")
+            return self.create_indexes(cls_or_collection, [{'key': list(fields.keys())[0]}], ephemeral=ephemeral, unique=unique)
         else:
             raise AttributeError('You must either specify params or fields!')
 
@@ -373,7 +367,7 @@ class Backend(BaseBackend):
                 index.add_key(obj.attributes, obj._store_key)
             index.commit()
 
-    def create_indexes(self, cls_or_collection, params_list, ephemeral=False):
+    def create_indexes(self, cls_or_collection, params_list, ephemeral=False, unique=False):
         indexes = []
         keys = []
 
@@ -397,11 +391,7 @@ class Backend(BaseBackend):
             else:
                 index_store = self.get_index_store(collection, params['id'])
 
-            index = self.IndexClass(
-                params,
-                serializer=lambda x: self.serialize(x, autosave=False),
-                deserializer=lambda x: self.deserialize(x),
-                store=index_store)
+            index = self.IndexClass(params, serializer=lambda x: self.serialize(x, autosave=False), deserializer=lambda x: self.deserialize(x), store=index_store, unique=unique)
             self.indexes[collection][params['key']] = index
 
             if collection not in self._config['indexes']:

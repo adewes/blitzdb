@@ -5,7 +5,12 @@ from collections import defaultdict
 
 from blitzdb.backends.base import NotInTransaction
 from blitzdb.backends.file.serializers import PickleSerializer as Serializer
-from blitzdb.queryset import QuerySet
+from blitzdb.backends.file.utils import JsonEncoder
+from blitzdb.backends.file.queryset import QuerySet
+
+class NonUnique(BaseException):
+    """Index uniqueness constraint violated"""
+    pass
 
 
 class Index(object):
@@ -29,13 +34,14 @@ class Index(object):
     # magic value we use when storing undefined values
     undefined_magic_value = '5baf58af9fb144a4ba2aa4374e931539'
 
-    def __init__(self, params, serializer, deserializer, store=None):
+    def __init__(self, params, serializer, deserializer, store=None, unique=False):
         """Initalize internal state."""
         self._params = params
         self._store = store
         self._serializer = serializer
         self._deserializer = deserializer
         self._splitted_key = self.key.split('.')
+        self._unique = unique
 
         self._index = None
         self._reverse_index = None
@@ -283,6 +289,8 @@ class Index(object):
         :type store_key: object
 
         """
+        if self._unique and hash_value in self._index:
+            raise NonUnique("Hash value %s already in index" % hash_value)
         if store_key not in self._index[hash_value]:
             self._index[hash_value].append(store_key)
         if hash_value not in self._reverse_index[store_key]:
@@ -307,7 +315,7 @@ class Index(object):
         except (KeyError, IndexError):
             undefined = True
 
-        # We remove old values
+        # We remove old values in _reverse_index
         self.remove_key(store_key)
         if not undefined:
             if isinstance(value, list) or isinstance(value, tuple):
