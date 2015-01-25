@@ -196,3 +196,6 @@ def test_delete():
 
     with pytest.raises(AttributeError):
         doc.foo
+
+    with pytest.raises(KeyError):
+        doc['foo']

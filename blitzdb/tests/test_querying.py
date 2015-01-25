@@ -47,6 +47,9 @@ def test_delete(backend):
     with pytest.raises(AttributeError):
         actor.foo
 
+    with pytest.raises(KeyError):
+        actor['foo']
+
     backend.save(actor)
     backend.commit()
 
