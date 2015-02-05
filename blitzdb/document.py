@@ -53,10 +53,10 @@ class BaseDocument(object):
 
     :param attributes: the attributes of the document instance. Expects a Python dictionary.
     :param lazy: if set to `True`, will lazily load the document from the backend when
-                 an attribute is requested. This requires that `default_backend` has been
+                 an attribute is requested. This requires that `backend` has been
                  specified and that the `pk` attribute is set. 
 
-    :param default_backend: the default backend to be used for saving and loading the document.
+    :param backend: the backend to be used for saving and loading the document.
 
 
     **The `Meta` attribute**
@@ -104,17 +104,19 @@ class BaseDocument(object):
 
         primary_key = "pk"
 
-    def __init__(self, attributes=None, lazy=False, default_backend=None, autoload=True):
+        indexes = {}
+
+    def __init__(self, attributes=None, lazy=False, backend=None, autoload=True):
         """
         Initializes a document instance with the given attributes. If `lazy = True`, a *lazy* document
         will be created, which means that the attributes of the document will be loaded from the database
-        only if they are requested. Lazy loading requires that the `default_backend` variable is set.
+        only if they are requested. Lazy loading requires that the `backend` variable is set.
 
         :param attributes: the attributes of the document instance.
 
         :param lazy: specifies if the document is *lazy*, i.e. if it should be loaded on demand when its attributes get accessed for the first time.
 
-        :param default_backend: the default backend for use in the `save`, `delete` and `revert` functions.
+        :param backend: the backend for use in the `save`, `delete` and `revert` functions.
 
         """
         if not attributes:
@@ -122,7 +124,7 @@ class BaseDocument(object):
         self.__dict__['_attributes'] = attributes
         self.__dict__['embed'] = False
         self.__dict__['_autoload'] = autoload
-        self._default_backend = default_backend
+        self._backend = backend
         if self.pk is None:
             self.pk = None
 
@@ -236,11 +238,11 @@ class BaseDocument(object):
             raise KeyError(key)
 
     def __copy__(self):
-        d = self.__class__(self.attributes.copy(), lazy=self._lazy, default_backend = self._default_backend)
+        d = self.__class__(self.attributes.copy(), lazy=self._lazy, backend = self._backend)
         return d
 
     def __deepcopy__(self, memo):
-        d = self.__class__(copy.deepcopy(self.attributes, memo), lazy=self._lazy, default_backend=self._default_backend)
+        d = self.__class__(copy.deepcopy(self.attributes, memo), lazy=self._lazy, backend =self._backend)
         return d
 
     def __hash__(self):
@@ -371,6 +373,14 @@ class BaseDocument(object):
         """
         return self._attributes
 
+    @property
+    def backend(self):
+        return self._backend
+
+    @backend.setter
+    def backend(self,backend):
+        self._backend = backend
+
     def save(self, backend=None):
         """
         Saves a document to the database. If the `backend` argument is not specified, the function resorts
@@ -381,9 +391,9 @@ class BaseDocument(object):
 
         """
         if not backend:
-            if not self._default_backend:
+            if not self._backend:
                 raise AttributeError("No default backend defined!")
-            return self._default_backend.save(self)
+            return self._backend.save(self)
         return backend.save(self)
 
     def delete(self, backend=None):
@@ -396,9 +406,9 @@ class BaseDocument(object):
 
         """
         if not backend:
-            if not self._default_backend:
+            if not self._backend:
                 raise AttributeError("No default backend defined!")
-            return self._default_backend.delete(self)
+            return self._backend.delete(self)
         backend.delete(self)
 
     def revert(self, backend=None):
@@ -417,12 +427,12 @@ class BaseDocument(object):
 
         """
         logger.debug("Reverting to database state (%s, %s)" % (self.__class__.__name__, self.pk))
-        backend = backend or self._default_backend
+        backend = backend or self._backend
         if not backend:
             raise AttributeError("No backend given!")
         if self.pk == None:
             raise self.DoesNotExist("No primary key given!")
-        obj = self._default_backend.get(self.__class__, {self.get_pk_name(): self.pk})
+        obj = self._backend.get(self.__class__, {self.get_pk_name(): self.pk})
         self._attributes = obj.attributes
         self.initialize()
 

@@ -39,15 +39,13 @@ class Backend(BaseBackend):
     DOT_MAGIC_VALUE = ":a5b8afc131:"
 
     def __init__(self, db, autocommit=False, **kwargs):
+        super(Backend, self).__init__(**kwargs)
         self.db = db
-        self.classes = {}
-        self.collections = {}
         self._autocommit = autocommit
         self._save_cache = defaultdict(lambda: {})
         self._delete_cache = defaultdict(lambda: {})
         self._update_cache = defaultdict(lambda: {})
         self.in_transaction = False
-        super(Backend, self).__init__(**kwargs)
 
     def begin(self):
         if self.in_transaction:  # we're already in a transaction...
@@ -121,7 +119,7 @@ class Backend(BaseBackend):
         else:
             self._delete_cache[collection][obj.pk] = True
             if obj.pk in self._save_cache[collection]:
-                del self._save_cache[collection][obj.pk]            
+                del self._save_cache[collection][obj.pk]
 
     def save_multiple(self, objs):
         if not objs:

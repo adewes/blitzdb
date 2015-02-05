@@ -39,6 +39,9 @@ class Backend(object):
 
     """
 
+    class Meta(object):
+        pass
+
     __metaclass__ = abc.ABCMeta
 
     def __init__(self, autodiscover_classes=True, autoload_embedded=True, allow_documents_in_query=True):
@@ -257,7 +260,7 @@ class Backend(object):
         if 'constructor' in self.classes[cls]:
             obj = self.classes[cls]['constructor'](attributes, lazy=lazy)
         else:
-            obj = cls(attributes, lazy=lazy, default_backend=self, autoload=self._autoload_embedded)
+            obj = cls(attributes, lazy=lazy, backend=self, autoload=self._autoload_embedded)
         return obj
 
     def get_collection_for_obj(self, obj):
