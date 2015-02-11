@@ -214,7 +214,6 @@ class Backend(BaseBackend):
 
         if set_fields:
             set_attributes = serialize_fields(set_fields)
-            print set_attributes
         else:
             set_attributes = {}
 
