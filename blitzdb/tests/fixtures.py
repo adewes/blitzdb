@@ -15,7 +15,7 @@ try:
     def small_mongodb_test_data(request, mongodb_backend):
         return generate_test_data(request, mongodb_backend, 20)
 
-
+    print("Testing with MongoDB")
 except ImportError:
     print("MongoDB not found, skipping tests.")
     test_mongo = False

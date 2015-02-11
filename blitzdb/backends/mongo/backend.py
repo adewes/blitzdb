@@ -11,6 +11,7 @@ import uuid
 import pymongo
 
 import logging
+import traceback
 
 logger = logging.getLogger(__name__)
 
@@ -34,9 +35,6 @@ class Backend(BaseBackend):
         #create a new BlitzDB backend using a MongoDB database
         backend = MongoBackend(my_db)
     """
-
-    # magic value to replace '.' characters in dictionary keys (which breaks MongoDB)
-    DOT_MAGIC_VALUE = ":a5b8afc131:"
 
     def __init__(self, db, autocommit=False, **kwargs):
         self.db = db
@@ -84,7 +82,8 @@ class Backend(BaseBackend):
                 for key in ('$set', '$unset'):
                     if key in attributes and attributes[key]:
                         update_dict[key] = attributes[key]
-                self.db[collection].update({'_id': pk}, update_dict)
+                if update_dict:
+                    self.db[collection].update({'_id': pk}, update_dict)
 
         self._save_cache = defaultdict(lambda: {})
         self._delete_cache = defaultdict(lambda: {})
@@ -155,15 +154,59 @@ class Backend(BaseBackend):
         if obj.pk == None:
             raise obj.DoesNotExist("update() called on document without primary key!")
 
+        def _get(obj, key):
+            value = obj
+            for elem in key.split("."):
+                if isinstance(value, list):
+                    value = value[int(elem)]
+                else:
+                    value = value[elem]
+            return value
+
+        def _exists(obj, key):
+            value = obj
+            for elem in key.split("."):
+                if isinstance(value, list):
+                    try:
+                        value = value[int(elem)]
+                    except:
+                        return False
+                else:
+                    try:
+                        value = value[elem]
+                    except:
+                        return False
+            return value
+
+        def _set(obj, key,new_value):
+            value = obj
+            last_value = None
+            for elem in key.split("."):
+                if isinstance(value, list):
+                    last_value = value
+                    value = value[int(elem)]
+                else:
+                    last_value = value
+                    value = value[elem]
+            if isinstance(last_value,list):
+                last_value[int(elem)] = new_value
+            else:
+                last_value[elem] = new_value
+            return value
+
         def serialize_fields(fields):
 
+
             if isinstance(fields, list) or isinstance(fields, tuple):
-                update_dict = dict([(key, obj[key]) for key in fields if key in obj])
+                update_dict = {key : _get(obj.attributes,key) for key in fields 
+                                if _exists(obj.attributes,key)}
                 serialized_attributes = self.serialize(update_dict)
             elif isinstance(fields, dict):
                 serialized_attributes = self.serialize(fields)
                 if update_obj:
-                    obj.attributes.update(fields)
+                    for key,value in fields.items():
+                        if _exists(obj.attributes,key):
+                            _set(obj.attributes,key,value)
             else:
                 raise TypeError("fields must be a list/tuple!")
 
@@ -171,6 +214,7 @@ class Backend(BaseBackend):
 
         if set_fields:
             set_attributes = serialize_fields(set_fields)
+            print set_attributes
         else:
             set_attributes = {}
 
@@ -184,6 +228,9 @@ class Backend(BaseBackend):
             update_dict['$set'] = set_attributes
         if unset_attributes:
             update_dict['$unset'] = dict([(key, '') for key in unset_attributes])
+
+        if not update_dict:
+            return #nothing to do...
 
         if self.autocommit:
             self.db[collection].update({'_id': obj.pk}, update_dict)
@@ -211,28 +258,16 @@ class Backend(BaseBackend):
 
     def serialize(self, obj, convert_keys_to_str=True, embed_level=0, encoders=None, autosave=True, for_query=False):
 
-        def encode_dict(obj):
-            return dict([(key.replace(".", self.DOT_MAGIC_VALUE), value) for key, value in obj.items()])
-
-        dict_encoders = [(lambda obj:True if isinstance(obj, dict) else False, encode_dict)]
         return super(Backend, self).serialize(obj, 
-                                              convert_keys_to_str=convert_keys_to_str, 
-                                              embed_level=embed_level, 
-                                              encoders=encoders + dict_encoders if encoders else dict_encoders, 
-                                              autosave=autosave, 
+                                              convert_keys_to_str=convert_keys_to_str,
+                                              embed_level=embed_level,
+                                              encoders=encoders,
+                                              autosave=autosave,
                                               for_query=for_query)
 
     def deserialize(self, obj, decoders=None):
 
-        def decode_dict(obj):
-            return dict([(key.replace(self.DOT_MAGIC_VALUE, "."), value) for key, value in obj.items()])
-
-        dict_decoders = [(lambda obj:True if isinstance(obj, dict) 
-                                                and '_type' in obj 
-                                                and obj['_type'] == 'dict' 
-                                                and 'items' in obj 
-                                                else False, decode_dict)]
-        return super(Backend, self).deserialize(obj, decoders=dict_decoders + decoders if decoders else dict_decoders)
+        return super(Backend, self).deserialize(obj, decoders=decoders)
 
     def create_indexes(self, cls_or_collection, params_list):
         for params in params_list:
@@ -242,7 +277,7 @@ class Backend(BaseBackend):
         for cls in self.classes:
             meta_attributes = self.get_meta_attributes(cls)
             if include_pk:
-                self.create_index(cls, fields={'pk': 1})
+                self.create_index(cls, fields={'pk': 1},opts = {'unique' : True})
             if 'indexes' in meta_attributes:
                 self.create_indexes(cls, meta_attributes['indexes'])
 
@@ -261,6 +296,8 @@ class Backend(BaseBackend):
         try:
             self.db[collection].ensure_index(list(kwargs['fields'].items()), **opts)
         except pymongo.errors.OperationFailure as failure:
+            logger.error("An exception occured when trying to create an index.")
+            logger.error(traceback.format_exc())
             self.db[collection].drop_index(list(kwargs['fields'].items()))
             self.db[collection].ensure_index(list(kwargs['fields'].items()), **opts)
 
