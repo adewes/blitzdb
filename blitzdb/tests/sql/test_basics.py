@@ -33,8 +33,4 @@ class Actor(Document):
 
 def test_basics(backend):
 
-    print backend.collections
-
-    pprint.pprint(dict(backend._metadata.tables))
-
     backend.create_schema()

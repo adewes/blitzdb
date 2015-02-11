@@ -10,7 +10,7 @@ from blitzdb.backends.base import NotInTransaction
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.schema import MetaData,Table,Column,ForeignKey,UniqueConstraint
 from sqlalchemy.types import Integer,String,Text,LargeBinary,Unicode
-from sqlalchemy.sql import select,insert,update,func,and_,or_,not_,in_,expression
+from sqlalchemy.sql import select,insert,update,func,and_,or_,not_,expression
 
 from .relations import ManyToMany,ForeignKey as OurForeignKey
 
@@ -116,7 +116,7 @@ class Backend(BaseBackend):
                         index_columns.append(
                             Column(field,params['sql_type'],index = True,nullable = True)
                             )
-                    self._index_fields[name][field] = params
+                        self._index_fields[name][field] = params
                 if hasattr(cls.Meta,'foreign_key_fields'):
                     for field,params in cls.Meta.foreign_key_fields.items():
 
@@ -223,7 +223,8 @@ class Backend(BaseBackend):
                 elif special_op == '$or':
                     return or_([compile_query(q) for q in sq])
                 elif special_op == '$in':
-                    return in([q for q in sq])
+                    pass
+#                    return in_([q for q in sq])
                 elif special_op == '$not':
                     return not_(compile_query(sq))
                 elif special_op == '$gte':
