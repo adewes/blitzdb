@@ -293,14 +293,14 @@ class Backend(BaseBackend):
         try:
             self.db[collection].ensure_index(list(kwargs['fields'].items()), **opts)
         except pymongo.errors.OperationFailure as failure:
-            logger.error("An exception occured when trying to create an index.")
-            logger.error(traceback.format_exc())
+            #The index already exists with different options, so we drop it and recreate it...
             self.db[collection].drop_index(list(kwargs['fields'].items()))
             self.db[collection].ensure_index(list(kwargs['fields'].items()), **opts)
 
     def compile_query(self, query):
         if isinstance(query, dict):
-            return dict([(self.compile_query(key), self.compile_query(value)) for key, value in query.items()])
+            return dict([(self.compile_query(key), self.compile_query(value)) 
+                         for key, value in query.items()])
         elif isinstance(query, list) or isinstance(query, QuerySet) or isinstance(query, tuple):
             return [self.compile_query(x) for x in query]
         else:
@@ -327,8 +327,8 @@ class Backend(BaseBackend):
 
         .. note::
 
-            This function supports all query operators that are available in MongoDB and returns a query set
-            that is based on a MongoDB cursor.
+            This function supports all query operators that are available in MongoDB and returns 
+            a query set that is based on a MongoDB cursor.
 
         """
 
