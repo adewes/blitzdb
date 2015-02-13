@@ -166,7 +166,6 @@ class Backend(BaseBackend):
         def _exists(obj, key):
             value = obj
             for elem in key.split("."):
-                print elem
                 if isinstance(value, list):
                     try:
                         value = value[int(elem)]
