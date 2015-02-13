@@ -64,4 +64,5 @@ if test_mongo:
         mongodb_backend.update(doc,['foo.bar'])
         mongodb_backend.commit()
 
+
         assert mongodb_backend.get(Document,{'foo.bar' : 'squirrel'}) == doc

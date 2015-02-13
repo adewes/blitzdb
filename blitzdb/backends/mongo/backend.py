@@ -36,6 +36,9 @@ class Backend(BaseBackend):
         backend = MongoBackend(my_db)
     """
 
+    # magic value to replace '.' characters in dictionary keys (which breaks MongoDB)
+    DOT_MAGIC_VALUE = ":a5b8afc131:"
+
     def __init__(self, db, autocommit=False, **kwargs):
         self.db = db
         self.classes = {}
@@ -46,6 +49,9 @@ class Backend(BaseBackend):
         self._update_cache = defaultdict(lambda: {})
         self.in_transaction = False
         super(Backend, self).__init__(**kwargs)
+
+    def escape_dots(self,value):
+        return value.replace(".",self.DOT_MAGIC_VALUE)
 
     def begin(self):
         if self.in_transaction:  # we're already in a transaction...
@@ -120,7 +126,7 @@ class Backend(BaseBackend):
         else:
             self._delete_cache[collection][obj.pk] = True
             if obj.pk in self._save_cache[collection]:
-                del self._save_cache[collection][obj.pk]            
+                del self._save_cache[collection][obj.pk]
 
     def save_multiple(self, objs):
         if not objs:
@@ -200,9 +206,9 @@ class Backend(BaseBackend):
             if isinstance(fields, list) or isinstance(fields, tuple):
                 update_dict = {key : _get(obj.attributes,key) for key in fields 
                                 if _exists(obj.attributes,key)}
-                serialized_attributes = self.serialize(update_dict)
+                serialized_attributes = {key : self.serialize(value) for key,value in update_dict.items()}
             elif isinstance(fields, dict):
-                serialized_attributes = self.serialize(fields)
+                serialized_attributes = {key : self.serialize(value) for key,value in fields.items()}
                 if update_obj:
                     for key,value in fields.items():
                         if _exists(obj.attributes,key):
@@ -226,7 +232,7 @@ class Backend(BaseBackend):
         if set_attributes:
             update_dict['$set'] = set_attributes
         if unset_attributes:
-            update_dict['$unset'] = dict([(key, '') for key in unset_attributes])
+            update_dict['$unset'] = {key : '' for key in unset_attributes}
 
         if not update_dict:
             return #nothing to do...
@@ -257,16 +263,38 @@ class Backend(BaseBackend):
 
     def serialize(self, obj, convert_keys_to_str=True, embed_level=0, encoders=None, autosave=True, for_query=False):
 
+        def encode_dict(obj):
+
+            def replace_key(key):
+                if isinstance(key,six.string_types):
+                    return key.replace(".", self.DOT_MAGIC_VALUE)
+                return key
+
+            return dict([(replace_key(key),value) for key, value in obj.items()])
+
+        if not for_query:
+            dict_encoders = [(lambda obj:True if isinstance(obj, dict) else False, encode_dict)]
+        else:
+            dict_encoders = []
+
         return super(Backend, self).serialize(obj, 
-                                              convert_keys_to_str=convert_keys_to_str,
-                                              embed_level=embed_level,
-                                              encoders=encoders,
-                                              autosave=autosave,
+                                              convert_keys_to_str=convert_keys_to_str, 
+                                              embed_level=embed_level, 
+                                              encoders=encoders + dict_encoders if encoders else dict_encoders, 
+                                              autosave=autosave, 
                                               for_query=for_query)
 
     def deserialize(self, obj, decoders=None):
 
-        return super(Backend, self).deserialize(obj, decoders=decoders)
+        def decode_dict(obj):
+            return dict([(key.replace(self.DOT_MAGIC_VALUE, "."), value) for key, value in obj.items()])
+
+        dict_decoders = [(lambda obj:True if isinstance(obj, dict) 
+                                                and '_type' in obj 
+                                                and obj['_type'] == 'dict' 
+                                                and 'items' in obj 
+                                                else False, decode_dict)]
+        return super(Backend, self).deserialize(obj, decoders=dict_decoders + decoders if decoders else dict_decoders)
 
     def create_indexes(self, cls_or_collection, params_list):
         for params in params_list:
