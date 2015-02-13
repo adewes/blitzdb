@@ -166,6 +166,7 @@ class Backend(BaseBackend):
         def _exists(obj, key):
             value = obj
             for elem in key.split("."):
+                print elem
                 if isinstance(value, list):
                     try:
                         value = value[int(elem)]
@@ -176,7 +177,7 @@ class Backend(BaseBackend):
                         value = value[elem]
                     except:
                         return False
-            return value
+            return True
 
         def _set(obj, key,new_value):
             value = obj
