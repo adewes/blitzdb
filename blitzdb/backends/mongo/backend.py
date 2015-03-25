@@ -264,7 +264,9 @@ class Backend(BaseBackend):
     def serialize(self, obj, convert_keys_to_str=True, embed_level=0, encoders=None, autosave=True, for_query=False):
 
         def encode_dict(obj):
-
+            """
+            Encodes a dictionary by replacing dots in the keys with a MAGIC value.
+            """
             def replace_key(key):
                 if isinstance(key,six.string_types):
                     return key.replace(".", self.DOT_MAGIC_VALUE)
@@ -272,29 +274,53 @@ class Backend(BaseBackend):
 
             return dict([(replace_key(key),value) for key, value in obj.items()])
 
+        def encode_complex(obj):
+            """
+            Encodes a complex number.
+            """
+            return {'_type' : 'complex','r' : obj.real,'i' : obj.imag}
+
         if not for_query:
-            dict_encoders = [(lambda obj:True if isinstance(obj, dict) else False, encode_dict)]
+            standard_encoders = [(lambda obj:True if isinstance(obj, dict) else False, encode_dict)]
         else:
-            dict_encoders = []
+            standard_encoders = []
+
+        standard_encoders.append((lambda obj:True if isinstance(obj,complex) else False,encode_complex))
 
         return super(Backend, self).serialize(obj, 
                                               convert_keys_to_str=convert_keys_to_str, 
                                               embed_level=embed_level, 
-                                              encoders=encoders + dict_encoders if encoders else dict_encoders, 
+                                              encoders=encoders + standard_encoders if encoders else standard_encoders, 
                                               autosave=autosave, 
                                               for_query=for_query)
 
     def deserialize(self, obj, decoders=None):
 
         def decode_dict(obj):
+            """
+            Decodes a dictionary by substituting the MAGIC value in the keys with a dot.
+            """
             return dict([(key.replace(self.DOT_MAGIC_VALUE, "."), value) for key, value in obj.items()])
 
-        dict_decoders = [(lambda obj:True if isinstance(obj, dict) 
+        def decode_complex(obj):
+            """
+            Decodes a complex number.
+            """
+            return 1j*obj['i']+obj['r']
+
+        standard_decoders = [(lambda obj:True if isinstance(obj, dict) 
                                                 and '_type' in obj 
                                                 and obj['_type'] == 'dict' 
                                                 and 'items' in obj 
-                                                else False, decode_dict)]
-        return super(Backend, self).deserialize(obj, decoders=dict_decoders + decoders if decoders else dict_decoders)
+                                                else False,
+                              decode_dict),
+                             (lambda obj:True if isinstance(obj,dict)
+                                              and '_type' in obj
+                                              and obj['_type'] == 'complex' else False,
+                              decode_complex)
+        ]
+
+        return super(Backend, self).deserialize(obj, decoders=standard_decoders + decoders if decoders else standard_decoders)
 
     def create_indexes(self, cls_or_collection, params_list):
         for params in params_list:
@@ -323,6 +349,7 @@ class Backend(BaseBackend):
         try:
             self.db[collection].ensure_index(list(kwargs['fields'].items()), **opts)
         except pymongo.errors.OperationFailure as failure:
+            traceback.print_exc()
             #The index already exists with different options, so we drop it and recreate it...
             self.db[collection].drop_index(list(kwargs['fields'].items()))
             self.db[collection].ensure_index(list(kwargs['fields'].items()), **opts)
