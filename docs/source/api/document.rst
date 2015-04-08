@@ -35,7 +35,7 @@ which defaults to `pk`:
     class Author(Document):
 
         class Meta(Document.Meta):
-            pk = 'name' #use the name of the author as the primary key
+            primary_key = 'name' #use the name of the author as the primary key
 
 
 .. autoclass:: blitzdb.document.Document
