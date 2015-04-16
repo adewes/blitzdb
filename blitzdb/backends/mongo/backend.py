@@ -69,33 +69,35 @@ class Backend(BaseBackend):
         self.in_transaction = False
 
     def commit(self):
-        for collection, cache in self._save_cache.items():
-            for pk, attributes in cache.items():
-                try:
-                    self.db[collection].save(attributes)
-                except:
-                    logger.error("Error when saving the document with pk %s in collection %s" % (attributes['pk'], collection))
-                    logger.error("Attributes (excerpt):" + str(dict(attributes.items()[:100])))
-                    raise
+        try:
+            for collection, cache in self._save_cache.items():
+                for pk, attributes in cache.items():
+                    try:
+                        self.db[collection].save(attributes)
+                    except:
+                        logger.error("Error when saving the document with pk %s in collection %s" % (attributes['pk'], collection))
+                        logger.error("Attributes (excerpt):" + str(dict(attributes.items()[:100])))
+                        raise
 
-        for collection, cache in self._delete_cache.items():
-            for pk in cache:
-                self.db[collection].remove({'_id': pk})
+            for collection, cache in self._delete_cache.items():
+                for pk in cache:
+                    self.db[collection].remove({'_id': pk})
 
-        for collection, cache in self._update_cache.items():
-            for pk, attributes in cache.items():
-                update_dict = {}
-                for key in ('$set', '$unset'):
-                    if key in attributes and attributes[key]:
-                        update_dict[key] = attributes[key]
-                if update_dict:
-                    self.db[collection].update({'_id': pk}, update_dict)
+            for collection, cache in self._update_cache.items():
+                for pk, attributes in cache.items():
+                    update_dict = {}
+                    for key in ('$set', '$unset'):
+                        if key in attributes and attributes[key]:
+                            update_dict[key] = attributes[key]
+                    if update_dict:
+                        self.db[collection].update({'_id': pk}, update_dict)
+        finally:
+            #regardless what happens in the 'commit' operation, we clear the cache
+            self._save_cache = defaultdict(lambda: {})
+            self._delete_cache = defaultdict(lambda: {})
+            self._update_cache = defaultdict(lambda: {})
 
-        self._save_cache = defaultdict(lambda: {})
-        self._delete_cache = defaultdict(lambda: {})
-        self._update_cache = defaultdict(lambda: {})
-
-        self.in_transaction = True
+            self.in_transaction = True
 
     @property
     def autocommit(self):
