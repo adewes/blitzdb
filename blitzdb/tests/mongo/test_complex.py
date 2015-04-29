@@ -4,6 +4,7 @@ from ..fixtures import test_mongo
 from blitzdb import Document
 
 if test_mongo:
+
     from ..fixtures import mongodb_backend
 
     def test_complex(mongodb_backend):

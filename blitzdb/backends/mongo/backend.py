@@ -403,6 +403,6 @@ class Backend(BaseBackend):
         args = {}
 
         if only != None:
-            args['fields'] = only
+            args['projection'] = only
 
         return QuerySet(self, cls, self.db[collection].find(compiled_query, **args), raw=raw, only=only)
