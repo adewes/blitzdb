@@ -8,7 +8,7 @@ from blitzdb.backends.file.serializers import PickleSerializer as Serializer
 from blitzdb.backends.file.queryset import QuerySet
 
 class NonUnique(BaseException):
-    """Index uniqueness constraint violated"""
+    """Index uniqueness constraint violated."""
     pass
 
 
