@@ -33,7 +33,8 @@ class Index(object):
     # magic value we use when storing undefined values
     undefined_magic_value = '5baf58af9fb144a4ba2aa4374e931539'
 
-    def __init__(self, params, serializer, deserializer, store=None, unique=False):
+    def __init__(
+            self, params, serializer, deserializer, store=None, unique=False):
         """Initalize internal state."""
         self._params = params
         self._store = store
@@ -387,7 +388,9 @@ class TransactionalIndex(Index):
 
     def commit(self):
         """Commit current transaction."""
-        if not self._add_cache and not self._remove_cache and not self._undefined_cache:
+        if (not self._add_cache and
+                not self._remove_cache and
+                not self._undefined_cache):
             return
 
         for store_key, hash_values in self._add_cache.items():
