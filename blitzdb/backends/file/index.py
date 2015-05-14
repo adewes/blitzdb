@@ -5,7 +5,6 @@ from collections import defaultdict
 
 from blitzdb.backends.base import NotInTransaction
 from blitzdb.backends.file.serializers import PickleSerializer as Serializer
-from blitzdb.backends.file.utils import JsonEncoder
 from blitzdb.backends.file.queryset import QuerySet
 
 class NonUnique(BaseException):
