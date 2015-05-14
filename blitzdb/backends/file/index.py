@@ -417,7 +417,6 @@ class TransactionalIndex(Index):
         self._init_cache()
         self._in_transaction = False
 
-
     def add_undefined(self, store_key):
         """Add undefined key to the index.
 
