@@ -349,6 +349,8 @@ class Index(object):
         :type store_key: str
 
         """
+        if store_key in self._undefined_keys:
+            del self._undefined_keys[store_key]
         if store_key in self._reverse_index:
             for value in self._reverse_index[store_key]:
                 self._index[value].remove(store_key)
@@ -373,6 +375,7 @@ class TransactionalIndex(Index):
         """Initialize cache."""
         self._add_cache = defaultdict(list)
         self._reverse_add_cache = defaultdict(list)
+        self._undefined_cache = {}
         self._remove_cache = {}
 
     def begin(self):
@@ -385,7 +388,7 @@ class TransactionalIndex(Index):
 
     def commit(self):
         """Commit current transaction."""
-        if not self._add_cache and not self._remove_cache:
+        if not self._add_cache and not self._remove_cache and not self._undefined_cache:
             return
 
         for store_key, hash_values in self._add_cache.items():
@@ -394,6 +397,8 @@ class TransactionalIndex(Index):
                     hash_value, store_key)
         for store_key in self._remove_cache:
             super(TransactionalIndex, self).remove_key(store_key)
+        for store_key in self._undefined_cache:
+            super(TransactionalIndex, self).add_undefined(store_key)
         if not self.ephemeral:
             self.save_to_store()
 
@@ -406,6 +411,16 @@ class TransactionalIndex(Index):
             raise NotInTransaction
         self._init_cache()
         self._in_transaction = False
+
+
+    def add_undefined(self, store_key):
+        """Add undefined key to the index.
+
+        :param store_key: The key for the document in the store
+        :type store_key: str
+
+        """
+        self._undefined_cache[store_key] = True
 
     def add_hashed_value(self, hash_value, store_key):
         """Add hashed value in the context of the current transaction.
@@ -422,6 +437,8 @@ class TransactionalIndex(Index):
             self._reverse_add_cache[hash_value].append(store_key)
         if store_key in self._remove_cache:
             del self._remove_cache[store_key]
+        if store_key in self._undefined_cache:
+            del self._undefined_cache[store_key]
 
     def remove_key(self, store_key):
         """Remove key in the context of the current transaction.
@@ -435,6 +452,8 @@ class TransactionalIndex(Index):
             for hash_value in self._add_cache[store_key]:
                 self._reverse_add_cache[hash_value].remove(store_key)
             del self._add_cache[store_key]
+        if store_key in self._undefined_cache:
+            del self._undefined_cache[store_key]
 
     def get_keys_for(self, value, include_uncommitted=False):
         """Get keys for a given value.

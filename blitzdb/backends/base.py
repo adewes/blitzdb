@@ -1,6 +1,7 @@
 import abc
 import inspect
 import copy
+import six
 
 import logging
 
@@ -156,10 +157,18 @@ class Backend(object):
                 if matcher(obj):
                     obj = encoder(obj)
 
+        def encode_as_str(obj):
+            if six.PY3:
+                return str(obj)
+            else:
+                return unicode(obj if isinstance(obj,str) else str(obj),errors = 'replace')
+
         if isinstance(obj, dict):
             output_obj = {}
             for key, value in obj.items():
-                output_obj[str(key) if convert_keys_to_str else key] = serialize_with_opts(value, embed_level=embed_level)
+                output_obj[encode_as_str(key) if convert_keys_to_str else key] = serialize_with_opts(value, embed_level=embed_level)
+        elif isinstance(obj,str):
+            output_obj = encode_as_str(obj)
         elif isinstance(obj, list):
             output_obj = list(map(lambda x: serialize_with_opts(x, embed_level=embed_level), obj))
         elif isinstance(obj, tuple):

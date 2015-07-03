@@ -36,6 +36,9 @@ class Backend(BaseBackend):
         backend = MongoBackend(my_db)
     """
 
+    # magic value to replace '.' characters in dictionary keys (which breaks MongoDB)
+    DOT_MAGIC_VALUE = ":a5b8afc131:"
+
     def __init__(self, db, autocommit=False, **kwargs):
         super(Backend, self).__init__(**kwargs)
         self.db = db
@@ -44,6 +47,9 @@ class Backend(BaseBackend):
         self._delete_cache = defaultdict(lambda: {})
         self._update_cache = defaultdict(lambda: {})
         self.in_transaction = False
+
+    def escape_dots(self,value):
+        return value.replace(".",self.DOT_MAGIC_VALUE)
 
     def begin(self):
         if self.in_transaction:  # we're already in a transaction...
@@ -61,33 +67,35 @@ class Backend(BaseBackend):
         self.in_transaction = False
 
     def commit(self):
-        for collection, cache in self._save_cache.items():
-            for pk, attributes in cache.items():
-                try:
-                    self.db[collection].save(attributes)
-                except:
-                    logger.error("Error when saving the document with pk %s in collection %s" % (attributes['pk'], collection))
-                    logger.error("Attributes (excerpt):" + str(dict(attributes.items()[:100])))
-                    raise
+        try:
+            for collection, cache in self._save_cache.items():
+                for pk, attributes in cache.items():
+                    try:
+                        self.db[collection].save(attributes)
+                    except:
+                        logger.error("Error when saving the document with pk %s in collection %s" % (attributes['pk'], collection))
+                        logger.error("Attributes (excerpt):" + str(dict(attributes.items()[:100])))
+                        raise
 
-        for collection, cache in self._delete_cache.items():
-            for pk in cache:
-                self.db[collection].remove({'_id': pk})
+            for collection, cache in self._delete_cache.items():
+                for pk in cache:
+                    self.db[collection].remove({'_id': pk})
 
-        for collection, cache in self._update_cache.items():
-            for pk, attributes in cache.items():
-                update_dict = {}
-                for key in ('$set', '$unset'):
-                    if key in attributes and attributes[key]:
-                        update_dict[key] = attributes[key]
-                if update_dict:
-                    self.db[collection].update({'_id': pk}, update_dict)
+            for collection, cache in self._update_cache.items():
+                for pk, attributes in cache.items():
+                    update_dict = {}
+                    for key in ('$set', '$unset'):
+                        if key in attributes and attributes[key]:
+                            update_dict[key] = attributes[key]
+                    if update_dict:
+                        self.db[collection].update({'_id': pk}, update_dict)
+        finally:
+            #regardless what happens in the 'commit' operation, we clear the cache
+            self._save_cache = defaultdict(lambda: {})
+            self._delete_cache = defaultdict(lambda: {})
+            self._update_cache = defaultdict(lambda: {})
 
-        self._save_cache = defaultdict(lambda: {})
-        self._delete_cache = defaultdict(lambda: {})
-        self._update_cache = defaultdict(lambda: {})
-
-        self.in_transaction = True
+            self.in_transaction = True
 
     @property
     def autocommit(self):
@@ -164,7 +172,6 @@ class Backend(BaseBackend):
         def _exists(obj, key):
             value = obj
             for elem in key.split("."):
-                print elem
                 if isinstance(value, list):
                     try:
                         value = value[int(elem)]
@@ -199,9 +206,9 @@ class Backend(BaseBackend):
             if isinstance(fields, (list,tuple)):
                 update_dict = {key : _get(obj.attributes,key) for key in fields 
                                 if _exists(obj.attributes,key)}
-                serialized_attributes = self.serialize(update_dict)
+                serialized_attributes = {key : self.serialize(value) for key,value in update_dict.items()}
             elif isinstance(fields, dict):
-                serialized_attributes = self.serialize(fields)
+                serialized_attributes = {key : self.serialize(value) for key,value in fields.items()}
                 if update_obj:
                     for key,value in fields.items():
                         if _exists(obj.attributes,key):
@@ -225,7 +232,7 @@ class Backend(BaseBackend):
         if set_attributes:
             update_dict['$set'] = set_attributes
         if unset_attributes:
-            update_dict['$unset'] = dict([(key, '') for key in unset_attributes])
+            update_dict['$unset'] = {key : '' for key in unset_attributes}
 
         if not update_dict:
             return #nothing to do...
@@ -256,16 +263,64 @@ class Backend(BaseBackend):
 
     def serialize(self, obj, convert_keys_to_str=True, embed_level=0, encoders=None, autosave=True, for_query=False):
 
+        def encode_dict(obj):
+            """
+            Encodes a dictionary by replacing dots in the keys with a MAGIC value.
+            """
+            def replace_key(key):
+                if isinstance(key,six.string_types):
+                    return key.replace(".", self.DOT_MAGIC_VALUE)
+                return key
+
+            return dict([(replace_key(key),value) for key, value in obj.items()])
+
+        def encode_complex(obj):
+            """
+            Encodes a complex number.
+            """
+            return {'_type' : 'complex','r' : obj.real,'i' : obj.imag}
+
+        if not for_query:
+            standard_encoders = [(lambda obj:True if isinstance(obj, dict) else False, encode_dict)]
+        else:
+            standard_encoders = []
+
+        standard_encoders.append((lambda obj:True if isinstance(obj,complex) else False,encode_complex))
+
         return super(Backend, self).serialize(obj, 
-                                              convert_keys_to_str=convert_keys_to_str,
-                                              embed_level=embed_level,
-                                              encoders=encoders,
-                                              autosave=autosave,
+                                              convert_keys_to_str=convert_keys_to_str, 
+                                              embed_level=embed_level, 
+                                              encoders=encoders + standard_encoders if encoders else standard_encoders, 
+                                              autosave=autosave, 
                                               for_query=for_query)
 
     def deserialize(self, obj, decoders=None):
 
-        return super(Backend, self).deserialize(obj, decoders=decoders)
+        def decode_dict(obj):
+            """
+            Decodes a dictionary by substituting the MAGIC value in the keys with a dot.
+            """
+            return dict([(key.replace(self.DOT_MAGIC_VALUE, "."), value) for key, value in obj.items()])
+
+        def decode_complex(obj):
+            """
+            Decodes a complex number.
+            """
+            return 1j*obj['i']+obj['r']
+
+        standard_decoders = [(lambda obj:True if isinstance(obj, dict) 
+                                                and '_type' in obj 
+                                                and obj['_type'] == 'dict' 
+                                                and 'items' in obj 
+                                                else False,
+                              decode_dict),
+                             (lambda obj:True if isinstance(obj,dict)
+                                              and '_type' in obj
+                                              and obj['_type'] == 'complex' else False,
+                              decode_complex)
+        ]
+
+        return super(Backend, self).deserialize(obj, decoders=standard_decoders + decoders if decoders else standard_decoders)
 
     def create_indexes(self, cls_or_collection, params_list):
         for params in params_list:
@@ -294,6 +349,7 @@ class Backend(BaseBackend):
         try:
             self.db[collection].ensure_index(list(kwargs['fields'].items()), **opts)
         except pymongo.errors.OperationFailure as failure:
+            traceback.print_exc()
             #The index already exists with different options, so we drop it and recreate it...
             self.db[collection].drop_index(list(kwargs['fields'].items()))
             self.db[collection].ensure_index(list(kwargs['fields'].items()), **opts)
@@ -345,6 +401,9 @@ class Backend(BaseBackend):
         args = {}
 
         if only:
-            args['projection'] = only
+            if isinstance(only,tuple):
+                args['projection'] = list(only)
+            else:
+                args['projection'] = only
 
         return QuerySet(self, cls, self.db[collection].find(compiled_query, **args), raw=raw, only=only)
