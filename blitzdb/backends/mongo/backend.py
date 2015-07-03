@@ -196,7 +196,7 @@ class Backend(BaseBackend):
         def serialize_fields(fields):
 
 
-            if isinstance(fields, list) or isinstance(fields, tuple):
+            if isinstance(fields, (list,tuple)):
                 update_dict = {key : _get(obj.attributes,key) for key in fields 
                                 if _exists(obj.attributes,key)}
                 serialized_attributes = self.serialize(update_dict)
@@ -344,7 +344,7 @@ class Backend(BaseBackend):
 
         args = {}
 
-        if only != None:
-            args['fields'] = only
+        if only:
+            args['projection'] = only
 
         return QuerySet(self, cls, self.db[collection].find(compiled_query, **args), raw=raw, only=only)
