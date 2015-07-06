@@ -1,1 +1,2 @@
+sqlalchemy
 pymongo>=3.0.1

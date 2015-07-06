@@ -298,6 +298,19 @@ class Backend(object):
         collection = self.classes[cls]['collection']
         return collection
 
+    def get_collection_for_cls_name(self, cls_name): 
+        """
+        Returns the collection name for a given document class.
+
+        :param cls: The document class for which to return the collection name.
+
+        :returns: The collection name for the given class.
+        """
+        for cls in self.classes:
+            if cls.__name__ == cls_name:
+                return self.classes[cls]['collection']
+        raise AttributeError("Unknown class name: %s" % cls_name)
+
     def get_cls_for_collection(self, collection):
         """
         Return the class for a given collection name.
