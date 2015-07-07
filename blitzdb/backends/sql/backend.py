@@ -6,7 +6,8 @@ from collections import defaultdict
 
 from ...document import Document
 from ..base import Backend as BaseBackend
-from ..base import NotInTransaction
+from ..base import NotInTransaction,DoNotSerialize
+from ..file.serializers import JsonSerializer
 from .queryset import QuerySet
 
 from sqlalchemy.exc import IntegrityError
@@ -58,10 +59,11 @@ class Backend(BaseBackend):
         self._engine = engine
         self._collection_tables = {}
 
-        self._index_tables = {}
-        self._relationship_tables = {}
+        self._index_tables = defaultdict(dict)
+        self._relationship_tables = defaultdict(dict)
         self._index_fields = defaultdict(dict)
         self._related_fields = defaultdict(dict)
+        self._excluded_fields = defaultdict(dict)
 
         self.table_postfix = table_postfix
 
@@ -89,25 +91,29 @@ class Backend(BaseBackend):
                     opts = index['sql']
 
                     field_name = opts['field']
+                    self._excluded_fields[collection][field_name] = True
                     column_name = field_name.replace('.','_')
                     index_name = "%s_%s" % (collection,column_name)
 
-                    self._index_fields[collection][field_name] = {'opts' : index,'column' : column_name}
+                    index_params = {'opts' : index['sql'],
+                                    'column' : column_name}
                     if 'list' in opts:
                         #This is a list index, so we create a dedicated table for it.
-                        self._index_tables[index_name] = Table('%s%s' % (index_name,self.table_postfix),self._metadata,
+                        self._index_tables[collection][field_name] = Table('%s%s' % (index_name,self.table_postfix),self._metadata,
                                 Column('pk',self.Meta.PkType,ForeignKey('%s%s.pk' % (collection,self.table_postfix)),index = True),
-                                Column(column_name,opts['type']),
+                                Column(column_name,opts['type'],index = True),
                                 UniqueConstraint('pk',field_name,name = 'unique_index')
                             )
                     else:
                         index_columns.append(
                             Column(column_name,opts['type'],index = True)
                             )
+                    self._index_fields[collection][field_name] = index_params
 
             if 'relations' in meta_attributes:
                 for relation in meta_attributes['relations']:
                     field_name = relation['field']
+                    self._excluded_fields[collection][field_name] = True
                     related_collection = self.get_collection_for_cls_name(relation['related'])
                     if 'qualifier' in relation:
                         relationship_name = "%s_%s_%s" % (collection,related_collection,relation['qualifier'])
@@ -116,7 +122,6 @@ class Backend(BaseBackend):
                     if relation['type'] == 'ManyToMany':
                         self._related_fields[collection][field_name] = {'opts' : relation,
                                                                         'collection' : related_collection,
-                                                                        'relationship_table' : relationship_name,
                                                                         }
                         if isinstance(relation['related'],(list,tuple)):
                             raise AttributeError("Currently not supported!")
@@ -133,7 +138,7 @@ class Backend(BaseBackend):
                                 extra_columns = [
                                     UniqueConstraint('pk_%s' % related_collection,'pk_%s' % collection)
                                     ]
-                            self._relationship_tables[relationship_name] = Table('%s%s' % (relationship_name,self.table_postfix),self._metadata,
+                            self._relationship_tables[collection][field_name] = Table('%s%s' % (relationship_name,self.table_postfix),self._metadata,
                                     Column('pk_%s' % related_collection,self.Meta.PkType,ForeignKey('%s%s.pk' % (related_collection,self.table_postfix)),index = True),
                                     Column('pk_%s' % collection,self.Meta.PkType,ForeignKey('%s%s.pk' % (collection,self.table_postfix)),index = True),
                                     *extra_columns
@@ -153,11 +158,6 @@ class Backend(BaseBackend):
                     Column('data',LargeBinary),
                     *index_columns
                 )
-
-        pprint.pprint(self._collection_tables)
-        pprint.pprint(self._index_tables)
-        pprint.pprint(self._relationship_tables)
-
 
     def begin(self):
         return self._conn.begin()
@@ -235,32 +235,6 @@ class Backend(BaseBackend):
             raise
         return vertex
 
-    def serialize_vertex_data(self,data):
-        d = {'data' : cPickle.dumps(data)}
-        if 'pk' in data:
-            d['pk'] = data['pk']
-        return d
-
-    def serialize_edge_data(self,data):
-        return cPickle.dumps(data)
-
-    def _add_to_index(self,pk,data,index_tables):
-
-        def add_to_index(key,table):
-            if not key in data:
-                return
-            d = {'pk' : pk,key : data[key]}
-            insert = table.insert().values(**d)
-            self._conn.execute(insert)
-        try:
-            trans = self.begin()
-            for key,table in index_tables.items():
-                add_to_index(key,table)
-            self.commit(trans)
-        except IntegrityError:
-            self.rollback(trans)
-            raise
-
     def _remove_vertex_from_index(self,pk):
         try:
             trans = self.begin()
@@ -283,29 +257,136 @@ class Backend(BaseBackend):
             self.rollback(trans)
             raise
 
-    def save(self,obj):
+    def save(self,obj,autosave_dependent = True):
         collection = self.get_collection_for_cls(obj.__class__)
-        if obj.pk == None:
+        table = self._collection_tables[collection]
+
+        """
+        Document save strategy:
+
+        - Retrieve values for simple embedded index fields
+        - Store object data with index fields in DB
+        - Retrieve values for list index fields
+        - Store each list value in the index table
+        - Retrieve related objects
+        - Store related objects in the DB
+        """
+
+        def get_value(obj,key):
+            key_fragments = key.split(".")
+            current_dict = obj
+            for key_fragment in key_fragments:
+                current_dict = current_dict[key_fragment]
+            return current_dict
+
+        def serialize_and_update_indexes(obj,d):
+            for index_field,index_params in self._index_fields[collection].items():
+                try:
+                    value = get_value(obj,index_field)
+                    if 'list' in index_params['opts'] and index_params['opts']['list']:
+                        table = self._index_tables[collection][index_field]
+                        delete = table.delete().where(table.c['pk'] == expression.cast(obj.pk,self.Meta.PkType))
+                        self._conn.execute(delete)
+                        for element in value:
+                            ed = {
+                                'pk' : expression.cast(obj.pk,self.Meta.PkType),
+                                index_params['column'] : expression.cast(element,index_params['opts']['type']),
+                            }
+                            insert = table.insert().values(**ed)
+                            self._conn.execute(insert)
+                    else:
+                        d[index_params['column']] = expression.cast(value,index_params['opts']['type'])
+
+                except KeyError:
+                    #this index value does not exist in the object
+                    pass
+
+        def serialize_and_update_relations(obj,d):
+            for related_field,relation_params in self._related_fields[collection].items():
+                try:
+                    value = get_value(obj,related_field)
+                    if relation_params['opts']['type'] == 'ManyToMany':
+                        relationship_table = self._relationship_tables[collection][related_field]
+                        #implement this...
+                        delete = relationship_table.delete().where(relationship_table.c['pk_%s' % collection] == expression.cast(obj.pk,self.Meta.PkType))
+                        self._conn.execute(delete)
+                        for element in value:
+                            if not isinstance(element,Document):
+                                raise AttributeError("ManyToMany field %s contains an invalid value!" % related_field)
+                            if element.pk is None:
+                                if autosave_dependent:
+                                    self.save(element)
+                                else:
+                                    raise AttributeError("Related document in field %s has no primary key!" % related_field)
+                            ed = {
+                                'pk_%s' % collection : obj.pk,
+                                'pk_%s' % relation_params['collection'] : element.pk,
+                            }
+                            insert = relationship_table.insert().values(**ed)
+                            self._conn.execute(insert)
+                    elif relation_params['opts']['type'] == 'ForeignKey':
+                        if not isinstance(value,Document):
+                            raise AttributeError("Field %s must be a document!" % related_field)
+                        if value.pk is None:
+                            if autosave_dependent:
+                                self.save(value)
+                            else:
+                                raise AttributeError("Related document in field %s has no primary key!" % related_field)
+                        d[relation_params['column']] = expression.cast(value.pk,self.Meta.PkType)
+
+                except KeyError:
+                    #this index value does not exist in the object
+                    pass
+
+        insert = False
+
+        if obj.pk is None:
             obj.pk = uuid.uuid4().hex
+            insert = True
 
-        serialized_attributes = self.serialize(obj.attributes)
+        d = {'data' : JsonSerializer.serialize(self.serialize(obj.attributes)),
+             'pk' : expression.cast(obj.pk,self.Meta.PkType)}
 
-        insert = self._collection_tables.insert().values(**serialized_attributes)
         trans = self.begin()
         try:
-            self._conn.execute(insert)
-            self._add_to_index(d['pk'],data,self._vertex_index_tables)
+            serialize_and_update_indexes(obj,d)
+            serialize_and_update_relations(obj,d)
+
+            if not insert:
+                try:
+                    update = self._collection_tables[collection].update().values(**d).where(table.c.pk == obj.pk)
+                    self._conn.execute(update)
+                except:
+                    #this document does not exist in the DB yet, we try to insert it instead...
+                    insert = True
+            if insert:
+                insert = self._collection_tables[collection].insert().values(**d)
+                self._conn.execute(insert)
             self.commit(trans)
         except:
             self.rollback(trans)
             raise
-        return self.Meta.Vertex(d['pk'],store = self,db_data = data)
 
-    def serialize(self, obj, convert_keys_to_str=True, embed_level=0, encoders=None):
-        return super(Backend, self).serialize(obj, 
+        return obj
+
+    def serialize(self, obj, convert_keys_to_str=True, embed_level=0, encoders=None,**kwargs):
+        """
+        Serialization strategy:
+
+        Remove all explicit foreign key relationships from the document
+        """
+
+        def do_not_serialize(obj):
+            raise DoNotSerialize
+
+        exclude_fields_encoder = (lambda data,path = []: True if ".".join([str(c) for c in path]) in self._excluded_fields else False,
+                                  do_not_serialize)
+
+        return super(Backend, self).serialize(obj,
                                               convert_keys_to_str=convert_keys_to_str, 
                                               embed_level=embed_level, 
-                                              encoders=encoders)
+                                              encoders=[exclude_fields_encoder],
+                                              **kwargs)
 
     def deserialize(self, obj, decoders=None):
         return super(Backend, self).deserialize(obj, decoders=decoders)
@@ -364,6 +445,10 @@ class Backend(BaseBackend):
 
         def compile_query(collection,query):
 
+            """
+            This function emits a list of WHERE statements that can be used to retrieve 
+            """
+
             table = self._collection_tables[collection]
 
             where_statements  = []
@@ -374,104 +459,128 @@ class Backend(BaseBackend):
                 if not operator in ('and','or','not'):
                     raise AttributeError("Non-supported logical operator: $%s" % operator)
                 if operator in ('and','or'):
-                    where_statements = [compile_query(collection,expression) for expression in query['$and']]
+                    where_statements = [sq for expr in query['$%s' % operator] for sq in compile_query(collection,expr)]
                     if operator == 'and':
-                        return and_(where_statements)
-                    return or_(where_statements)
+                        return [and_(*where_statements)]
+                    else:
+                        return [or_(*where_statements)]
                 elif operator  == 'not':
                     return not_(compile_query(query['$not']))
-
-            """
-                    #Valid query operators for list index / M2M field
-                    '$all': all_query,
-                    '$elemMatch': elemMatch_query,
-                    '$in': in_query,
-                     $size
-
-                    #Valid operators for index fields:
-                    '$exists': exists_query,
-                    '$gte': comparison_operator_query(operator.ge),
-                    '$lte': comparison_operator_query(operator.le),
-                    '$gt': comparison_operator_query(operator.gt),
-                    '$lt': comparison_operator_query(operator.lt),
-                    '$ne': comparison_operator_query(operator.ne),
-                    '$not': not_query,
-                    '$in': in_query,
-            """
 
             #this is a normal, field-base query
             for key,value in query.items():
 
-                for field_name,opts in self._index_fields.items():
+                if key == 'pk':
+                    where_statements.append(table.c.pk == expression.cast(value,self.Meta.PkType))
+                    continue
+
+                for field_name,params in self._index_fields[collection].items():
                     if  key == field_name:
                         #this is an indexed list field!
-                        if 'list' in opts and opts['list']:
+                        if 'list' in params and params['list']:
                             if isinstance(value,dict):
-                                #special query
-                                pass
+                                if len(value) == 1 and value.keys()[0].startswith('$'):
+                                    operator = value.keys()[0][1:]
+                                    subquery = value.values()[0]
+                                    if operator not in ('all','in','elemMatch'):
+                                        raise AttributeError("Invalid list matching operator $%s!" % operator)
+                                else:
+                                    raise AttributeError("Comparison with complex operators is not supported!")
                             else:
-                                pass
-                                #normal value query
+                                index_table = self._index_tables[collection][field_name]
+                                related_select = select([index_table.c.pk]).where(index_table.c[field_name] == expression.cast(value,params['opts']['type']))
+                                where_statements.append(table.c.pk.in_(related_select))
                         else:
                             if isinstance(value,dict):
                                 #this is a special query
                                 pass
                             else:
                                 #this is a normal value query
-                                pass
+                                where_statements.append(table.c[field_name] == expression.cast(value,params['opts']['type']))
+                        break
                 else:
                     #this is a non-indexed field! We try to find a relation...
-                    for field_name,opts in self._related_fields.items():
+                    for field_name,params in self._related_fields[collection].items():
                         if key.startswith(field_name):
-                            if opts['opts']['type'] == 'ManyToMany':
-                                if key == field_name:
+                            if params['opts']['type'] == 'ManyToMany':
+                                relationship_table = self._relationship_tables[collection][field_name]
+                                related_collection = params['collection']
+                                related_table = self._collection_tables[related_collection]
+                                tail = key[len(field_name)+1:]
 
-                                    if isinstance(value,dict):
-                                        if len(value) == 1 and value.keys()[0].startswith('$'):
-                                            operator = value.keys()[0][1:]
-                                            if operator not in ('$all','$elemMatch','$in','$size'):
-                                                raise AttributeError
-                                            if operator == '$all':
-                                                pass
-                                            elif operator == '$in':
-                                                elements = [element.pk for element in value.values()[0]]
-                                                where_statements.append(
-                                                    )
-                                            elif operator == '$size':
-                                                pass
-                                        else:
-                                            pass
-                                            #this is an exact query
+                                def prepare_subquery(query_dict):
+                                    d = {}
+                                    if not tail:
+                                        if not isinstance(query_dict,Document):
+                                            raise AttributeError("Must be a document!")
+                                        if not query_dict.pk:
+                                            raise AttributeError("Performing a query without a primary key!")
+                                        return {'pk' : query_dict.pk}
+                                    if isinstance(query_dict,dict):
+                                        return {'.'.join([tail,key]) : value for key,value in query_dict.items()}
                                     else:
+                                        return {tail : query_dict}
+
+                                if not isinstance(value,dict):
+                                    if tail:
+                                        value = {tail : value}
+                                    else:
+                                        raise AttributeError("Query over a ManyToMany field must be a dictionary!")
+
+                                if len(value) == 1 and value.keys()[0].startswith('$'):
+                                    operator = value.keys()[0][1:]
+                                    subquery = value.values()[0]
+                                    if operator not in ('all','elemMatch','in','size'):
+                                        raise AttributeError
+                                    if operator == 'elemMatch':
+                                        query_type = 'all'
+                                        queries = [compile_query(params['collection'],prepare_subquery(value['$elemMatch']))]
+                                    if operator == 'all':
+                                        query_type = 'all'
+                                        if len(subquery) and isinstance(subquery[0],dict) and len(subquery[0]) == 1 and \
+                                        subquery[0].keys()[0] == '$elemMatch':
+                                            queries = [sq for v in subquery for sq in compile_query(params['collection'],prepare_subquery(v['$elemMatch']))]
+                                        else:
+                                            queries = [sq for v in subquery for sq in compile_query(params['collection'],prepare_subquery(v))]
+                                        #the $all statement can contain an $elemMatch clause
                                         pass
-                                elif key == field_name+'.pk':
-                                    pass
+                                    elif operator == 'in':
+                                        query_type = 'in'
+                                        queries = [sq for v in subquery for sq in compile_query(params['collection'],prepare_subquery(v))]
+                                    elif operator == '$size':
+                                        raise AttributeError("Size operator is currently not supported!")
                                 else:
-                                    """
-                                    We query a deep field of the related collection
-                                    """
-                                    pk_field = self._relationship_tables[opts['relationship_table']].c['pk_%s' % collection]
-                                    where_statements.append(table.c.pk._in(
-                                        select(
-                                            [pk_field]
-                                            ).where(
-                                                
-                                                pk_field.in_(compile_query(opts['collection'],{tail : value}))
-                                            )
-                                        ))
+                                    query_type = 'all'
+                                    queries = compile_query(params['collection'],value)
+                                    #this is an exact query
+                                related_select = select([related_table.c.pk]).where(or_(*queries))
+                                related_query = relationship_table.c['pk_%s' % related_collection].in_(related_select)
+                                pk_column = relationship_table.c['pk_%s' % collection].label('pk')
+                                if query_type == 'all':
+                                    cnt = func.count(pk_column).label('cnt')
+                                    s = select([pk_column]).where(related_query).group_by('pk').having(cnt == len(queries))
+                                else:
+                                    s = select([pk_column]).where(related_query)
+                                where_statements.append(table.c.pk.in_(s))
                             else:#this is a normal ForeignKey relation
                                 if key == field_name:
-                                    where_statements.append(compile_column_query(table.c[opts['column']],value))
+                                    if not isinstance(value,Document):
+                                        raise AttributeError("ForeignKey query with non-document!")
+                                    where_statements.append(table.c[params['column']] == value.pk)
                                 elif key == field_name+'.pk':
                                     pass
                                 else:
                                     #we query a sub-field of the relation
                                     head,tail = key[:len(field_name)],key[len(field_name)+1:]
-                                    where_statements.append(table.c.pk.in_(compile_query(opts['collection'],{tail : value})))
+                                    where_statements.append(table.c.pk.in_(compile_query(params['collection'],{tail : value})))
+                            break
                     else:
-                        raise AttributeError("Query over non-indexed field %s!")
-            return
+                        raise AttributeError("Query over non-indexed field %s!" % field_name)
+            return where_statements
+
+        table = self._collection_tables[collection]
 
         compiled_query = compile_query(collection,query)
 
-        return QuerySet(self, cls, self.db[collection].find(compiled_query))
+        return QuerySet(backend = self, table = table,cls = cls,connection = self._conn,
+                        condition = and_(*compiled_query))

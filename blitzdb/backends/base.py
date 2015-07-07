@@ -9,6 +9,10 @@ logger = logging.getLogger(__name__)
 
 from blitzdb.document import Document, document_classes
 
+class DoNotSerialize(BaseException):
+    """
+    If an encoder throws this exception, the object in question will not get serialized.
+    """
 
 class NotInTransaction(BaseException):
     """
@@ -129,7 +133,7 @@ class Backend(object):
         params = self.get_meta_attributes(cls)
         return self.register(cls, params)
 
-    def serialize(self, obj, convert_keys_to_str=False, embed_level=0, encoders=None, autosave=True, for_query=False):        
+    def serialize(self, obj, convert_keys_to_str=False, embed_level=0, encoders=None, autosave=True, for_query=False,path = None):
         """
         Serializes a given object, i.e. converts it to a representation that can be stored in the database.
         This usually involves replacing all `Document` instances by database references to them.
@@ -144,6 +148,9 @@ class Backend(object):
         :returns: The serialized object.
         """
 
+        if path is None:
+            path = []
+
         def get_value(obj,key):
             key_fragments = key.split(".")
             current_dict = obj
@@ -154,7 +161,7 @@ class Backend(object):
         serialize_with_opts = lambda value,*args,**kwargs : self.serialize(value,*args,convert_keys_to_str = convert_keys_to_str,autosave = autosave,for_query = for_query, **kwargs)
         if encoders:
             for matcher, encoder in encoders:
-                if matcher(obj):
+                if matcher(obj,path = path):
                     obj = encoder(obj)
 
         def encode_as_str(obj):
@@ -166,26 +173,32 @@ class Backend(object):
         if isinstance(obj, dict):
             output_obj = {}
             for key, value in obj.items():
-                output_obj[encode_as_str(key) if convert_keys_to_str else key] = serialize_with_opts(value, embed_level=embed_level)
+                new_path = path[:]+[key]
+                try:
+                    output_obj[encode_as_str(key) if convert_keys_to_str else key] = serialize_with_opts(value, embed_level=embed_level,path = new_path)
+                except DoNotSerialize:
+                    pass
         elif isinstance(obj,str):
             output_obj = encode_as_str(obj)
-        elif isinstance(obj, list):
-            output_obj = list(map(lambda x: serialize_with_opts(x, embed_level=embed_level), obj))
-        elif isinstance(obj, tuple):
-            output_obj = tuple(map(lambda x: serialize_with_opts(x, embed_level=embed_level), obj))
+        elif isinstance(obj, (list,tuple)):
+            try:
+                output_obj = [serialize_with_opts(x, embed_level=embed_level,path = path[:]+[i]) for i,x in enumerate(obj)]
+            except DoNotSerialize:
+                pass
         elif isinstance(obj, Document):
             collection = self.get_collection_for_obj(obj)
             if embed_level > 0:
                 try:
-                    output_obj = serialize_with_opts(obj.eager.attributes, embed_level=embed_level - 1)
+                    output_obj = serialize_with_opts(obj.eager.attributes, embed_level=embed_level - 1,path = path)
                 except obj.DoesNotExist:#cannot load object, ignoring...
-                    output_obj = serialize_with_opts(obj.attributes, embed_level=embed_level - 1)
+                    output_obj = serialize_with_opts(obj.attributes, embed_level=embed_level - 1,path = path)
+                except DoNotSerialize:
+                    pass
             elif obj.embed:
                 output_obj = obj.serialize(embed=True)
             else:
                 if obj.pk == None and autosave:
                     obj.save(self)
-
                 if obj._lazy:
                     # We make sure that all attributes that are already present get included in the reference
                     output_obj = copy.deepcopy(obj.lazy_attributes)

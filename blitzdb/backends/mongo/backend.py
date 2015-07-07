@@ -281,11 +281,11 @@ class Backend(BaseBackend):
             return {'_type' : 'complex','r' : obj.real,'i' : obj.imag}
 
         if not for_query:
-            standard_encoders = [(lambda obj:True if isinstance(obj, dict) else False, encode_dict)]
+            standard_encoders = [(lambda obj,path = []:True if isinstance(obj, dict) else False, encode_dict)]
         else:
             standard_encoders = []
 
-        standard_encoders.append((lambda obj:True if isinstance(obj,complex) else False,encode_complex))
+        standard_encoders.append((lambda obj,path = []:True if isinstance(obj,complex) else False,encode_complex))
 
         return super(Backend, self).serialize(obj, 
                                               convert_keys_to_str=convert_keys_to_str, 

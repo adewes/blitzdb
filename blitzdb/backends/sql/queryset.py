@@ -1,56 +1,80 @@
+import time
+import copy
+import sqlalchemy
+
 from blitzdb.queryset import QuerySet as BaseQuerySet
 from functools import wraps
+from sqlalchemy.sql import select,func,expression
 
+class ASCENDING:
+    pass
 
-class QuerySet(object):
+class DESCENDING:
+    pass
 
-    def with_result(f):
+class QuerySet(BaseQuerySet):
 
-        def with_result_decorator(self,*args,**kwargs):
-            if self.result is None:
-                self.execute()
-            return f(self,*args,**kwargs)
-
-        return with_result_decorator
-
-    def __init__(self, backend, table, connection, deserializer,
-                 condition = None,select = None,extra_fields = None,
+    def __init__(self, backend, table, connection,cls,
+                 condition = None,select = None,intersects = None,raw = False
                  ):
-        self.store = store
+        super(QuerySet,self).__init__(backend = backend,cls = cls)
+
+        self.backend = backend
         self.condition = condition
         self.select = select
-        self.deserializer = deserializer
+        self.cls = cls
         self.connection = connection
         self.table = table
-        self.extra_fields = extra_fields if extra_fields is not None else []
+        self._raw = raw
         self.count = None
         self.result = None
-        self.objects = []
+        self.intersects = intersects
+        self.objects = None
+        self.pop_objects = None
 
-    def execute(self):
-        s = self.get_select()
-        self.result = self.connection.execute(s)
+    def deserialize(self, data):
+        if self._raw:
+            return dict(data)
+        deserialized_attributes = self.backend.deserialize(data)
+        return self.backend.create_instance(self.cls, deserialized_attributes)
 
-    @with_result
     def __iter__(self):
-        while True:
-            result = self.result.fetchone()
-            if result:
-                yield self.deserializer(result)
-            else:
-                raise StopIteration
+        if self.objects is None:
+            self.get_objects()
+        for obj in self.objects:
+            yield self.deserialize(obj)
+        raise StopIteration
 
-    @with_result
+    def get_objects(self):
+        s = self.get_select()
+        try:
+            self.objects = self.connection.execute(s).fetchall()
+        except sqlalchemy.exc.ResourceClosedError:
+            self.objects = []
+        self.pop_objects = self.objects[:]
+
+    def as_list(self):
+        if self.objects is None:
+            self.get_objects()
+        return [self.deserialize(obj) for obj in self.objects]
+
+    def __getitem__(self,i):
+        if self.objects is None:
+            self.get_objects()
+        return self.deserialize(self.objects[i])
+
     def pop(self,i = 0):
-        if i != 0:
-            raise NotImplementedError
-        result = self.result.fetchone()
-        if result:
-            if self.count is None:
-                len(self)
-            self.count = self.count - 1
-            return self.deserializer(result)
+        if self.objects is None:
+            self.get_objects()
+        if self.pop_objects:
+            return self.deserialize(self.pop_objects.pop())
         raise IndexError("No more results!")
+
+    def filter():
+        raise NotImplementedError
+
+    def delete():
+        raise NotImplementedError
 
     def get_select(self):
         if self.condition is not None:
@@ -64,16 +88,40 @@ class QuerySet(object):
     def intersect(self,queryset):
         s1 = self.get_select()
         s2 = queryset.get_select()
-        i = expression.intersect(s1,s2)
-        qs = QuerySet(self.store,self.table,self.connection,self.deserializer,select = i)
+        if self.intersects:
+            intersects = self.intersects[:]
+            intersects.append(s2)
+        else:
+            intersects = [s1,s2]
+
+        i = expression.intersect(*intersects)
+
+        qs = QuerySet(backend = self.backend,table = self.table,
+                      connection = self.connection,
+                      select = i,intersects = intersects)
         return qs
 
     def __len__(self):
         if self.count is None:
             s = self.get_select()
             count_select = select([func.count(s.alias("count").c.pk)])
-            self.count = self.connection.execute(count_select)\
-                             .first()[0]
+            result = self.connection.execute(count_select)
+            self.count = result.first()[0]
+            result.close()
         return self.count
         
+    def __ne__(self, other):
+        return not self.__eq__(other)
+    
+    def __eq__(self, other):
+        if isinstance(other, QuerySet): 
+            if self.cls == other.cls and set(self._cursor.distinct('_id')) == set(other._cursor.distinct('_id')):
+                return True
+        elif isinstance(other, list):
+            if len(other) != len(self.keys):
+                return False
+            objs = list(self)
+            if other == objs:
+                return True
+        return False
 
