@@ -261,7 +261,7 @@ class Backend(BaseBackend):
             else:
                 self._update_cache[collection][obj.pk] = update_dict
 
-    def serialize(self, obj, convert_keys_to_str=True, embed_level=0, encoders=None, autosave=True, for_query=False):
+    def serialize(self, obj, convert_keys_to_str=True, embed_level=0, encoders=None, autosave=True, for_query=False,path = None):
 
         def encode_dict(obj):
             """
@@ -291,7 +291,8 @@ class Backend(BaseBackend):
                                               convert_keys_to_str=convert_keys_to_str, 
                                               embed_level=embed_level, 
                                               encoders=encoders + standard_encoders if encoders else standard_encoders, 
-                                              autosave=autosave, 
+                                              autosave=autosave,
+                                              path=path,
                                               for_query=for_query)
 
     def deserialize(self, obj, decoders=None):

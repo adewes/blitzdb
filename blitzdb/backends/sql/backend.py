@@ -511,6 +511,8 @@ class Backend(BaseBackend):
                                 def prepare_subquery(query_dict):
                                     d = {}
                                     if not tail:
+                                        if isinstance(query_dict,dict):
+                                            return query_dict.copy()
                                         if not isinstance(query_dict,Document):
                                             raise AttributeError("Must be a document!")
                                         if not query_dict.pk:
@@ -534,7 +536,7 @@ class Backend(BaseBackend):
                                         raise AttributeError
                                     if operator == 'elemMatch':
                                         query_type = 'all'
-                                        queries = [compile_query(params['collection'],prepare_subquery(value['$elemMatch']))]
+                                        queries = compile_query(params['collection'],prepare_subquery(value['$elemMatch']))
                                     if operator == 'all':
                                         query_type = 'all'
                                         if len(subquery) and isinstance(subquery[0],dict) and len(subquery[0]) == 1 and \
@@ -542,8 +544,6 @@ class Backend(BaseBackend):
                                             queries = [sq for v in subquery for sq in compile_query(params['collection'],prepare_subquery(v['$elemMatch']))]
                                         else:
                                             queries = [sq for v in subquery for sq in compile_query(params['collection'],prepare_subquery(v))]
-                                        #the $all statement can contain an $elemMatch clause
-                                        pass
                                     elif operator == 'in':
                                         query_type = 'in'
                                         queries = [sq for v in subquery for sq in compile_query(params['collection'],prepare_subquery(v))]

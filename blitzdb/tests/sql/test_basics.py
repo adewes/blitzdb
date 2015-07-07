@@ -109,6 +109,17 @@ def test_basics(backend):
     assert len(result) == 1
     assert marlon_brando in result
 
+    result = backend.filter(Actor,{'movies' : {'$elemMatch' : {'title' : 'The Godfather'}}})
+
+    assert len(result) == 2
+    assert marlon_brando in result
+    assert al_pacino in result
+
+    result = backend.filter(Actor,{'movies' : {'$all' : [{'$elemMatch' : {'title' : 'The Godfather'}},{'$elemMatch' : {'title' : 'Apocalypse Now'}}]}})
+
+    assert len(result) == 1
+    assert marlon_brando in result
+
     result = backend.filter(Actor,{'movies.title' : 'The Godfather'})
 
     assert len(result) == 2
