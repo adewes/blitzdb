@@ -4,20 +4,80 @@ import random
 
 from blitzdb import Document
 
+try:
+    from sqlalchemy.types import String
+except ImportError:
+    pass
 
 class Movie(Document):
-    pass
+    
+    class Meta(Document.Meta):
 
+        indexes = [
+            {
+                'sql' : lambda: {
+                    'field' : 'tags',
+                    'list' : True,
+                    'type' : String,
+                }
+            },
+            {
+                'sql' : lambda: {
+                    'field' : 'title',
+                    'type' : String,
+                }
+            }
+        ]
+
+        relations = [
+            {
+                'field' : 'director',
+                'type' : 'ForeignKey',
+                'related' : 'Actor',
+                'sparse' : True,
+            },
+        ]
 
 class Actor(Document):
-    pass
+    
+    class Meta(Document.Meta):
 
+        indexes = [
+            {
+                'sql' : lambda: {
+                    'field' : 'name',
+                    'type' : String,
+                }
+            }
+        ]
 
-class Role(Document):
-    pass
+        """
+        Relations to other tables
+        """
 
+        relations = [
+            {
+                'field' : 'movies',
+                'type' : 'ManyToMany',
+                'related' : 'Movie',
+#                'qualifier' : 'role'
+            },
+        ]
 
 class Director(Document):
+    
+    class Meta(Document.Meta):
+
+        indexes = [
+            {
+                'sql' : lambda: {
+                    'field' : 'name',
+                    'type' : String,
+                }
+            }
+        ]
+
+class Role(Document):
     pass
 
 
@@ -36,7 +96,7 @@ def generate_test_data(request, backend, n):
     for i in range(0, n):
         movie = Movie(
             {
-                'name': fake.company(),
+                'title': fake.company(),
                 'year': fake.year(),
                 'pk': i,
                 'cast': [],

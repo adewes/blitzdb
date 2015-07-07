@@ -1,20 +1,9 @@
 import pytest
-import pprint
+from .fixtures import *
 
-from blitzdb.backends.sql import Backend
-from blitzdb import Document
-from sqlalchemy import create_engine
-from sqlalchemy.types import String
-
-@pytest.fixture(scope="function")
-def backend():
-
-    engine = create_engine('sqlite:///:memory:', echo=True)
-    return Backend(engine = engine)
-
-def test_basics(backend):
-
-    backend.create_schema()
+from .helpers.movie_data import Movie,Actor,Director
+    
+def test_array_queries(backend):
 
     francis_coppola = Director({'name' : 'Francis Coppola'})
     backend.save(francis_coppola)

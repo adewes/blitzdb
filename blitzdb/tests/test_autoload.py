@@ -2,7 +2,7 @@ from __future__ import absolute_import
 
 from .fixtures import *
 
-from blitzdb.tests.helpers.movie_data import Actor, Movie
+from .helpers.movie_data import Actor, Movie
 
 
 def test_update_by_list(no_autoload_mongodb_backend):

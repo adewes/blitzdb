@@ -90,12 +90,15 @@ class Backend(BaseBackend):
                         raise AttributeError("You need to specify a parameter for index %d in class %s" % (i,str(cls)))
                     opts = index['sql']
 
+                    if callable(opts):
+                        opts = opts()
+
                     field_name = opts['field']
                     self._excluded_fields[collection][field_name] = True
                     column_name = field_name.replace('.','_')
                     index_name = "%s_%s" % (collection,column_name)
 
-                    index_params = {'opts' : index['sql'],
+                    index_params = {'opts' : opts,
                                     'column' : column_name}
                     if 'list' in opts:
                         #This is a list index, so we create a dedicated table for it.
