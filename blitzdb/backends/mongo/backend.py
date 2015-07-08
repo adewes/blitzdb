@@ -39,13 +39,14 @@ class Backend(BaseBackend):
     # magic value to replace '.' characters in dictionary keys (which breaks MongoDB)
     DOT_MAGIC_VALUE = ":a5b8afc131:"
 
-    def __init__(self, db, autocommit=False, **kwargs):
+    def __init__(self, db, autocommit=False, use_pk_based_refs = True,**kwargs):
         super(Backend, self).__init__(**kwargs)
         self.db = db
         self._autocommit = autocommit
         self._save_cache = defaultdict(lambda: {})
         self._delete_cache = defaultdict(lambda: {})
         self._update_cache = defaultdict(lambda: {})
+        self._use_pk_based_refs = use_pk_based_refs
         self.in_transaction = False
 
     def escape_dots(self,value):
@@ -370,17 +371,25 @@ class Backend(BaseBackend):
                     if isinstance(value,dict) and len(value) == 1 and value.keys()[0].startswith('$'):
                         if value.keys()[0] in ('$all','$in'):
                             if value.values()[0] and isinstance(value.values()[0][0],Document):
-                                new_key+='.__ref__'
+                                if self._use_pk_based_refs:
+                                    new_key+='.pk'
+                                else:
+                                    new_key+='.__ref__'
                     elif isinstance(value,Document):
-                        new_key+='.__ref__'
+                        if self._use_pk_based_refs:
+                            new_key+='.pk'
+                        else:
+                            new_key+='.__ref__'
                     nq[new_key] = transform_query(value)
                 return nq
             elif isinstance(q, (list,QuerySet,tuple)):
                 return [transform_query(x) for x in q]
             elif isinstance(q,Document):
                 collection = self.get_collection_for_obj(q)
-                ref = "%s:%s" % (collection,q.pk)
-                return ref
+                if self._use_pk_based_refs:
+                    return q.pk
+                else:
+                    return "%s:%s" % (collection,q.pk)
             else:
                 return q
 

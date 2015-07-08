@@ -77,8 +77,10 @@ class QuerySet(BaseQuerySet):
     def delete(self):
         if self.condition:
             delete_stmt = self.table.delete().where(self.condition)
-        else:
+        elif self.select:
             delete_stmt = self.table.delete().where(self.table.c.pk.in_(self.select.select_from([self.table.c.pk])))
+        else:
+            delete_stmt = self.table.delete()
         self.connection.execute(delete_stmt)
 
     def get_select(self):

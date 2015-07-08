@@ -592,5 +592,12 @@ class Backend(BaseBackend):
 
         compiled_query = compile_query(collection,query)
 
+        if len(compiled_query) > 1:
+            compiled_query = and_(*compiled_query)
+        elif compiled_query:
+            compiled_query = compiled_query[0]
+        else:
+            compiled_query = None
+
         return QuerySet(backend = self, table = table,cls = cls,connection = self._conn,
-                        condition = and_(*compiled_query))
+                        condition = compiled_query)
