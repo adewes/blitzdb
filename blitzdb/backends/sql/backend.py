@@ -56,6 +56,8 @@ class Backend(BaseBackend):
         PkType = VARCHAR(64)
 
     def __init__(self, engine, table_postfix = '',create_schema = False,**kwargs):
+        super(Backend, self).__init__(**kwargs)
+
         self._engine = engine
         self._collection_tables = {}
 
@@ -64,6 +66,7 @@ class Backend(BaseBackend):
         self._index_fields = defaultdict(dict)
         self._related_fields = defaultdict(dict)
         self._excluded_fields = defaultdict(dict)
+        self._transaction = None
 
         self.table_postfix = table_postfix
 
@@ -71,7 +74,8 @@ class Backend(BaseBackend):
             self.create_schema()
 
         self._conn = self._engine.connect()
-        super(Backend, self).__init__(**kwargs)
+
+        self.begin()
 
     def init_schema(self):
 
@@ -163,13 +167,16 @@ class Backend(BaseBackend):
                 )
 
     def begin(self):
-        return self._conn.begin()
+        if self._transaction is None:
+            self._transaction = self._conn.begin()
 
-    def commit(self,transaction):
-        transaction.commit()
+    def commit(self):
+        self._transaction.commit()
+        self.begin()
 
-    def rollback(self,transaction):
-        transaction.rollback()
+    def rollback(self):
+        self._transaction.rollback()
+        self.begin()
 
     def close_connection(self):
         return self._conn.close()
@@ -365,7 +372,7 @@ class Backend(BaseBackend):
             if insert:
                 insert = self._collection_tables[collection].insert().values(**d)
                 self._conn.execute(insert)
-            self.commit(trans)
+#            self.commit(trans)
         except:
             self.rollback(trans)
             raise

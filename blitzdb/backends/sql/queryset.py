@@ -4,7 +4,7 @@ import sqlalchemy
 
 from blitzdb.queryset import QuerySet as BaseQuerySet
 from functools import wraps
-from sqlalchemy.sql import select,func,expression
+from sqlalchemy.sql import select,func,expression,delete
 
 class ASCENDING:
     pass
@@ -70,11 +70,16 @@ class QuerySet(BaseQuerySet):
             return self.deserialize(self.pop_objects.pop())
         raise IndexError("No more results!")
 
-    def filter():
-        raise NotImplementedError
+    def filter(self,*args,**kwargs):
+        qs = self.backend.filter(*args,**kwargs)
+        return self.intersect(qs)
 
-    def delete():
-        raise NotImplementedError
+    def delete(self):
+        if self.condition:
+            delete_stmt = self.table.delete().where(self.condition)
+        else:
+            delete_stmt = self.table.delete().where(self.table.c.pk.in_(self.select.select_from([self.table.c.pk])))
+        self.connection.execute(delete_stmt)
 
     def get_select(self):
         if self.condition is not None:

@@ -123,6 +123,7 @@ def _sql_backend(request,config):
     engine = create_engine('sqlite:///:memory:', echo=True)
     backend = SqlBackend(engine = engine)
     backend.init_schema()
+    backend.create_schema()
     return backend
 
 def _file_backend(request, temporary_path, config, autoload_embedded=True):

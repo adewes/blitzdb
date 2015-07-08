@@ -110,13 +110,15 @@ def all_query(expression):
     """Match arrays that contain all elements in the query."""
     def _all(index, expression=expression):
         """Return store key for documents that satisfy expression."""
-        ev = expression() if callable(expression) else expression
+        ev = [compile_query(e) for e in expression]
         try:
             iter(ev)
         except TypeError:
-            raise AttributeError('$in argument must be an iterable!')
+            raise AttributeError('$all argument must be an iterable!')
+
         hashed_ev = [index.get_hash_for(v) for v in ev]
         store_keys = set([])
+
         if len(hashed_ev) == 0:
             return []
         store_keys = set(index.get_keys_for(hashed_ev[0]))

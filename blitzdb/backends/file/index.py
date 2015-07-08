@@ -31,9 +31,6 @@ class Index(object):
 
     """
 
-    # magic value we use when storing undefined values
-    undefined_magic_value = '5baf58af9fb144a4ba2aa4374e931539'
-
     def __init__(self, params, serializer, deserializer, store=None, unique=False):
         """Initalize internal state."""
         self._params = params
@@ -75,7 +72,7 @@ class Index(object):
         """
         return self._params['key']
 
-    def get_value(self, attributes):
+    def get_value(self, attributes,key = None):
         """Get value to be indexed from document attributes.
 
         :param attributes: Document attributes
@@ -84,16 +81,20 @@ class Index(object):
         :rtype: object
 
         """
+
         value = attributes
+        if key is None:
+            key = self._splitted_key
 
         # A splitted key like 'a.b.c' goes into nested properties
         # and the value is retrieved recursively
-        for elem in self._splitted_key:
-            if isinstance(value, list):
-                # Integer keys must be used for list properties
-                value = value[int(elem)]
+        for i,elem in enumerate(key):
+            if isinstance(value, (list,tuple)):
+                #if this is a list, we return all matching values for the given list items
+                return [self.get_value(v,key[i:]) for v in value]
             else:
                 value = value[elem]
+
         return value
 
     def save_to_store(self):
@@ -240,6 +241,8 @@ class Index(object):
         :rtype: str
 
         """
+        if isinstance(value,dict) and '__ref__' in value:
+            return self.get_hash_for(value['__ref__'])
         serialized_value = self._serializer(value)
         if isinstance(serialized_value, dict):
             # Hash each item and return the hash of all the hashes
@@ -247,8 +250,7 @@ class Index(object):
                 self.get_hash_for(x)
                 for x in serialized_value.items()
             ]))
-        elif (isinstance(serialized_value, list)
-              or isinstance(serialized_value, tuple)):
+        elif isinstance(serialized_value, (list,tuple)):
             # Hash each element and return the hash of all the hashes
             return hash(tuple([
                 self.get_hash_for(x) for x in serialized_value
@@ -308,17 +310,13 @@ class Index(object):
         undefined = False
         try:
             value = self.get_value(attributes)
-            if value == self.undefined_magic_value:
-                raise IndexError(
-                    'index value corresponds to undefined_magic_value: %s'
-                    % self.undefined_magic_value)
         except (KeyError, IndexError):
             undefined = True
 
         # We remove old values in _reverse_index
         self.remove_key(store_key)
         if not undefined:
-            if isinstance(value, list) or isinstance(value, tuple):
+            if isinstance(value, (list,tuple)):
                 # We add an extra hash value for the list itself
                 # (this allows for querying the whole list)
                 values = value

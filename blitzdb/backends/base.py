@@ -209,7 +209,11 @@ class Backend(object):
                 else:
                     if for_query and not self._allow_documents_in_query:
                         raise ValueError("Documents are not allowed in queries!")
-                    output_obj = {'pk':obj.pk,'__collection__':self.classes[obj.__class__]['collection']}
+                    if for_query:
+                        output_obj = {'$elemMatch' : {'pk':obj.pk,'__collection__':self.classes[obj.__class__]['collection']}}
+                    else:
+                        ref = "%s:%s" % (self.classes[obj.__class__]['collection'],str(obj.pk))
+                        output_obj = {'__ref__' : ref,'pk':obj.pk,'__collection__':self.classes[obj.__class__]['collection']}
                     #We include fields to the reference, as given by the document's Meta class
                     if hasattr(obj,'Meta') and hasattr(obj.Meta,'dbref_includes') and obj.Meta.dbref_includes:
                         for include_key in obj.Meta.dbref_includes:
@@ -250,6 +254,8 @@ class Backend(object):
                 attributes = copy.deepcopy(obj)
                 del attributes[pk_field]
                 del attributes['__collection__']
+                if '__ref__' in attributes:
+                    del attributes['__ref__']
                 output_obj = self.create_instance(obj['__collection__'], attributes, lazy=True)
                 output_obj.pk = obj[pk_field]
             else:

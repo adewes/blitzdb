@@ -6,6 +6,7 @@ from collections import defaultdict
 
 import blitzdb
 
+from blitzdb.document import Document
 from blitzdb.backends.base import (
     Backend as BaseBackend,
     NotInTransaction,
@@ -364,7 +365,7 @@ class Backend(BaseBackend):
         for key in keys:
             index = self.indexes[collection][key]
             for obj in all_objects:
-                index.add_key(obj.attributes, obj._store_key)
+                index.add_key(self.serialize(obj.attributes), obj._store_key)
             index.commit()
 
     def create_indexes(self, cls_or_collection, params_list, ephemeral=False, unique=False):
@@ -455,7 +456,7 @@ class Backend(BaseBackend):
         store.store_blob(data, store_key)
 
         for key, index in indexes.items():
-            index.add_key(obj.attributes, store_key)
+            index.add_key(serialized_attributes, store_key)
 
         if self.config['autocommit']:
             self.commit()
@@ -536,6 +537,30 @@ class Backend(BaseBackend):
 
         return flatten(sort_by_keys(keys, sort_keys))
 
+    def _canonicalize_query(self, query):
+
+        """
+        Transform the query dictionary to replace e.g. documents with __ref__ fields.
+        """
+
+        def transform_query(q):
+
+            if isinstance(q, dict):
+                nq = {}
+                for key,value in q.items():
+                    nq[key] = transform_query(value)
+                return nq
+            elif isinstance(q, (list,QuerySet,tuple)):
+                return [transform_query(x) for x in q]
+            elif isinstance(q,Document):
+                collection = self.get_collection_for_obj(q)
+                ref = "%s:%s" % (collection,q.pk)
+                return ref
+            else:
+                return q
+
+        return transform_query(query)
+
     def filter(self, cls_or_collection, query, initial_keys=None):
 
         if not isinstance(query, dict):
@@ -550,9 +575,12 @@ class Backend(BaseBackend):
 
         store = self.get_collection_store(collection)
         indexes = self.get_collection_indexes(collection)
-        compiled_query = compile_query(self.serialize(query, autosave=False))
+        compiled_query = compile_query(self._canonicalize_query(query))
 
         indexes_to_create = []
+
+        print "Query:",query
+        print "Canonical Query:",self._canonicalize_query(query)
 
         def query_function(key, expression):
             if key is None:
@@ -571,6 +599,8 @@ class Backend(BaseBackend):
             return qs
 
         def index_collector(key, expressions):
+            if key in indexes:
+                print indexes[key].get_all_keys()
             if (key not in indexes
                     and key not in indexes_to_create
                     and key is not None):

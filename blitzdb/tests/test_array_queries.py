@@ -2,6 +2,8 @@ import pytest
 from .fixtures import *
 
 from .helpers.movie_data import Movie,Actor,Director
+from blitzdb.backends.file import Backend as FileBackend
+from blitzdb.backends.mongo import Backend as MongoBackend
     
 def test_array_queries(backend):
 
@@ -20,6 +22,17 @@ def test_array_queries(backend):
     backend.save(marlon_brando)
     backend.save(al_pacino)
 
+    backend.commit()
+
+    if isinstance(backend,MongoBackend):
+        print list(backend.filter(Actor,{},raw = True))
+
+    result = backend.filter(Actor,{'movies.pk' : the_godfather.pk})
+
+    assert len(result) == 2
+    assert marlon_brando in result
+    assert al_pacino in result
+
     result = backend.filter(Actor,{'movies' : {'$all' : [the_godfather,apocalypse_now]}})
 
     assert len(result) == 1
@@ -30,16 +43,20 @@ def test_array_queries(backend):
     assert len(result) == 1
     assert marlon_brando in result
 
-    result = backend.filter(Actor,{'movies' : {'$elemMatch' : {'title' : 'The Godfather'}}})
+    if not isinstance(backend,FileBackend):
 
-    assert len(result) == 2
-    assert marlon_brando in result
-    assert al_pacino in result
+        #$elemMatch queries are currently not supported by the file backend.
 
-    result = backend.filter(Actor,{'movies' : {'$all' : [{'$elemMatch' : {'title' : 'The Godfather'}},{'$elemMatch' : {'title' : 'Apocalypse Now'}}]}})
+        result = backend.filter(Actor,{'movies' : {'$elemMatch' : {'title' : 'The Godfather'}}})
 
-    assert len(result) == 1
-    assert marlon_brando in result
+        assert len(result) == 2
+        assert marlon_brando in result
+        assert al_pacino in result
+
+        result = backend.filter(Actor,{'movies' : {'$all' : [{'$elemMatch' : {'title' : 'The Godfather'}},{'$elemMatch' : {'title' : 'Apocalypse Now'}}]}})
+
+        assert len(result) == 1
+        assert marlon_brando in result
 
     result = backend.filter(Actor,{'movies.title' : 'The Godfather'})
 

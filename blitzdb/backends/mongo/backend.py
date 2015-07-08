@@ -355,14 +355,36 @@ class Backend(BaseBackend):
             self.db[collection].drop_index(list(kwargs['fields'].items()))
             self.db[collection].ensure_index(list(kwargs['fields'].items()), **opts)
 
-    def compile_query(self, query):
-        if isinstance(query, dict):
-            return dict([(self.compile_query(key), self.compile_query(value)) 
-                         for key, value in query.items()])
-        elif isinstance(query, list) or isinstance(query, QuerySet) or isinstance(query, tuple):
-            return [self.compile_query(x) for x in query]
-        else:
-            return self.serialize(query, autosave=False, for_query=True)
+    def _canonicalize_query(self, query):
+
+        """
+        Transform the query dictionary to replace e.g. documents with __ref__ fields.
+        """
+
+        def transform_query(q):
+
+            if isinstance(q, dict):
+                nq = {}
+                for key,value in q.items():
+                    new_key = key
+                    if isinstance(value,dict) and len(value) == 1 and value.keys()[0].startswith('$'):
+                        if value.keys()[0] in ('$all','$in'):
+                            if value.values()[0] and isinstance(value.values()[0][0],Document):
+                                new_key+='.__ref__'
+                    elif isinstance(value,Document):
+                        new_key+='.__ref__'
+                    nq[new_key] = transform_query(value)
+                return nq
+            elif isinstance(q, (list,QuerySet,tuple)):
+                return [transform_query(x) for x in q]
+            elif isinstance(q,Document):
+                collection = self.get_collection_for_obj(q)
+                ref = "%s:%s" % (collection,q.pk)
+                return ref
+            else:
+                return q
+
+        return transform_query(query)
 
     def get(self, cls_or_collection, properties, raw=False, only=None):
         if not isinstance(cls_or_collection, six.string_types):
@@ -397,7 +419,9 @@ class Backend(BaseBackend):
             collection = cls_or_collection
             cls = self.get_cls_for_collection(collection)
 
-        compiled_query = self.compile_query(query)
+        canonical_query = self._canonicalize_query(query)
+
+        print canonical_query
 
         args = {}
 
@@ -407,4 +431,4 @@ class Backend(BaseBackend):
             else:
                 args['projection'] = only
 
-        return QuerySet(self, cls, self.db[collection].find(compiled_query, **args), raw=raw, only=only)
+        return QuerySet(self, cls, self.db[collection].find(canonical_query, **args), raw=raw, only=only)

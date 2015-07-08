@@ -13,6 +13,8 @@ class Movie(Document):
     
     class Meta(Document.Meta):
 
+        dbref_includes = ['title']
+
         indexes = [
             {
                 'sql' : lambda: {
@@ -48,7 +50,7 @@ class Actor(Document):
                     'field' : 'name',
                     'type' : String,
                 }
-            }
+            },
         ]
 
         """
