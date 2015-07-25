@@ -8,4 +8,4 @@ references to all documents matching your query and can retrieve these objects f
 This class is an abstract base class that gets implemented by the specific backends. 
 
 .. autoclass:: blitzdb.queryset.QuerySet
-   :members: delete, filter, __getitem__, __eq__, __ne__, __len__
+   :members: delete, filter, sort, __getitem__, __eq__, __ne__, __len__

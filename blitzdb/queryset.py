@@ -27,6 +27,10 @@ class QuerySet(object):
     def __getitem__(self, i):
         """
         Returns a specific element from a query set.
+
+        If i is a slice instead of an index (e.g. qs[:50]), returns a subset
+        of the query results. This allows user to specify an offset and/or
+        limit for the query.
         """
 
     @abc.abstractmethod
@@ -36,10 +40,22 @@ class QuerySet(object):
         """
 
     @abc.abstractmethod
+    def sort(self, *args, **kwargs):
+        """
+        Sort documents in this query set based on a key and order
+
+        :param key: the property name to sort on
+        :param order: either `blitzdb.queryset.QuerySet.ASCENDING`
+                      or `blitzdb.queryset.QuerySet.DESCENDING`
+        :returns: this queryset
+        """
+
+    @abc.abstractmethod
     def filter(self, *args, **kwargs):
         """
         Performs a `filter` operation on all documents contained in the query set.
-        See :py:meth:`blitzdb.backends.base.Backend.filter` for more details.
+        See :py:meth:`blitzdb.backends.base.Backend.filter` for more
+        details.
         """
 
     @abc.abstractmethod
