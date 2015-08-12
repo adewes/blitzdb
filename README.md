@@ -1,8 +1,6 @@
 #Blitz-DB
 
 [![Build Status](https://travis-ci.org/adewes/blitzdb.svg?branch=master)](https://travis-ci.org/adewes/blitzdb)
-[![PyPi version](https://pypip.in/v/blitzdb/badge.png)](https://pypi.python.org/pypi/blitzdb)
-[![PyPi downloads](https://pypip.in/d/blitzdb/badge.png)](https://pypi.python.org/pypi/blitzdb)
 [![Code Issues](http://www.quantifiedcode.com/api/v1/project/433062581b0e4d08a384b75e701b4692/badge.svg)](http://www.quantifiedcode.com/app/project/433062581b0e4d08a384b75e701b4692)
 [![Python 3](http://img.shields.io/badge/Python%203%20-compatible-brightgreen.svg)](https://www.python.org/download/releases/3.0/)
 
