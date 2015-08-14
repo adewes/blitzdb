@@ -5,7 +5,8 @@ import random
 from blitzdb import Document
 
 try:
-    from sqlalchemy.types import String
+    #we try to import String types from SQLAlchemy
+    from sqlalchemy.types import String,Float,Integer,Boolean
 except ImportError:
     pass
 
@@ -36,7 +37,7 @@ class Movie(Document):
                 'field' : 'director',
                 'type' : 'ForeignKey',
                 'related' : 'Actor',
-                'sparse' : True,
+                'nullable' : True,
             },
         ]
 
@@ -49,6 +50,34 @@ class Actor(Document):
                 'sql' : lambda: {
                     'field' : 'name',
                     'type' : String,
+                }
+            },
+            {
+                'sql' : lambda: {
+                    'field' : 'gross_income_m',
+                    'type' : Float,
+                    'nullable' : True,
+                }
+            },
+            {
+                'sql' : lambda: {
+                    'field' : 'appearances',
+                    'type' : Integer,
+                    'nullable' : True,
+                }
+            },
+            {
+                'sql' : lambda: {
+                    'field' : 'favorite_food',
+                    'type' : String,
+                    'list' : True
+                }
+            },
+            {
+                'sql' : lambda: {
+                    'field' : 'is_funny',
+                    'type' : Boolean,
+                    'nullable' : True,
                 }
             },
         ]
@@ -80,7 +109,36 @@ class Director(Document):
         ]
 
 class Role(Document):
-    pass
+
+    class Meta(Document.Meta):
+
+        indexes = [
+            {
+                'sql' : lambda: {
+                    'field' : 'role',
+                    'type' : String,
+                }
+            },
+        ]
+
+        """
+        Relations to other tables
+        """
+
+        relations = [
+            {
+                'field' : 'actor',
+                'type' : 'ForeignKey',
+                'related' : 'Actor',
+                'nullable' : False,
+            },
+            {
+                'field' : 'movie',
+                'type' : 'ForeignKey',
+                'related' : 'Movie',
+                'nullable' : False,
+            },
+        ]
 
 
 def generate_test_data(request, backend, n):

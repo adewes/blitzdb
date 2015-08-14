@@ -120,7 +120,7 @@ def _init_indexes(backend):
     return backend
 
 def _sql_backend(request,config):
-    engine = create_engine('sqlite:///:memory:', echo=True)
+    engine = create_engine('sqlite:///:memory:', echo=False)
     backend = SqlBackend(engine = engine)
     backend.init_schema()
     backend.create_schema()

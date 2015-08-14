@@ -430,8 +430,6 @@ class Backend(BaseBackend):
 
         canonical_query = self._canonicalize_query(query)
 
-        print canonical_query
-
         args = {}
 
         if only:

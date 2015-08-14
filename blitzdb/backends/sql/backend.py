@@ -13,7 +13,7 @@ from .queryset import QuerySet
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.schema import MetaData,Table,Column,ForeignKey,UniqueConstraint
 from sqlalchemy.types import Integer,VARCHAR,String,Text,LargeBinary,Unicode
-from sqlalchemy.sql import select,insert,update,func,and_,or_,not_,expression
+from sqlalchemy.sql import select,insert,update,func,and_,or_,not_,expression,null
 
 """
 Base model for SQL backend:
@@ -104,7 +104,7 @@ class Backend(BaseBackend):
 
                     index_params = {'opts' : opts,
                                     'column' : column_name}
-                    if 'list' in opts:
+                    if 'list' in opts and opts['list']:
                         #This is a list index, so we create a dedicated table for it.
                         self._index_tables[collection][field_name] = Table('%s%s' % (index_name,self.table_postfix),self._metadata,
                                 Column('pk',self.Meta.PkType,ForeignKey('%s%s.pk' % (collection,self.table_postfix)),index = True),
@@ -157,8 +157,10 @@ class Backend(BaseBackend):
                                                                         'collection' : related_collection,
                                                                         }
                         index_columns.append(
-                            Column(column_name,self.Meta.PkType,ForeignKey('%s%s.pk' %(related_collection,self.table_postfix)),index=True,nullable = True if 'sparse' in relation and relation['sparse'] else False)
+                            Column(column_name,self.Meta.PkType,ForeignKey('%s%s.pk' %(related_collection,self.table_postfix)),index=True,nullable = True if 'nullable' in relation and relation['nullable'] else False)
                             )
+                    else:
+                        raise AttributeError("Unknown relationship type %s" % relation['type'])
 
             self._collection_tables[collection] = Table('%s%s' % (collection,self.table_postfix),self._metadata,
                     Column('pk',self.Meta.PkType,primary_key = True,index = True),
@@ -167,15 +169,18 @@ class Backend(BaseBackend):
                 )
 
     def begin(self):
-        if self._transaction is None:
-            self._transaction = self._conn.begin()
+        if self._transaction:
+            self.commit()
+        self._transaction = self._conn.begin()
 
     def commit(self):
         self._transaction.commit()
+        self._transaction = None
         self.begin()
 
     def rollback(self):
         self._transaction.rollback()
+        self._transaction = None
         self.begin()
 
     def close_connection(self):
@@ -189,83 +194,11 @@ class Backend(BaseBackend):
         self.init_schema()
         self._metadata.drop_all(self._engine,checkfirst = True)
 
-    def get(self, cls_or_collection, properties):
-        if not isinstance(cls_or_collection, six.string_types):
-            collection = self.get_collection_for_cls(cls_or_collection)
-        else:
-            collection = cls_or_collection
-        #...
-
     def delete(self, obj):
         collection = self.get_collection_for_cls(obj.__class__)
         if obj.pk == None:
             raise obj.DoesNotExist
         #...
-
-
-    def delete_vertex(self,vertex):
-        try:
-            trans = self.begin()
-            delete_edges = self._edge.delete().where(self._edge.c.inc_v_pk == vertex.pk or self._edge.c.out_v_pk == vertex.pk)
-            self._conn.execute(delete_edges)
-            self._remove_vertex_from_index(vertex.pk)
-            delete_vertex = self._vertex.delete().where(self._vertex.c.pk == vertex.pk)
-            self._conn.execute(delete_vertex)
-            self.commit(trans)
-        except:
-            self.rollback(trans)
-            raise
-
-    def delete_edge(self,edge):
-        try:
-            trans = self.begin()
-            self._remove_edge_from_index(edge.pk)
-            delete_edge = self._edge.delete().where(self._edge.c.pk == edge.pk)
-            self._conn.execute(delete_edge)
-            self.commit(trans)
-        except:
-            self.rollback(trans)
-            raise
-
-    def update_vertex(self,vertex):
-        if not isinstance(vertex,self.Meta.Vertex):
-            raise TypeError("Must be a vertex!")
-        serialized_data = self.serialize_vertex_data(vertex.data_rw)
-
-        try:
-            trans = self.begin()
-            update = self._vertex.update().values(**serialized_data)\
-                                          .where(self._vertex.c.pk == expression.cast(vertex.pk,self.Meta.PkType))
-            self._conn.execute(update)
-            self._remove_vertex_from_index(vertex.pk)
-            self._add_to_index(vertex.pk,vertex.data_rw,self._vertex_index_tables)
-            self.commit(trans)
-        except:
-            self.rollback(trans)
-            raise
-        return vertex
-
-    def _remove_vertex_from_index(self,pk):
-        try:
-            trans = self.begin()
-            for key,table in self._vertex_index_tables.items():
-                delete = table.delete().where(table.c['pk'] == str(pk))
-                self._conn.execute(delete)
-            self.commit(trans)
-        except:
-            self.rollback(trans)
-            raise
-
-    def _remove_edge_from_index(self,pk):
-        try:
-            trans = self.begin()
-            for key,table in self._edge_index_tables.items():
-                delete = table.delete().where(table.c['pk'] == str(pk))
-                self._conn.execute(delete)
-            self.commit(trans)
-        except:
-            self.rollback(trans)
-            raise
 
     def save(self,obj,autosave_dependent = True):
         collection = self.get_collection_for_cls(obj.__class__)
@@ -305,11 +238,17 @@ class Backend(BaseBackend):
                             insert = table.insert().values(**ed)
                             self._conn.execute(insert)
                     else:
-                        d[index_params['column']] = expression.cast(value,index_params['opts']['type'])
+                        if value is None:
+                            if not 'nullable' in index_params['opts'] or not index_params['opts']['nullable']:
+                                raise ValueError("No value for %s given, but this is a mandatory field!" % index_field)
+                            d[index_params['column']] = null()
+                        else:
+                            d[index_params['column']] = expression.cast(value,index_params['opts']['type'])
 
                 except KeyError:
-                    #this index value does not exist in the object
-                    pass
+                    if not 'nullable' in index_params['opts'] or not index_params['opts']['nullable']:
+                        raise ValueError("No value for %s given, but this is a mandatory field!" % index_field)
+                    d[index_params['column']] = null()
 
         def serialize_and_update_relations(obj,d):
             for related_field,relation_params in self._related_fields[collection].items():
@@ -357,25 +296,19 @@ class Backend(BaseBackend):
         d = {'data' : JsonSerializer.serialize(self.serialize(obj.attributes)),
              'pk' : expression.cast(obj.pk,self.Meta.PkType)}
 
-        trans = self.begin()
-        try:
-            serialize_and_update_indexes(obj,d)
-            serialize_and_update_relations(obj,d)
+        serialize_and_update_indexes(obj,d)
+        serialize_and_update_relations(obj,d)
 
-            if not insert:
-                try:
-                    update = self._collection_tables[collection].update().values(**d).where(table.c.pk == obj.pk)
-                    self._conn.execute(update)
-                except:
-                    #this document does not exist in the DB yet, we try to insert it instead...
-                    insert = True
-            if insert:
-                insert = self._collection_tables[collection].insert().values(**d)
-                self._conn.execute(insert)
-#            self.commit(trans)
-        except:
-            self.rollback(trans)
-            raise
+        if not insert:
+            try:
+                update = self._collection_tables[collection].update().values(**d).where(table.c.pk == obj.pk)
+                self._conn.execute(update)
+            except:
+                #this document does not exist in the DB yet, we try to insert it instead...
+                insert = True
+        if insert:
+            insert = self._collection_tables[collection].insert().values(**d)
+            self._conn.execute(insert)
 
         return obj
 
@@ -408,14 +341,21 @@ class Backend(BaseBackend):
             collection = cls_or_collection
         self.db[collection].ensure_index(*args, **kwargs)
 
-    def compile_query(self, query):
-        if isinstance(query, dict):
-            return dict([(self.compile_query(key), self.compile_query(value)) 
-                         for key, value in query.items()])
-        elif isinstance(query, list):
-            return [self.compile_query(x) for x in query]
+    def get(self, cls_or_collection, query):
+
+        if not isinstance(cls_or_collection, six.string_types):
+            collection = self.get_collection_for_cls(cls_or_collection)
+            cls = cls_or_collection
         else:
-            return self.serialize(query)
+            collection = cls_or_collection
+            cls = self.get_cls_for_collection(collection)
+
+        result = self.filter(cls_or_collection,query)
+        try:
+            return result[0]
+        except IndexError:
+            raise cls.DoesNotExist
+
 
     def filter(self, cls_or_collection, query, sort_by=None, limit=None, offset=None):
         """
@@ -477,33 +417,90 @@ class Backend(BaseBackend):
                 elif operator  == 'not':
                     return not_(compile_query(query['$not']))
 
+            def prepare_subquery(tail,query_dict):
+                d = {}
+                if not tail:
+                    if isinstance(query_dict,dict):
+                        return query_dict.copy()
+                    if not isinstance(query_dict,Document):
+                        raise AttributeError("Must be a document!")
+                    if not query_dict.pk:
+                        raise AttributeError("Performing a query without a primary key!")
+                    return {'pk' : query_dict.pk}
+                if isinstance(query_dict,dict):
+                    return {'.'.join([tail,k]) : v for k,v in query_dict.items()}
+                else:
+                    return {tail : query_dict}
+
+            def prepare_special_query(field_name,query):
+                if '$not' in query:
+                    return [not_(*prepare_special_query(field_name,query['$not']))]
+                elif '$in' in query:
+                    return [table.c[field_name].in_(query['$in'])]
+                elif '$nin' in query:
+                    return [~table.c[field_name].in_(query['$in'])]
+                elif '$eq' in query:
+                    return [table.c[field_name] == query['$eq']]
+                elif '$ne' in query:
+                    return [table.c[field_name] != query['$ne']]
+                elif '$gt' in query:
+                    return [table.c[field_name] > query['$gt']]
+                elif '$gte' in query:
+                    return [table.c[field_name] >= query['$gte']]
+                elif '$lt' in query:
+                    return [table.c[field_name] < query['$lt']]
+                elif '$lte' in query:
+                    return [table.c[field_name] <= query['$lte']]
+                elif '$exists' in query:
+                    if query['$exists']:
+                        return [table.c[field_name] != None]
+                    else:
+                        return [table.c[field_name] == None]
+                elif '$like' in query:
+                    where_statements.append(table.c[field_name].like(expression.cast(query['$regex'],String)))
+                elif '$regex' in query:
+                    if not self._engine.url.drivername in ('postgres','mysql'):
+                        raise AttributeError("Regex queries not supported with %s engine!" % self._engine.url.drivername)
+                    where_statements.append(table.c[field_name].op('REGEXP')(expression.cast(query['$regex'],String)))
+                else:
+                    raise AttributeError("Invalid query!")
+
             #this is a normal, field-base query
             for key,value in query.items():
-
                 if key == 'pk':
                     where_statements.append(table.c.pk == expression.cast(value,self.Meta.PkType))
                     continue
-
                 for field_name,params in self._index_fields[collection].items():
-                    if  key == field_name:
-                        #this is an indexed list field!
-                        if 'list' in params and params['list']:
+                    if key == field_name:
+                        if 'list' in params['opts'] and params['opts']['list']:
+                            index_table = self._index_tables[collection][field_name]
                             if isinstance(value,dict):
-                                if len(value) == 1 and value.keys()[0].startswith('$'):
-                                    operator = value.keys()[0][1:]
-                                    subquery = value.values()[0]
-                                    if operator not in ('all','in','elemMatch'):
-                                        raise AttributeError("Invalid list matching operator $%s!" % operator)
+                                raise AttributeError
+                                if '$in' in value:
+                                    query_type = 'in'
+                                    queries = [sq for v in subquery for sq in compile_query(params['collection'],prepare_subquery(key,v))]
+                                elif '$nin' in value:
+                                    query_type = 'nin'
+                                    queries = [sq for v in subquery for sq in compile_query(params['collection'],prepare_subquery(key,v))]
+                                elif '$all' in value:
+                                    query_type = 'all'
+                                    if len(subquery) and isinstance(subquery[0],dict) and len(subquery[0]) == 1 and \
+                                    subquery[0].keys()[0] == '$elemMatch':
+                                        queries = [sq for v in subquery for sq in compile_query(params['collection'],prepare_subquery(key,v['$elemMatch']))]
+                                    else:
+                                        queries = [sq for v in subquery for sq in compile_query(params['collection'],prepare_subquery(key,v))]
+                                elif '$size' in value:
+                                    pass
                                 else:
-                                    raise AttributeError("Comparison with complex operators is not supported!")
+                                    raise AttributeError("Invalid query!")
                             else:
-                                index_table = self._index_tables[collection][field_name]
                                 related_select = select([index_table.c.pk]).where(index_table.c[field_name] == expression.cast(value,params['opts']['type']))
                                 where_statements.append(table.c.pk.in_(related_select))
                         else:
+                            #this is a normal column index
                             if isinstance(value,dict):
                                 #this is a special query
-                                pass
+                                where_statements.extend(prepare_special_query(field_name,value))
                             else:
                                 #this is a normal value query
                                 where_statements.append(table.c[field_name] == expression.cast(value,params['opts']['type']))
@@ -518,47 +515,36 @@ class Backend(BaseBackend):
                                 related_table = self._collection_tables[related_collection]
                                 tail = key[len(field_name)+1:]
 
-                                def prepare_subquery(query_dict):
-                                    d = {}
-                                    if not tail:
-                                        if isinstance(query_dict,dict):
-                                            return query_dict.copy()
-                                        if not isinstance(query_dict,Document):
-                                            raise AttributeError("Must be a document!")
-                                        if not query_dict.pk:
-                                            raise AttributeError("Performing a query without a primary key!")
-                                        return {'pk' : query_dict.pk}
-                                    if isinstance(query_dict,dict):
-                                        return {'.'.join([tail,key]) : value for key,value in query_dict.items()}
-                                    else:
-                                        return {tail : query_dict}
-
                                 if not isinstance(value,dict):
                                     if tail:
                                         value = {tail : value}
                                     else:
                                         raise AttributeError("Query over a ManyToMany field must be a dictionary!")
-
+                                #to do: allow modifiers when using special queries (e.g. for regex)
+                                #Currently we only support $elemMatch, $all and $in operators
                                 if len(value) == 1 and value.keys()[0].startswith('$'):
                                     operator = value.keys()[0][1:]
                                     subquery = value.values()[0]
-                                    if operator not in ('all','elemMatch','in','size'):
-                                        raise AttributeError
                                     if operator == 'elemMatch':
                                         query_type = 'all'
-                                        queries = compile_query(params['collection'],prepare_subquery(value['$elemMatch']))
+                                        queries = compile_query(params['collection'],prepare_subquery(key,value['$elemMatch']))
                                     if operator == 'all':
                                         query_type = 'all'
                                         if len(subquery) and isinstance(subquery[0],dict) and len(subquery[0]) == 1 and \
                                         subquery[0].keys()[0] == '$elemMatch':
-                                            queries = [sq for v in subquery for sq in compile_query(params['collection'],prepare_subquery(v['$elemMatch']))]
+                                            queries = [sq for v in subquery for sq in compile_query(params['collection'],prepare_subquery(key,v['$elemMatch']))]
                                         else:
-                                            queries = [sq for v in subquery for sq in compile_query(params['collection'],prepare_subquery(v))]
+                                            queries = [sq for v in subquery for sq in compile_query(params['collection'],prepare_subquery(key,v))]
                                     elif operator == 'in':
                                         query_type = 'in'
-                                        queries = [sq for v in subquery for sq in compile_query(params['collection'],prepare_subquery(v))]
+                                        queries = [sq for v in subquery for sq in compile_query(params['collection'],prepare_subquery(key,v))]
+                                    elif operator == 'nin':
+                                        query_type = 'nin'
+                                        queries = [sq for v in subquery for sq in compile_query(params['collection'],prepare_subquery(key,v))]
                                     elif operator == '$size':
                                         raise AttributeError("Size operator is currently not supported!")
+                                    else:
+                                        raise AttributeError("Unsupported operator: %s" % operator)
                                 else:
                                     query_type = 'all'
                                     queries = compile_query(params['collection'],value)
@@ -569,8 +555,12 @@ class Backend(BaseBackend):
                                 if query_type == 'all':
                                     cnt = func.count(pk_column).label('cnt')
                                     s = select([pk_column]).where(related_query).group_by('pk').having(cnt == len(queries))
-                                else:
+                                elif query_type == 'in':
                                     s = select([pk_column]).where(related_query)
+                                elif query_type == 'nin':
+                                    s = select([pk_column]).where(not_(related_query))
+                                else:
+                                    raise AttributeError("Invalid query!")
                                 where_statements.append(table.c.pk.in_(s))
                             else:#this is a normal ForeignKey relation
                                 if key == field_name:
@@ -585,7 +575,7 @@ class Backend(BaseBackend):
                                     where_statements.append(table.c.pk.in_(compile_query(params['collection'],{tail : value})))
                             break
                     else:
-                        raise AttributeError("Query over non-indexed field %s!" % field_name)
+                        raise AttributeError("Query over non-indexed field %s!" % key)
             return where_statements
 
         table = self._collection_tables[collection]

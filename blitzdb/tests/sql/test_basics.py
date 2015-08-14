@@ -1,6 +1,7 @@
 import pytest
 import pprint
 
+from ..helpers.movie_data import Movie,Actor,Director
 from blitzdb.backends.sql import Backend
 from blitzdb import Document
 from sqlalchemy import create_engine
@@ -21,6 +22,7 @@ def test_basics(backend):
 
     the_godfather = Movie({'title' : 'The Godfather','director' : francis_coppola})
     apocalypse_now = Movie({'title' : 'Apocalypse Now'})
+    star_wars_v = Movie({'title' : 'Star Wars V: The Empire Strikes Back'})
 
     backend.save(the_godfather)
     backend.save(apocalypse_now)
@@ -35,6 +37,12 @@ def test_basics(backend):
 
     assert len(result) == 1
     assert marlon_brando in result
+
+    result = backend.filter(Actor,{'movies' : {'$in' : [the_godfather,apocalypse_now]}})
+
+    assert len(result) == 2
+    assert marlon_brando in result
+    assert al_pacino in result
 
     result = backend.filter(Actor,{'movies.title' : {'$all' : ['The Godfather','Apocalypse Now']}})
 

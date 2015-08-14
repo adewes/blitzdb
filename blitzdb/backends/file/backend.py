@@ -430,6 +430,12 @@ class Backend(BaseBackend):
         obj = self.create_instance(cls, data)
         return obj
 
+    def update(self,obj,*args,**kwargs):
+        """
+        We return the result of the save method (updates are not yet implemented here).
+        """
+        return self.save(obj)
+
     def save(self, obj):
         collection = self.get_collection_for_obj(obj)
         indexes = self.get_collection_indexes(collection)
@@ -579,9 +585,6 @@ class Backend(BaseBackend):
 
         indexes_to_create = []
 
-        print "Query:",query
-        print "Canonical Query:",self._canonicalize_query(query)
-
         def query_function(key, expression):
             if key is None:
                 return QuerySet(
@@ -599,8 +602,6 @@ class Backend(BaseBackend):
             return qs
 
         def index_collector(key, expressions):
-            if key in indexes:
-                print indexes[key].get_all_keys()
             if (key not in indexes
                     and key not in indexes_to_create
                     and key is not None):
