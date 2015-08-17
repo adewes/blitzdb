@@ -4,12 +4,14 @@ import copy
 from collections import defaultdict
 
 from blitzdb.backends.base import NotInTransaction
-from blitzdb.backends.file.serializers import PickleSerializer as Serializer
-from blitzdb.backends.file.utils import JsonEncoder
 from blitzdb.backends.file.queryset import QuerySet
+from blitzdb.backends.file.serializers import PickleSerializer as Serializer
+
 
 class NonUnique(BaseException):
-    """Index uniqueness constraint violated"""
+
+    """Index uniqueness constraint violated."""
+
     pass
 
 
@@ -34,7 +36,8 @@ class Index(object):
     # magic value we use when storing undefined values
     undefined_magic_value = '5baf58af9fb144a4ba2aa4374e931539'
 
-    def __init__(self, params, serializer, deserializer, store=None, unique=False):
+    def __init__(
+            self, params, serializer, deserializer, store=None, unique=False):
         """Initalize internal state."""
         self._params = params
         self._store = store
@@ -290,7 +293,7 @@ class Index(object):
 
         """
         if self._unique and hash_value in self._index:
-            raise NonUnique("Hash value %s already in index" % hash_value)
+            raise NonUnique('Hash value %s already in index' % hash_value)
         if store_key not in self._index[hash_value]:
             self._index[hash_value].append(store_key)
         if hash_value not in self._reverse_index[store_key]:
@@ -388,7 +391,9 @@ class TransactionalIndex(Index):
 
     def commit(self):
         """Commit current transaction."""
-        if not self._add_cache and not self._remove_cache and not self._undefined_cache:
+        if (not self._add_cache and
+                not self._remove_cache and
+                not self._undefined_cache):
             return
 
         for store_key, hash_values in self._add_cache.items():
@@ -411,7 +416,6 @@ class TransactionalIndex(Index):
             raise NotInTransaction
         self._init_cache()
         self._in_transaction = False
-
 
     def add_undefined(self, store_key):
         """Add undefined key to the index.
