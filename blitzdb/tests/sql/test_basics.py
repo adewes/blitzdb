@@ -10,7 +10,7 @@ from sqlalchemy.types import String
 @pytest.fixture(scope="function")
 def backend():
 
-    engine = create_engine('sqlite:///:memory:', echo=True)
+    engine = create_engine('sqlite:///:memory:', echo=False)
     return Backend(engine = engine)
 
 def test_basics(backend):

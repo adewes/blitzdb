@@ -2,6 +2,7 @@ import pytest
 
 from ..fixtures import test_mongo
 from blitzdb import Document
+from blitzdb.backends.base import DotEncoder
 
 if test_mongo:
     from ..fixtures import mongodb_backend
@@ -28,4 +29,4 @@ if test_mongo:
             mongodb_backend.get(Document,{'foo.baz.bam' : 'blub'})
 
         #If we escape the dots, the query should work as we expect
-        assert mongodb_backend.get(Document,{mongodb_backend.escape_dots('foo.baz.bam') : 'blub' }) == doc
+        assert mongodb_backend.get(Document,DotEncoder.encode({'foo.baz.bam' : 'blub'},[])) == doc

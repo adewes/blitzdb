@@ -29,7 +29,6 @@ Define additional columns in the table with a given type
 M2M-Relationships: Let the user define them through helper documents
 """
 
-
 class Backend(BaseBackend):
 
     """
@@ -195,6 +194,10 @@ class Backend(BaseBackend):
         self._metadata.drop_all(self._engine,checkfirst = True)
 
     def delete(self, obj):
+
+        if hasattr(obj, 'pre_delete') and callable(obj.pre_delete):
+            obj.pre_delete()
+
         collection = self.get_collection_for_cls(obj.__class__)
         if obj.pk == None:
             raise obj.DoesNotExist
@@ -214,6 +217,9 @@ class Backend(BaseBackend):
         - Retrieve related objects
         - Store related objects in the DB
         """
+
+        if hasattr(obj, 'pre_save') and callable(obj.pre_save):
+            obj.pre_save()
 
         def get_value(obj,key):
             key_fragments = key.split(".")
@@ -244,11 +250,11 @@ class Backend(BaseBackend):
                             d[index_params['column']] = null()
                         else:
                             d[index_params['column']] = expression.cast(value,index_params['opts']['type'])
-
                 except KeyError:
-                    if not 'nullable' in index_params['opts'] or not index_params['opts']['nullable']:
-                        raise ValueError("No value for %s given, but this is a mandatory field!" % index_field)
-                    d[index_params['column']] = null()
+                    if not 'list' in index_params['opts']:
+                        if not 'nullable' in index_params['opts'] or not index_params['opts']['nullable']:
+                            raise ValueError("No value for %s given, but this is a mandatory field!" % index_field)
+                        d[index_params['column']] = null()
 
         def serialize_and_update_relations(obj,d):
             for related_field,relation_params in self._related_fields[collection].items():
@@ -315,24 +321,15 @@ class Backend(BaseBackend):
     def serialize(self, obj, convert_keys_to_str=True, embed_level=0, encoders=None,**kwargs):
         """
         Serialization strategy:
-
-        Remove all explicit foreign key relationships from the document
         """
-
-        def do_not_serialize(obj):
-            raise DoNotSerialize
-
-        exclude_fields_encoder = (lambda data,path = []: True if ".".join([str(c) for c in path]) in self._excluded_fields else False,
-                                  do_not_serialize)
-
+        
         return super(Backend, self).serialize(obj,
                                               convert_keys_to_str=convert_keys_to_str, 
-                                              embed_level=embed_level, 
-                                              encoders=[exclude_fields_encoder],
+                                              embed_level=embed_level,
                                               **kwargs)
 
-    def deserialize(self, obj, decoders=None):
-        return super(Backend, self).deserialize(obj, decoders=decoders)
+    def deserialize(self, obj, encoders=None):
+        return super(Backend, self).deserialize(obj,encoders = encoders)
 
     def create_index(self, cls_or_collection, *args, **kwargs):
         if not isinstance(cls_or_collection, six.string_types):
@@ -393,6 +390,8 @@ class Backend(BaseBackend):
             collection = cls_or_collection
             cls = self.get_cls_for_collection(collection)
 
+        table = self._collection_tables[collection]
+
         def compile_query(collection,query):
 
             """
@@ -410,6 +409,7 @@ class Backend(BaseBackend):
                     raise AttributeError("Non-supported logical operator: $%s" % operator)
                 if operator in ('and','or'):
                     where_statements = [sq for expr in query['$%s' % operator] for sq in compile_query(collection,expr)]
+                    print where_statements
                     if operator == 'and':
                         return [and_(*where_statements)]
                     else:
@@ -472,30 +472,32 @@ class Backend(BaseBackend):
                     continue
                 for field_name,params in self._index_fields[collection].items():
                     if key == field_name:
+                        #this is a list-indexed field
+                        """
+                        WHERE ...
+                            LEFT JOIN [...] ON [...]
+                        """
                         if 'list' in params['opts'] and params['opts']['list']:
                             index_table = self._index_tables[collection][field_name]
                             if isinstance(value,dict):
-                                raise AttributeError
+                                related_query = lambda op: index_table.c[field_name].in_([expression.cast(v,params['opts']['type']) for v in value[op]])
                                 if '$in' in value:
-                                    query_type = 'in'
-                                    queries = [sq for v in subquery for sq in compile_query(params['collection'],prepare_subquery(key,v))]
+                                    #do type-cast here?
+                                    where_statements.append(related_query('$in'))
                                 elif '$nin' in value:
-                                    query_type = 'nin'
-                                    queries = [sq for v in subquery for sq in compile_query(params['collection'],prepare_subquery(key,v))]
+                                    where_statements.append(~related_query('$nin'))
                                 elif '$all' in value:
-                                    query_type = 'all'
-                                    if len(subquery) and isinstance(subquery[0],dict) and len(subquery[0]) == 1 and \
-                                    subquery[0].keys()[0] == '$elemMatch':
-                                        queries = [sq for v in subquery for sq in compile_query(params['collection'],prepare_subquery(key,v['$elemMatch']))]
-                                    else:
-                                        queries = [sq for v in subquery for sq in compile_query(params['collection'],prepare_subquery(key,v))]
+                                    pk_label = 'pk_%s' % field_name
+                                    pk_column = index_table.c['pk'].label(pk_label)
+                                    cnt = func.count(pk_column).label('cnt')
+                                    subselect = select([cnt,pk_column],use_labels = True).where(related_query('$all')).group_by(pk_column)
+                                    where_statements.append(table.c.pk.in_(select([subselect.columns[pk_label]]).where(subselect.columns['cnt'] == len(value['$all']))))
                                 elif '$size' in value:
-                                    pass
+                                    raise NotImplementedError("$size operator is not yet implemented!")
                                 else:
                                     raise AttributeError("Invalid query!")
                             else:
-                                related_select = select([index_table.c.pk]).where(index_table.c[field_name] == expression.cast(value,params['opts']['type']))
-                                where_statements.append(table.c.pk.in_(related_select))
+                                where_statements.append(index_table.c[field_name] == expression.cast(value,params['opts']['type']))
                         else:
                             #this is a normal column index
                             if isinstance(value,dict):
@@ -514,7 +516,6 @@ class Backend(BaseBackend):
                                 related_collection = params['collection']
                                 related_table = self._collection_tables[related_collection]
                                 tail = key[len(field_name)+1:]
-
                                 if not isinstance(value,dict):
                                     if tail:
                                         value = {tail : value}
@@ -527,20 +528,20 @@ class Backend(BaseBackend):
                                     subquery = value.values()[0]
                                     if operator == 'elemMatch':
                                         query_type = 'all'
-                                        queries = compile_query(params['collection'],prepare_subquery(key,value['$elemMatch']))
-                                    if operator == 'all':
+                                        queries = compile_query(params['collection'],prepare_subquery(tail,value['$elemMatch']))
+                                    elif operator == 'all':
                                         query_type = 'all'
                                         if len(subquery) and isinstance(subquery[0],dict) and len(subquery[0]) == 1 and \
                                         subquery[0].keys()[0] == '$elemMatch':
-                                            queries = [sq for v in subquery for sq in compile_query(params['collection'],prepare_subquery(key,v['$elemMatch']))]
+                                            queries = [sq for v in subquery for sq in compile_query(params['collection'],prepare_subquery(tail,v['$elemMatch']))]
                                         else:
-                                            queries = [sq for v in subquery for sq in compile_query(params['collection'],prepare_subquery(key,v))]
+                                            queries = [sq for v in subquery for sq in compile_query(params['collection'],prepare_subquery(tail,v))]
                                     elif operator == 'in':
                                         query_type = 'in'
-                                        queries = [sq for v in subquery for sq in compile_query(params['collection'],prepare_subquery(key,v))]
+                                        queries = [sq for v in subquery for sq in compile_query(params['collection'],prepare_subquery(tail,v))]
                                     elif operator == 'nin':
                                         query_type = 'nin'
-                                        queries = [sq for v in subquery for sq in compile_query(params['collection'],prepare_subquery(key,v))]
+                                        queries = [sq for v in subquery for sq in compile_query(params['collection'],prepare_subquery(tail,v))]
                                     elif operator == '$size':
                                         raise AttributeError("Size operator is currently not supported!")
                                     else:
@@ -573,12 +574,11 @@ class Backend(BaseBackend):
                                     #we query a sub-field of the relation
                                     head,tail = key[:len(field_name)],key[len(field_name)+1:]
                                     where_statements.append(table.c.pk.in_(compile_query(params['collection'],{tail : value})))
+                            print "Broke!"
                             break
                     else:
                         raise AttributeError("Query over non-indexed field %s!" % key)
             return where_statements
-
-        table = self._collection_tables[collection]
 
         compiled_query = compile_query(collection,query)
 

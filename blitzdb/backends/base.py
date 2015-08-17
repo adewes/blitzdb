@@ -28,6 +28,40 @@ class InTransaction(BaseException):
     """
 
 
+class DotEncoder(object):
+
+    DOT_MAGIC_VALUE = ":a5b8afc131:"
+
+    @classmethod
+    def encode(cls,obj,path):
+        def replace_key(key):
+            if isinstance(key,six.string_types):
+                return key.replace(".", cls.DOT_MAGIC_VALUE)
+            return key
+        if isinstance(obj,dict):
+            return dict([(replace_key(key),value) for key, value in obj.items()])
+        return obj
+
+    @classmethod
+    def decode(cls,obj):
+        if isinstance(obj,dict):
+            return dict([(key.replace(cls.DOT_MAGIC_VALUE, "."), value) for key, value in obj.items()])
+        return obj
+
+class ComplexEncoder(object):
+
+    @classmethod
+    def encode(cls,obj,path):
+        if isinstance(obj,complex):
+            return {'_type' : 'complex','r' : obj.real,'i' : obj.imag}
+        return obj
+
+    @classmethod
+    def decode(cls,obj):
+        if isinstance(obj,dict) and obj.get('_type') == 'complex':
+            return 1j*obj['i']+obj['r']
+        return obj
+
 class Backend(object):
 
     """
@@ -48,6 +82,9 @@ class Backend(object):
         pass
 
     __metaclass__ = abc.ABCMeta
+
+    standard_encoders = [ComplexEncoder,DotEncoder]
+    query_encoders = [ComplexEncoder]
 
     def __init__(self, autodiscover_classes=True, autoload_embedded=True, allow_documents_in_query=True):
         self.classes = {}
@@ -133,7 +170,11 @@ class Backend(object):
         params = self.get_meta_attributes(cls)
         return self.register(cls, params)
 
-    def serialize(self, obj, convert_keys_to_str=False, embed_level=0, encoders=None, autosave=True, for_query=False,path = None):
+    def serialize(self, obj, convert_keys_to_str=False,
+                  embed_level=0,
+                  encoders=None,
+                  autosave=True,
+                  for_query=False,path = None):
         """
         Serializes a given object, i.e. converts it to a representation that can be stored in the database.
         This usually involves replacing all `Document` instances by database references to them.
@@ -159,10 +200,12 @@ class Backend(object):
             return current_dict
 
         serialize_with_opts = lambda value,*args,**kwargs : self.serialize(value,*args,convert_keys_to_str = convert_keys_to_str,autosave = autosave,for_query = for_query, **kwargs)
-        if encoders:
-            for matcher, encoder in encoders:
-                if matcher(obj,path = path):
-                    obj = encoder(obj)
+
+
+        if encoders is None:
+            encoders = []
+        for encoder in self.standard_encoders+encoders:
+            obj = encoder.encode(obj,path = path)
 
         def encode_as_str(obj):
             if six.PY3:
@@ -228,7 +271,7 @@ class Backend(object):
             output_obj = obj
         return output_obj
 
-    def deserialize(self, obj, decoders=None,embedded = False):
+    def deserialize(self, obj, encoders=None,embedded = False):
         """
         Deserializes a given object, i.e. converts references to other (known) `Document` objects by lazy instances of the
         corresponding class. This allows the automatic fetching of related documents from the database as required.
@@ -238,10 +281,12 @@ class Backend(object):
         :returns: The deserialized object.
         """
 
-        if decoders:
-            for matcher, decoder in decoders:
-                if matcher(obj):
-                    obj = decoder(obj)
+        if not encoders:
+            encoders = []
+
+        for encoder in encoders + self.standard_encoders:
+            obj = encoder.decode(obj)
+
         if isinstance(obj, dict):
             if '__pk__' in obj:
                 pk_field = '__pk__'

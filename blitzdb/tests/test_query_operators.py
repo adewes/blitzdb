@@ -305,7 +305,7 @@ def test_ne(backend):
 
     # Test with boolean/string
     query = {'is_funny': {'$ne': False}}
-    assert len(backend.filter(Actor, query)) == 3
+    assert len(backend.filter(Actor, query)) == 2
     # Test with boolean/string
 
     # Test with crossed type
@@ -362,11 +362,6 @@ def test_and(backend):
     assert len(backend.filter(Actor, query)) == len([])
     # Test with crossed type
 
-    # Test with unknown attribute
-    query = {'$and': [{'named': charlie_chaplin.name}, {'birth_year': 1889}]}
-    assert len(backend.filter(Actor, query)) == len([])
-    # Test with unknown attribute
-
 
 def test_or(backend):
     # DB setup
@@ -411,7 +406,3 @@ def test_or(backend):
     assert len(backend.filter(Actor, query)) == len([])
     # Test with crossed type
 
-    # Test with unknown attribute
-    query = {'$or': [{'named': charlie_chaplin.name}, {'birth_year': 1889}]}
-    assert len(backend.filter(Actor, query)) == len([charlie_chaplin])
-    # Test with unknown attribute

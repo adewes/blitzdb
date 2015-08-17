@@ -5,6 +5,7 @@ import sqlalchemy
 from blitzdb.queryset import QuerySet as BaseQuerySet
 from functools import wraps
 from sqlalchemy.sql import select,func,expression,delete
+from sqlalchemy.sql.expression import join,asc,desc
 
 class ASCENDING:
     pass
@@ -15,10 +16,11 @@ class DESCENDING:
 class QuerySet(BaseQuerySet):
 
     def __init__(self, backend, table, connection,cls,
-                 condition = None,select = None,intersects = None,raw = False
+                 condition = None,select = None,intersects = None,raw = False,joins = None
                  ):
         super(QuerySet,self).__init__(backend = backend,cls = cls)
 
+        self.joins = joins
         self.backend = backend
         self.condition = condition
         self.select = select
@@ -27,6 +29,7 @@ class QuerySet(BaseQuerySet):
         self.table = table
         self._raw = raw
         self.count = None
+        self.order_bys = None
         self.result = None
         self.intersects = intersects
         self.objects = None
@@ -37,6 +40,18 @@ class QuerySet(BaseQuerySet):
             return dict(data)
         deserialized_attributes = self.backend.deserialize(data)
         return self.backend.create_instance(self.cls, deserialized_attributes)
+
+    def sort(self, columns):
+        order_bys = []
+        for column,direction in columns:
+            if direction > 0:
+                direction = asc
+            else:
+                direction = desc
+            order_bys.append(direction(column))
+        self.order_bys = order_bys
+        self.objects = None
+        return self
 
     def __iter__(self):
         if self.objects is None:
@@ -83,13 +98,18 @@ class QuerySet(BaseQuerySet):
             delete_stmt = self.table.delete()
         self.connection.execute(delete_stmt)
 
-    def get_select(self):
+    def get_select(self,fields = None):
+        if fields is None:
+            fields = [self.table]
         if self.condition is not None:
-            s = select([self.table]).where(self.condition)
-        elif self.select is not None:
-            s = self.select
+            s = select(fields).where(self.condition)
         else:
-            s = select([self.table])
+            s = select(fields)
+        if self.joins:
+            for j in self.joins:
+                s = s.select_from(join(self.table,*j))
+        if self.order_bys:
+            s = s.order_by(*self.order_bys)
         return s
 
     def intersect(self,queryset):
@@ -110,11 +130,11 @@ class QuerySet(BaseQuerySet):
 
     def __len__(self):
         if self.count is None:
-            s = self.get_select()
-            count_select = select([func.count(s.alias("count").c.pk)])
-            result = self.connection.execute(count_select)
+            s = self.get_select(fields = [func.count(self.table.c.pk)])
+            result = self.connection.execute(s)
             self.count = result.first()[0]
             result.close()
+            print "Done",self.count
         return self.count
         
     def __ne__(self, other):

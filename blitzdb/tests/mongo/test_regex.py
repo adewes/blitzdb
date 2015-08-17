@@ -1,7 +1,8 @@
 from ..fixtures import *
 
-def test_regex(backend):
+def test_regex(mongodb_backend):
     # DB setup
+    backend = mongodb_backend
     backend.filter(Actor, {}).delete()
 
     marlon_brando = Actor({'name': 'Marlon Brando', 'gross_income_m': 1.453, 'appearances': 78, 'is_funny': False, 'birth_year': 1924})

@@ -25,18 +25,6 @@ def test_basic_sorting(backend):
 
     backend.commit()
 
-    actors = backend.filter(Actor, {}).sort('birth_year')
-    for i in range(1, len(actors)):
-        assert actors[i - 1].birth_year <= actors[i].birth_year
-
-    actors = backend.filter(Actor, {}).sort('birth_year', -1)
-    for i in range(1, len(actors)):
-        assert actors[i - 1].birth_year >= actors[i].birth_year
-
-    actors = backend.filter(Actor, {}).sort([('birth_year', -1)])
-    for i in range(1, len(actors)):
-        assert actors[i - 1].birth_year >= actors[i].birth_year
-
     actors = backend.filter(Actor, {}).sort([('birth_year', -1)])
     for i in range(1, len(actors)):
         assert actors[i - 1].birth_year >= actors[i].birth_year

@@ -36,8 +36,6 @@ class Backend(BaseBackend):
         backend = MongoBackend(my_db)
     """
 
-    # magic value to replace '.' characters in dictionary keys (which breaks MongoDB)
-    DOT_MAGIC_VALUE = ":a5b8afc131:"
 
     def __init__(self, db, autocommit=False, use_pk_based_refs = True,**kwargs):
         super(Backend, self).__init__(**kwargs)
@@ -48,9 +46,6 @@ class Backend(BaseBackend):
         self._update_cache = defaultdict(lambda: {})
         self._use_pk_based_refs = use_pk_based_refs
         self.in_transaction = False
-
-    def escape_dots(self,value):
-        return value.replace(".",self.DOT_MAGIC_VALUE)
 
     def begin(self):
         if self.in_transaction:  # we're already in a transaction...
@@ -207,9 +202,11 @@ class Backend(BaseBackend):
             if isinstance(fields, (list,tuple)):
                 update_dict = {key : _get(obj.attributes,key) for key in fields 
                                 if _exists(obj.attributes,key)}
-                serialized_attributes = {key : self.serialize(value) for key,value in update_dict.items()}
+                serialized_attributes = {key : self.serialize(value)
+                                            for key,value in update_dict.items()}
             elif isinstance(fields, dict):
-                serialized_attributes = {key : self.serialize(value) for key,value in fields.items()}
+                serialized_attributes = {key : self.serialize(value)
+                                            for key,value in fields.items()}
                 if update_obj:
                     for key,value in fields.items():
                         if _exists(obj.attributes,key):
@@ -262,67 +259,20 @@ class Backend(BaseBackend):
             else:
                 self._update_cache[collection][obj.pk] = update_dict
 
-    def serialize(self, obj, convert_keys_to_str=True, embed_level=0, encoders=None, autosave=True, for_query=False,path = None):
-
-        def encode_dict(obj):
-            """
-            Encodes a dictionary by replacing dots in the keys with a MAGIC value.
-            """
-            def replace_key(key):
-                if isinstance(key,six.string_types):
-                    return key.replace(".", self.DOT_MAGIC_VALUE)
-                return key
-
-            return dict([(replace_key(key),value) for key, value in obj.items()])
-
-        def encode_complex(obj):
-            """
-            Encodes a complex number.
-            """
-            return {'_type' : 'complex','r' : obj.real,'i' : obj.imag}
-
-        if not for_query:
-            standard_encoders = [(lambda obj,path = []:True if isinstance(obj, dict) else False, encode_dict)]
-        else:
-            standard_encoders = []
-
-        standard_encoders.append((lambda obj,path = []:True if isinstance(obj,complex) else False,encode_complex))
+    def serialize(self, obj, convert_keys_to_str=True, embed_level=0,
+                  encoders=None, autosave=True, for_query=False,path = None):
 
         return super(Backend, self).serialize(obj, 
                                               convert_keys_to_str=convert_keys_to_str, 
                                               embed_level=embed_level, 
-                                              encoders=encoders + standard_encoders if encoders else standard_encoders, 
+                                              encoders=encoders, 
                                               autosave=autosave,
                                               path=path,
                                               for_query=for_query)
 
-    def deserialize(self, obj, decoders=None):
-
-        def decode_dict(obj):
-            """
-            Decodes a dictionary by substituting the MAGIC value in the keys with a dot.
-            """
-            return dict([(key.replace(self.DOT_MAGIC_VALUE, "."), value) for key, value in obj.items()])
-
-        def decode_complex(obj):
-            """
-            Decodes a complex number.
-            """
-            return 1j*obj['i']+obj['r']
-
-        standard_decoders = [(lambda obj:True if isinstance(obj, dict) 
-                                                and '_type' in obj 
-                                                and obj['_type'] == 'dict' 
-                                                and 'items' in obj 
-                                                else False,
-                              decode_dict),
-                             (lambda obj:True if isinstance(obj,dict)
-                                              and '_type' in obj
-                                              and obj['_type'] == 'complex' else False,
-                              decode_complex)
-        ]
-
-        return super(Backend, self).deserialize(obj, decoders=standard_decoders + decoders if decoders else standard_decoders)
+    def deserialize(self, obj, encoders=None):
+        return super(Backend, self).deserialize(obj, 
+                                                encoders = encoders)
 
     def create_indexes(self, cls_or_collection, params_list):
         for params in params_list:
@@ -363,6 +313,9 @@ class Backend(BaseBackend):
         """
 
         def transform_query(q):
+
+            for encoder in self.query_encoders:
+                q = encoder.encode(q,[])
 
             if isinstance(q, dict):
                 nq = {}

@@ -131,6 +131,11 @@ def _file_backend(request, temporary_path, config, autoload_embedded=True):
     _init_indexes(backend)
     return backend
 
+@pytest.fixture(scope="function")
+def file_backend(request,temporary_path):
+    return _file_backend(request, temporary_path,{})
+
+
 def _mongodb_backend(request, config, autoload_embedded=True):
     con = pymongo.MongoClient()
     con.drop_database("blitzdb_test_3243213121435312431")

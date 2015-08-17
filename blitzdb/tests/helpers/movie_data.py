@@ -11,7 +11,16 @@ except ImportError:
     pass
 
 class Movie(Document):
-    
+
+    """
+    To Do: Make describing document structure more "django-like" and intuitive.
+
+    title = CharField(nullable = True,indexed = True)
+    tags = ListField(type = StringField,indexed = True)
+    director = ForeignKeyField(related = 'Actor',nullable = True,)
+    cast = ManyToManyField(related = 'Actor')
+    """
+
     class Meta(Document.Meta):
 
         dbref_includes = ['title']
@@ -28,6 +37,7 @@ class Movie(Document):
                 'sql' : lambda: {
                     'field' : 'title',
                     'type' : String,
+                    'nullable' : True
                 }
             }
         ]
@@ -50,6 +60,7 @@ class Actor(Document):
                 'sql' : lambda: {
                     'field' : 'name',
                     'type' : String,
+                    'nullable' : True
                 }
             },
             {
@@ -71,6 +82,13 @@ class Actor(Document):
                     'field' : 'favorite_food',
                     'type' : String,
                     'list' : True
+                }
+            },
+            {
+                'sql' : lambda: {
+                    'field' : 'birth_year',
+                    'type' : Integer,
+                    'nullable' : True
                 }
             },
             {
