@@ -9,6 +9,7 @@ from ..base import Backend as BaseBackend
 from ..base import NotInTransaction,DoNotSerialize
 from ..file.serializers import JsonSerializer
 from .queryset import QuerySet
+from .relations import ListField,ManyToManyField
 
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.schema import MetaData,Table,Column,ForeignKey,UniqueConstraint
@@ -28,6 +29,22 @@ Define additional columns in the table with a given type
 
 M2M-Relationships: Let the user define them through helper documents
 """
+
+def _get_value(obj,key):
+    key_fragments = key.split(".")
+    current_dict = obj
+    for key_fragment in key_fragments:
+        current_dict = current_dict[key_fragment]
+    return current_dict
+
+def _set_value(obj,key,value):
+    key_fragments = key.split('.')
+    current_dict = obj
+    for key_fragment in key_fragments[:-1]:
+        if not key_fragment in current_dict:
+            current_dict[key_fragment] = {}
+        current_dict = current_dict[key_fragment]
+    current_dict[key_fragments[-1]] = value
 
 class Backend(BaseBackend):
 
@@ -63,6 +80,7 @@ class Backend(BaseBackend):
         self._index_tables = defaultdict(dict)
         self._relationship_tables = defaultdict(dict)
         self._index_fields = defaultdict(dict)
+        self._list_indexes = defaultdict(dict)
         self._related_fields = defaultdict(dict)
         self._excluded_fields = defaultdict(dict)
         self._transaction = None
@@ -110,6 +128,7 @@ class Backend(BaseBackend):
                                 Column(column_name,opts['type'],index = True),
                                 UniqueConstraint('pk',field_name,name = 'unique_index')
                             )
+                        self._list_indexes[field_name] = index_params
                     else:
                         index_columns.append(
                             Column(column_name,opts['type'],index = True)
@@ -221,18 +240,12 @@ class Backend(BaseBackend):
         if hasattr(obj, 'pre_save') and callable(obj.pre_save):
             obj.pre_save()
 
-        def get_value(obj,key):
-            key_fragments = key.split(".")
-            current_dict = obj
-            for key_fragment in key_fragments:
-                current_dict = current_dict[key_fragment]
-            return current_dict
-
         def serialize_and_update_indexes(obj,d):
             for index_field,index_params in self._index_fields[collection].items():
                 try:
-                    value = get_value(obj,index_field)
+                    value = _get_value(obj,index_field)
                     if 'list' in index_params['opts'] and index_params['opts']['list']:
+                        #to do: check if this is a RelatedList
                         table = self._index_tables[collection][index_field]
                         delete = table.delete().where(table.c['pk'] == expression.cast(obj.pk,self.Meta.PkType))
                         self._conn.execute(delete)
@@ -259,7 +272,7 @@ class Backend(BaseBackend):
         def serialize_and_update_relations(obj,d):
             for related_field,relation_params in self._related_fields[collection].items():
                 try:
-                    value = get_value(obj,related_field)
+                    value = _get_value(obj,related_field)
                     if relation_params['opts']['type'] == 'ManyToMany':
                         relationship_table = self._relationship_tables[collection][related_field]
                         #implement this...
@@ -322,11 +335,22 @@ class Backend(BaseBackend):
         """
         Serialization strategy:
         """
-        
+
         return super(Backend, self).serialize(obj,
                                               convert_keys_to_str=convert_keys_to_str, 
                                               embed_level=embed_level,
                                               **kwargs)
+
+    def create_instance(self, *args, **kwargs):
+        obj = super(Backend,self).create_instance(*args, **kwargs)
+        collection = self.get_collection_for_obj(obj)
+        print obj.attributes
+        for field_name,params in self._list_indexes[collection].items():
+            _set_value(obj,field_name,ListField(self,obj,field_name,params))
+        for field_name,params in self._related_fields[collection].items():
+            print obj,"<<<",obj['movies']
+            _set_value(obj,field_name,ManyToManyField(self,obj,field_name,params))
+
 
     def deserialize(self, obj, encoders=None):
         return super(Backend, self).deserialize(obj,encoders = encoders)
@@ -409,7 +433,6 @@ class Backend(BaseBackend):
                     raise AttributeError("Non-supported logical operator: $%s" % operator)
                 if operator in ('and','or'):
                     where_statements = [sq for expr in query['$%s' % operator] for sq in compile_query(collection,expr)]
-                    print where_statements
                     if operator == 'and':
                         return [and_(*where_statements)]
                     else:
@@ -574,7 +597,6 @@ class Backend(BaseBackend):
                                     #we query a sub-field of the relation
                                     head,tail = key[:len(field_name)],key[len(field_name)+1:]
                                     where_statements.append(table.c.pk.in_(compile_query(params['collection'],{tail : value})))
-                            print "Broke!"
                             break
                     else:
                         raise AttributeError("Query over non-indexed field %s!" % key)

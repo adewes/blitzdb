@@ -45,7 +45,7 @@ class DotEncoder(object):
     @classmethod
     def decode(cls,obj):
         if isinstance(obj,dict):
-            return dict([(key.replace(cls.DOT_MAGIC_VALUE, "."), value) for key, value in obj.items()])
+            return {key.replace(cls.DOT_MAGIC_VALUE, "."): value for key, value in obj.items()}
         return obj
 
 class ComplexEncoder(object):
@@ -311,6 +311,7 @@ class Backend(object):
             output_obj = list(map(lambda x: self.deserialize(x), obj))
         else:
             output_obj = obj
+
         return output_obj
 
     def create_instance(self, collection_or_class, attributes, lazy=False):

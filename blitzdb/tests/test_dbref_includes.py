@@ -20,7 +20,8 @@ def test_nested_value(backend):
     backend.commit()
 
     recovered_actor = backend.get(Actor,{'pk' : actor.pk})
-
+    print backend
+    print recovered_actor.movies[0],"<<<<"
     assert recovered_actor.movies[0]._lazy
     assert set(recovered_actor.movies[0].lazy_attributes.keys()) == set(['pk','actor_name'])
 

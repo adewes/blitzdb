@@ -158,7 +158,6 @@ def in_query(expression):
 
     return _in
 
-
 def compile_query(query):
     """Compile each expression in query recursively."""
     if isinstance(query, dict):

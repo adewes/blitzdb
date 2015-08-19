@@ -38,7 +38,7 @@ class QuerySet(BaseQuerySet):
     def deserialize(self, data):
         if self._raw:
             return dict(data)
-        deserialized_attributes = self.backend.deserialize(data)
+        deserialized_attributes = self.backend.deserialize(dict(data))
         return self.backend.create_instance(self.cls, deserialized_attributes)
 
     def sort(self, columns):
@@ -111,22 +111,6 @@ class QuerySet(BaseQuerySet):
         if self.order_bys:
             s = s.order_by(*self.order_bys)
         return s
-
-    def intersect(self,queryset):
-        s1 = self.get_select()
-        s2 = queryset.get_select()
-        if self.intersects:
-            intersects = self.intersects[:]
-            intersects.append(s2)
-        else:
-            intersects = [s1,s2]
-
-        i = expression.intersect(*intersects)
-
-        qs = QuerySet(backend = self.backend,table = self.table,
-                      connection = self.connection,
-                      select = i,intersects = intersects)
-        return qs
 
     def __len__(self):
         if self.count is None:

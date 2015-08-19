@@ -248,12 +248,14 @@ class Backend(BaseBackend):
 
         """
         if params:
-            return self.create_indexes(cls_or_collection, [params], ephemeral=ephemeral, unique=unique)
+            return self.create_indexes(cls_or_collection, [params],
+                                       ephemeral=ephemeral, unique=unique)
         elif fields:
             params = []
             if len(fields.items()) > 1:
                 raise ValueError("File backend currently does not support multi-key indexes, sorry :/")
-            return self.create_indexes(cls_or_collection, [{'key': list(fields.keys())[0]}], ephemeral=ephemeral, unique=unique)
+            return self.create_indexes(cls_or_collection, [{'key': list(fields.keys())[0]}],
+                                       ephemeral=ephemeral, unique=unique)
         else:
             raise AttributeError('You must either specify params or fields!')
 
@@ -392,7 +394,9 @@ class Backend(BaseBackend):
             else:
                 index_store = self.get_index_store(collection, params['id'])
 
-            index = self.IndexClass(params, serializer=lambda x: self.serialize(x, autosave=False), deserializer=lambda x: self.deserialize(x), store=index_store, unique=unique)
+            index = self.IndexClass(params, serializer=lambda x: self.serialize(x, autosave=False),
+                                    deserializer=lambda x: self.deserialize(x),
+                                    store=index_store, unique=unique)
             self.indexes[collection][params['key']] = index
 
             if collection not in self._config['indexes']:

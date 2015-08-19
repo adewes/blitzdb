@@ -1,2 +1,2 @@
 from .backend import Backend
-from .relations import ManyToMany,ForeignKey
+from .relations import ManyToManyField,ListField
