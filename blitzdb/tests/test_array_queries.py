@@ -24,9 +24,6 @@ def test_array_queries(backend):
 
     backend.commit()
 
-    if isinstance(backend,MongoBackend):
-        print list(backend.filter(Actor,{},raw = True))
-
     result = backend.filter(Actor,{'movies.pk' : the_godfather.pk})
 
     assert len(result) == 2

@@ -103,18 +103,19 @@ class BaseDocument(object):
     class Meta:
 
         primary_key = "pk"
-
         indexes = {}
 
     def __init__(self, attributes=None, lazy=False, backend=None, autoload=True):
         """
-        Initializes a document instance with the given attributes. If `lazy = True`, a *lazy* document
-        will be created, which means that the attributes of the document will be loaded from the database
-        only if they are requested. Lazy loading requires that the `backend` variable is set.
+        Initializes a document instance with the given attributes. If `lazy = True`, a *lazy* 
+        document will be created, which means that the attributes of the document will be loaded 
+        from the database only if they are requested. Lazy loading requires that the `backend` 
+        variable is set.
 
         :param attributes: the attributes of the document instance.
 
-        :param lazy: specifies if the document is *lazy*, i.e. if it should be loaded on demand when its attributes get accessed for the first time.
+        :param lazy: specifies if the document is *lazy*, i.e. if it should be loaded on demand 
+                     when its attributes get accessed for the first time.
 
         :param backend: the backend for use in the `save`, `delete` and `revert` functions.
 
@@ -215,11 +216,8 @@ class BaseDocument(object):
                 raise AttributeError(key)
 
     def __setattr__(self, key, value):
-        if key.startswith('_'):
+        if key.startswith('_') or key in ('attributes','pk'):
             return super(BaseDocument, self).__setattr__(key, value)
-        elif key == 'pk':
-            # this is ugly, should find a better solution for handling properties...
-            super(BaseDocument, self).__setattr__(key, value)
         else:
             self.attributes[key] = value
 
@@ -244,7 +242,9 @@ class BaseDocument(object):
         return d
 
     def __deepcopy__(self, memo):
-        d = self.__class__(copy.deepcopy(self.attributes, memo), lazy=self._lazy, backend =self._backend)
+        d = self.__class__(copy.deepcopy(self.attributes, memo), 
+                           lazy=self._lazy,
+                           backend =self._backend)
         return d
 
     def __hash__(self):
@@ -275,7 +275,8 @@ class BaseDocument(object):
         return False
 
     def __unicode__(self):
-        return self.__class__.__name__ + "({%s : '%s'},lazy = %s)" % (self.get_pk_name(), self.pk, self._lazy)
+        return self.__class__.__name__ + "({%s : '%s'},lazy = %s)" % (self.get_pk_name(),
+                                                                      self.pk, self._lazy)
 
     if six.PY3:
         __str__ = __unicode__
@@ -325,7 +326,8 @@ class BaseDocument(object):
         """
         Autogenerates a primary key for this document. This function gets called by the backend
         if you save a document without a primary key field. By default, it uses `uuid.uuid4().hex`
-        to generate a (statistically) unique primary key for the object (`more about UUIDs <http://docs.python.org/2/library/uuid.html/>`_). 
+        to generate a (statistically) unique primary key for the object (`more about UUIDs 
+        <http://docs.python.org/2/library/uuid.html/>`_). 
         If you want to define your own primary key generation mechanism, just redefine this function
         in your document class.
         """
@@ -370,10 +372,14 @@ class BaseDocument(object):
     @property
     def attributes(self):
         """
-        Returns a reference to the attributes of the document. The attributes are the *"unique source of truth"*
-        about the state of a document.
+        Returns a reference to the attributes of the document. The attributes are the 
+        *"unique source of truth"* about the state of a document.
         """
         return self._attributes
+
+    @attributes.setter
+    def attributes(self,value):
+        self._attributes = value
 
     @property
     def backend(self):
@@ -385,9 +391,9 @@ class BaseDocument(object):
 
     def save(self, backend=None):
         """
-        Saves a document to the database. If the `backend` argument is not specified, the function resorts
-        to the *default backend* as defined during object instantiation. If no such backend is defined, an
-        `AttributeError` exception will be thrown.
+        Saves a document to the database. If the `backend` argument is not specified, 
+        the function resorts to the *default backend* as defined during object instantiation. 
+        If no such backend is defined, an `AttributeError` exception will be thrown.
 
         :param backend: the backend in which to store the document.
 
@@ -400,9 +406,9 @@ class BaseDocument(object):
 
     def delete(self, backend=None):
         """
-        Deletes a document from the database. If the `backend` argument is not specified, the function resorts
-        to the *default backend* as defined during object instantiation. If no such backend is defined, an
-        `AttributeError` exception will be thrown.
+        Deletes a document from the database. If the `backend` argument is not specified,
+        the function resorts to the *default backend* as defined during object instantiation.
+        If no such backend is defined, an `AttributeError` exception will be thrown.
 
         :param backend: the backend from which to delete the document.
 

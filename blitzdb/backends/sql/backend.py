@@ -9,7 +9,7 @@ from ..base import Backend as BaseBackend
 from ..base import NotInTransaction,DoNotSerialize
 from ..file.serializers import JsonSerializer
 from .queryset import QuerySet
-from .relations import ListField,ManyToManyField
+from .relations import ListProxy,ManyToManyProxy
 
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.schema import MetaData,Table,Column,ForeignKey,UniqueConstraint
@@ -94,6 +94,10 @@ class Backend(BaseBackend):
 
         self.begin()
 
+    @property
+    def connection(self):
+        return self._conn
+
     def init_schema(self):
 
         self._metadata = MetaData()
@@ -140,14 +144,16 @@ class Backend(BaseBackend):
                     field_name = relation['field']
                     self._excluded_fields[collection][field_name] = True
                     related_collection = self.get_collection_for_cls_name(relation['related'])
+                    related_class = self.get_cls_for_collection(related_collection)
                     if 'qualifier' in relation:
                         relationship_name = "%s_%s_%s" % (collection,related_collection,relation['qualifier'])
                     else:
                         relationship_name = "%s_%s" % (collection,related_collection)
                     if relation['type'] == 'ManyToMany':
-                        self._related_fields[collection][field_name] = {'opts' : relation,
-                                                                        'collection' : related_collection,
-                                                                        }
+                        params = {'opts' : relation,
+                                  'collection' : related_collection,
+                                  'class' : related_class
+                                 }
                         if isinstance(relation['related'],(list,tuple)):
                             raise AttributeError("Currently not supported!")
                             #this is a relation to multiple collections
@@ -163,16 +169,20 @@ class Backend(BaseBackend):
                                 extra_columns = [
                                     UniqueConstraint('pk_%s' % related_collection,'pk_%s' % collection)
                                     ]
-                            self._relationship_tables[collection][field_name] = Table('%s%s' % (relationship_name,self.table_postfix),self._metadata,
+                            relationship_table = Table('%s%s' % (relationship_name,self.table_postfix),self._metadata,
                                     Column('pk_%s' % related_collection,self.Meta.PkType,ForeignKey('%s%s.pk' % (related_collection,self.table_postfix)),index = True),
                                     Column('pk_%s' % collection,self.Meta.PkType,ForeignKey('%s%s.pk' % (collection,self.table_postfix)),index = True),
                                     *extra_columns
                                 )
+                            params['relationship_table'] = relationship_table
+                            self._relationship_tables[collection][field_name] = relationship_table
+                        self._related_fields[collection][field_name] = params
                     elif relation['type'] == 'ForeignKey':
                         column_name = relation['field'].replace('.','_')
                         self._related_fields[collection][field_name] = {'opts' : relation,
                                                                         'column' : column_name,
                                                                         'collection' : related_collection,
+                                                                        'class' : related_class
                                                                         }
                         index_columns.append(
                             Column(column_name,self.Meta.PkType,ForeignKey('%s%s.pk' %(related_collection,self.table_postfix)),index=True,nullable = True if 'nullable' in relation and relation['nullable'] else False)
@@ -186,10 +196,13 @@ class Backend(BaseBackend):
                     *index_columns
                 )
 
+    def get_collection_table(self,collection):
+        return self._collection_tables[collection]
+
     def begin(self):
         if self._transaction:
             self.commit()
-        self._transaction = self._conn.begin()
+        self._transaction = self.connection.begin()
 
     def commit(self):
         self._transaction.commit()
@@ -202,7 +215,7 @@ class Backend(BaseBackend):
         self.begin()
 
     def close_connection(self):
-        return self._conn.close()
+        return self.connection.close()
 
     def create_schema(self,indexes = None):
         self.init_schema()
@@ -248,14 +261,14 @@ class Backend(BaseBackend):
                         #to do: check if this is a RelatedList
                         table = self._index_tables[collection][index_field]
                         delete = table.delete().where(table.c['pk'] == expression.cast(obj.pk,self.Meta.PkType))
-                        self._conn.execute(delete)
+                        self.connection.execute(delete)
                         for element in value:
                             ed = {
                                 'pk' : expression.cast(obj.pk,self.Meta.PkType),
                                 index_params['column'] : expression.cast(element,index_params['opts']['type']),
                             }
                             insert = table.insert().values(**ed)
-                            self._conn.execute(insert)
+                            self.connection.execute(insert)
                     else:
                         if value is None:
                             if not 'nullable' in index_params['opts'] or not index_params['opts']['nullable']:
@@ -275,9 +288,8 @@ class Backend(BaseBackend):
                     value = _get_value(obj,related_field)
                     if relation_params['opts']['type'] == 'ManyToMany':
                         relationship_table = self._relationship_tables[collection][related_field]
-                        #implement this...
                         delete = relationship_table.delete().where(relationship_table.c['pk_%s' % collection] == expression.cast(obj.pk,self.Meta.PkType))
-                        self._conn.execute(delete)
+                        self.connection.execute(delete)
                         for element in value:
                             if not isinstance(element,Document):
                                 raise AttributeError("ManyToMany field %s contains an invalid value!" % related_field)
@@ -291,7 +303,7 @@ class Backend(BaseBackend):
                                 'pk_%s' % relation_params['collection'] : element.pk,
                             }
                             insert = relationship_table.insert().values(**ed)
-                            self._conn.execute(insert)
+                            self.connection.execute(insert)
                     elif relation_params['opts']['type'] == 'ForeignKey':
                         if not isinstance(value,Document):
                             raise AttributeError("Field %s must be a document!" % related_field)
@@ -321,13 +333,13 @@ class Backend(BaseBackend):
         if not insert:
             try:
                 update = self._collection_tables[collection].update().values(**d).where(table.c.pk == obj.pk)
-                self._conn.execute(update)
+                self.connection.execute(update)
             except:
                 #this document does not exist in the DB yet, we try to insert it instead...
                 insert = True
         if insert:
             insert = self._collection_tables[collection].insert().values(**d)
-            self._conn.execute(insert)
+            self.connection.execute(insert)
 
         return obj
 
@@ -335,22 +347,44 @@ class Backend(BaseBackend):
         """
         Serialization strategy:
         """
-
         return super(Backend, self).serialize(obj,
                                               convert_keys_to_str=convert_keys_to_str, 
                                               embed_level=embed_level,
                                               **kwargs)
 
-    def create_instance(self, *args, **kwargs):
-        obj = super(Backend,self).create_instance(*args, **kwargs)
-        collection = self.get_collection_for_obj(obj)
-        print obj.attributes
-        for field_name,params in self._list_indexes[collection].items():
-            _set_value(obj,field_name,ListField(self,obj,field_name,params))
-        for field_name,params in self._related_fields[collection].items():
-            print obj,"<<<",obj['movies']
-            _set_value(obj,field_name,ManyToManyField(self,obj,field_name,params))
+    def create_instance(self, collection_or_class,attributes, lazy = False):
+        data = attributes.get('data',{})
+        for key,value in attributes.items():
+            if key == 'data':
+                continue
+            data[key] = value
+        if isinstance(collection_or_class,six.string_types):
+            collection = collection_or_class
+        else:
+            collection = self.get_collection_for_cls(collection_or_class)
 
+        #we create the object first
+        obj = super(Backend,self).create_instance(collection_or_class, data,lazy)
+
+        #now we update the data dictionary with foreign key fields...
+        for field_name,params in self._list_indexes[collection].items():
+            _set_value(data,field_name,ListProxy(obj,field_name,params))
+        for field_name,params in self._related_fields[collection].items():
+            if params['opts']['type'] == 'ManyToMany':
+                _set_value(data,field_name,ManyToManyProxy(obj,field_name,params))
+            elif params['opts']['type'] == 'ForeignKey':
+                try:
+                    foreign_pk = _get_value(attributes,field_name)
+                except KeyError:
+                    continue
+                if foreign_pk:
+                    foreign_obj = self.create_instance(params['class'],{'pk' : foreign_pk},lazy = True)
+                else:
+                    foreign_obj = None
+                _set_value(data,field_name,foreign_obj)
+        #we update the attributes of the object
+        obj.attributes = data
+        return obj
 
     def deserialize(self, obj, encoders=None):
         return super(Backend, self).deserialize(obj,encoders = encoders)
@@ -496,10 +530,6 @@ class Backend(BaseBackend):
                 for field_name,params in self._index_fields[collection].items():
                     if key == field_name:
                         #this is a list-indexed field
-                        """
-                        WHERE ...
-                            LEFT JOIN [...] ON [...]
-                        """
                         if 'list' in params['opts'] and params['opts']['list']:
                             index_table = self._index_tables[collection][field_name]
                             if isinstance(value,dict):
@@ -611,5 +641,4 @@ class Backend(BaseBackend):
         else:
             compiled_query = None
 
-        return QuerySet(backend = self, table = table,cls = cls,connection = self._conn,
-                        condition = compiled_query)
+        return QuerySet(backend = self, table = table,cls = cls,condition = compiled_query)

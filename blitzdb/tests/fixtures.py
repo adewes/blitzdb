@@ -101,11 +101,14 @@ def _backend(request, temporary_path, autoload_embedded=True):
     We test all query operations on a variety of backends.
     """
     if request.param == 'file_json':
-        return _file_backend(request, temporary_path, {'serializer_class': 'json'}, autoload_embedded=autoload_embedded)
+        return _file_backend(request, temporary_path, {'serializer_class': 'json'},
+                             autoload_embedded=autoload_embedded)
     elif request.param == 'file_marshal':
-        return _file_backend(request, temporary_path, {'serializer_class': 'marshal'}, autoload_embedded=autoload_embedded)
+        return _file_backend(request, temporary_path, {'serializer_class': 'marshal'},
+                             autoload_embedded=autoload_embedded)
     elif request.param == 'file_pickle':
-        return _file_backend(request, temporary_path, {'serializer_class': 'pickle'}, autoload_embedded=autoload_embedded)
+        return _file_backend(request, temporary_path, {'serializer_class': 'pickle'},
+                             autoload_embedded=autoload_embedded)
     elif request.param == 'mongo':
         return _mongodb_backend(request, {}, autoload_embedded=autoload_embedded)
     elif request.param == 'sql':
@@ -127,7 +130,9 @@ def _sql_backend(request,config):
     return backend
 
 def _file_backend(request, temporary_path, config, autoload_embedded=True):
-    backend = FileBackend(path=temporary_path, config=config, overwrite_config=True, autoload_embedded=autoload_embedded)
+    backend = FileBackend(path=temporary_path, config=config,
+                          overwrite_config=True,
+                          autoload_embedded=autoload_embedded)
     _init_indexes(backend)
     return backend
 

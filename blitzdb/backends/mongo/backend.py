@@ -271,8 +271,7 @@ class Backend(BaseBackend):
                                               for_query=for_query)
 
     def deserialize(self, obj, encoders=None):
-        return super(Backend, self).deserialize(obj, 
-                                                encoders = encoders)
+        return super(Backend, self).deserialize(obj, encoders = encoders)
 
     def create_indexes(self, cls_or_collection, params_list):
         for params in params_list:
@@ -321,9 +320,9 @@ class Backend(BaseBackend):
                 nq = {}
                 for key,value in q.items():
                     new_key = key
-                    if isinstance(value,dict) and len(value) == 1 and value.keys()[0].startswith('$'):
-                        if value.keys()[0] in ('$all','$in'):
-                            if value.values()[0] and isinstance(value.values()[0][0],Document):
+                    if isinstance(value,dict) and len(value) == 1 and list(value.keys())[0].startswith('$'):
+                        if list(value.keys())[0] in ('$all','$in'):
+                            if list(value.values())[0] and isinstance(list(value.values())[0][0],Document):
                                 if self._use_pk_based_refs:
                                     new_key+='.pk'
                                 else:

@@ -6,6 +6,7 @@ from blitzdb.queryset import QuerySet as BaseQuerySet
 from functools import wraps
 from sqlalchemy.sql import select,func,expression,delete
 from sqlalchemy.sql.expression import join,asc,desc
+from ..file.serializers import JsonSerializer
 
 class ASCENDING:
     pass
@@ -15,7 +16,7 @@ class DESCENDING:
 
 class QuerySet(BaseQuerySet):
 
-    def __init__(self, backend, table, connection,cls,
+    def __init__(self, backend, table, cls,
                  condition = None,select = None,intersects = None,raw = False,joins = None
                  ):
         super(QuerySet,self).__init__(backend = backend,cls = cls)
@@ -25,7 +26,6 @@ class QuerySet(BaseQuerySet):
         self.condition = condition
         self.select = select
         self.cls = cls
-        self.connection = connection
         self.table = table
         self._raw = raw
         self.count = None
@@ -36,9 +36,12 @@ class QuerySet(BaseQuerySet):
         self.pop_objects = None
 
     def deserialize(self, data):
+        d = dict(data).copy()
+        if 'data' in d:
+            d['data'] = JsonSerializer.deserialize(d['data'])
         if self._raw:
-            return dict(data)
-        deserialized_attributes = self.backend.deserialize(dict(data))
+            return d
+        deserialized_attributes = self.backend.deserialize(d)
         return self.backend.create_instance(self.cls, deserialized_attributes)
 
     def sort(self, columns):
@@ -63,7 +66,7 @@ class QuerySet(BaseQuerySet):
     def get_objects(self):
         s = self.get_select()
         try:
-            self.objects = self.connection.execute(s).fetchall()
+            self.objects = self.backend.connection.execute(s).fetchall()
         except sqlalchemy.exc.ResourceClosedError:
             self.objects = []
         self.pop_objects = self.objects[:]
@@ -96,7 +99,7 @@ class QuerySet(BaseQuerySet):
             delete_stmt = self.table.delete().where(self.table.c.pk.in_(self.select.select_from([self.table.c.pk])))
         else:
             delete_stmt = self.table.delete()
-        self.connection.execute(delete_stmt)
+        self.backend.connection.execute(delete_stmt)
 
     def get_select(self,fields = None):
         if fields is None:
@@ -106,8 +109,7 @@ class QuerySet(BaseQuerySet):
         else:
             s = select(fields)
         if self.joins:
-            for j in self.joins:
-                s = s.select_from(join(self.table,*j))
+            s = s.select_from(join(self.table,*self.joins))
         if self.order_bys:
             s = s.order_by(*self.order_bys)
         return s
@@ -115,10 +117,9 @@ class QuerySet(BaseQuerySet):
     def __len__(self):
         if self.count is None:
             s = self.get_select(fields = [func.count(self.table.c.pk)])
-            result = self.connection.execute(s)
+            result = self.backend.connection.execute(s)
             self.count = result.first()[0]
             result.close()
-            print "Done",self.count
         return self.count
         
     def __ne__(self, other):

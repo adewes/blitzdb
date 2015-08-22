@@ -1,29 +1,70 @@
+from sqlalchemy.sql import select,func,expression,delete
+from sqlalchemy.sql.expression import join,asc,desc
+from .queryset import QuerySet
 
-
-class ManyToManyField(object):
+class ManyToManyProxy(object):
 
     """
-    The ManyToManyProxy should support the following operations:
+    The ManyToManyProxy transparently handles n:m relationships among different object types.
+    It automatically retrieves related documents from the database and initializes them.
 
-    - Retrieve related documents from the database
-    - Append new documents to the relation
-    - Remove documents from the relation
+    From the outside, the behavior corresponds to that of a normal Python list to which we
+    can append
+
+    Open questions:
+
+    * What happens if we copy a ManyToManyProxy to another object?
+      Answer:
+        The objects should be updated accordingly when the object gets saved to the database.
+
+    :param        obj:
+    :param field_name:
+    :param     params:
+
+    example::
+
+        foo = bar
+
     """
 
-    def __init__(self,backend,obj,field_name,params):
-        self.backend = backend
+    def __init__(self,obj,field_name,params):
+        """
+        - Get the related class
+        - Create a query that will retrieve related objects according to our criteria
+          (either all elements of filtered by some key)
+        - When requesting objects, use a QuerySet to retrieve it from the database.
+        - When inserting/deleting objects, perform an INSERT against the database and
+          invalidate the QuerySet object that we use to retrieve objects.
+        """
         self.obj = obj
         self.field_name = field_name
         self.params = params
+        self._queryset = None
 
     def __getitem__(self,item):
-        raise NotImplementedError
+        queryset = self.get_queryset()
+        return queryset[item]
 
     def __setitem__(self,item,value):
         raise NotImplementedError
 
     def __delitem__(self,item):
         raise NotImplementedError
+
+    def get_queryset(self):
+        if not self._queryset:
+            relationship_table = self.params['relationship_table']
+            foreign_table = self.obj.backend.get_collection_table(self.params['collection'])
+            collection = self.obj.backend.get_collection_for_obj(self.obj)
+            condition = relationship_table.c['pk_%s' % collection] \
+                == expression.cast(self.obj.pk,self.obj.backend.Meta.PkType)
+            self._queryset = QuerySet(backend = self.obj.backend,
+                                      table = foreign_table,
+                                      cls = self.params['class'],
+                                      joins = [relationship_table],
+                                      condition = condition)
+        return self._queryset
+
 
     def append(self,obj):
         raise NotImplementedError
@@ -52,7 +93,7 @@ class ManyToManyField(object):
     def reverse(self,obj):
         raise NotImplementedError
 
-class ListField(object):
+class ListProxy(object):
 
     """
     Manages a related list of (non-document) objects of uniform type, such as tags.
@@ -65,8 +106,7 @@ class ListField(object):
 
     """
 
-    def __init__(self,backend,obj,field_name,params):
-        self.backend = backend
+    def __init__(self,obj,field_name,params):
         self.obj = obj
         self.field_name = field_name
         self.params = params
