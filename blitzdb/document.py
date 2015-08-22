@@ -155,14 +155,16 @@ class BaseDocument(object):
         """
         try:
             lazy = super(BaseDocument, self).__getattribute__('_lazy')
+            autoload = super(BaseDocument, self).__getattribute__('_autoload')
         except AttributeError:
             lazy = False
+            autoload = False
         if lazy:
             if key == 'lazy_attributes':
                 return super(BaseDocument, self).__getattribute__('_attributes')
             # If we demand the attributes, we load the object from the DB in any case.
             if key in ('attributes',):
-                if self._autoload:
+                if autoload:
                     self.revert()
                     self._lazy = False
                 else:
@@ -173,7 +175,7 @@ class BaseDocument(object):
                 pass
             if key in self.lazy_attributes:
                 return self.lazy_attributes[key]
-            elif self._autoload:
+            elif autoload:
                 self.revert()
                 self._lazy = False
         return super(BaseDocument,self).__getattribute__(key)
