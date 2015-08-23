@@ -30,6 +30,14 @@ def filter_query(key, expression):
             and len(expression) == 1
             and list(expression.keys())[0].startswith('$')):
         compiled_expression = compile_query(expression)
+    elif callable(expression):
+        def _filter(index, expression=expression):
+            result = [store_key
+                      for value, store_keys in index.get_index().items()
+                      if expression(value)
+                      for store_key in store_keys]
+            return result
+        compiled_expression = _filter
     else:
         compiled_expression = expression
 
