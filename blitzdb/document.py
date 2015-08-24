@@ -2,6 +2,7 @@ import copy
 import uuid
 
 from blitzdb.fields.base import BaseField
+from blitzdb.fields import CharField
 
 import logging
 
@@ -52,16 +53,16 @@ class MetaDocument(type):
 
         if class_type in document_classes:
             document_classes.remove(class_type)
-        if name == 'Document' and bases == (BaseDocument,):
+        if name == 'Document' and bases == (object,):
             pass
-        else:
+        elif not (hasattr(class_type.Meta,'autoregister') and class_type.Meta.autoregister == False):
             document_classes.append(class_type)
 
         return class_type
 
 document_classes = []
 
-class BaseDocument(object):
+class Document(object):
 
     __metaclass__ = MetaDocument
 
@@ -121,6 +122,7 @@ class BaseDocument(object):
 
     class Meta:
 
+        PkType = CharField()
         primary_key = "pk"
         indexes = {}
 
@@ -156,7 +158,7 @@ class BaseDocument(object):
 
     def __getitem__(self,key):
         try:
-            lazy = super(BaseDocument,self).__getattribute__('_lazy')
+            lazy = super(Document,self).__getattribute__('_lazy')
         except AttributeError:
             lazy = False
         if lazy:
@@ -174,23 +176,23 @@ class BaseDocument(object):
         after doing so.
         """
         try:
-            lazy = super(BaseDocument, self).__getattribute__('_lazy')
-            autoload = super(BaseDocument, self).__getattribute__('_autoload')
+            lazy = super(Document, self).__getattribute__('_lazy')
+            autoload = super(Document, self).__getattribute__('_autoload')
         except AttributeError:
             lazy = False
             autoload = False
         if lazy:
             if key == 'lazy_attributes':
-                return super(BaseDocument, self).__getattribute__('_attributes')
+                return super(Document, self).__getattribute__('_attributes')
             # If we demand the attributes, we load the object from the DB in any case.
             if key in ('attributes',):
                 if autoload:
                     self.revert()
                     self._lazy = False
                 else:
-                    return super(BaseDocument, self).__getattribute__('_attributes')
+                    return super(Document, self).__getattribute__('_attributes')
             try:
-                return super(BaseDocument, self).__getattribute__(key)
+                return super(Document, self).__getattribute__(key)
             except AttributeError:
                 pass
             if key in self.lazy_attributes:
@@ -198,7 +200,7 @@ class BaseDocument(object):
             elif autoload:
                 self.revert()
                 self._lazy = False
-        return super(BaseDocument,self).__getattribute__(key)
+        return super(Document,self).__getattribute__(key)
 
     def get(self,key,default = None):
         return self[key] if key in self else default
@@ -227,7 +229,7 @@ class BaseDocument(object):
 
     def __getattr__(self, key):
         try:
-            super(BaseDocument, self).__getattr__(key)
+            super(Document, self).__getattr__(key)
         except AttributeError:
             try:
                 return self.attributes[key]
@@ -236,13 +238,13 @@ class BaseDocument(object):
 
     def __setattr__(self, key, value):
         if key.startswith('_') or key in ('attributes','pk'):
-            return super(BaseDocument, self).__setattr__(key, value)
+            return super(Document, self).__setattr__(key, value)
         else:
             self.attributes[key] = value
 
     def __delattr__(self, key):
         if key.startswith('_'):
-            return super(BaseDocument, self).__delattr__(key)
+            return super(Document, self).__delattr__(key)
         try:
             del self.attributes[key]
         except KeyError:
@@ -465,11 +467,11 @@ class BaseDocument(object):
 
     def load_if_lazy(self):
         try:
-            lazy = super(BaseDocument, self).__getattribute__('_lazy')
+            lazy = super(Document, self).__getattribute__('_lazy')
         except AttributeError:
             lazy = False
         if lazy:
             self._lazy = False
             self.revert()
 
-Document = MetaDocument('Document', (BaseDocument,), {})
+#Document = MetaDocument('Document', (Document,), {})

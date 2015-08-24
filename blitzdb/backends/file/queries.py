@@ -111,7 +111,6 @@ def all_query(expression):
     def _all(index, expression=expression):
         """Return store key for documents that satisfy expression."""
         ev = expression() if callable(expression) else expression
-        print(ev),index.key
         try:
             iter(ev)
         except TypeError:

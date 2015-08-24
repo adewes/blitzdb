@@ -194,10 +194,6 @@ def test_list_query_multiple_items(backend, small_test_data):
         i += 1
 
     assert len(backend.filter(Actor, {'movies': {'$all' : actor.movies}}))
-
-    print(backend.filter(Actor, {'movies': {'$all' : actor.movies}})[0])
-    print(actor)
-
     assert actor in backend.filter(Actor, {'movies': {'$all' : actor.movies}})
 
 

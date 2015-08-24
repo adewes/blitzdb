@@ -4,7 +4,6 @@ from .fixtures import *
 
 from blitzdb.tests.helpers.movie_data import Actor, Movie
 
-
 def test_nested_value(backend):
 
     actor = Actor({'name' : 'Robert de Niro'})

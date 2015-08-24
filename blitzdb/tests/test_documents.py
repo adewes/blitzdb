@@ -169,7 +169,7 @@ def test_different_primary_key_names():
 
     class MyDocument(Document):
 
-        class Meta:
+        class Meta(Document.Meta):
             primary_key = 'foobar'
 
     doc = MyDocument({'foo': 'bar', 'foobar': 1})
@@ -183,7 +183,7 @@ def test_delete():
 
     class MyDocument(Document):
 
-        class Meta:
+        class Meta(Document.Meta):
             primary_key = 'foobar'
 
     doc = MyDocument({'foo': 'bar', 'foobar': 1})

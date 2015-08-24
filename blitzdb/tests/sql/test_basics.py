@@ -8,18 +8,24 @@ from blitzdb import Document
 from sqlalchemy import create_engine
 from sqlalchemy.types import String
 
-@pytest.fixture(scope="function")
-def backend():
-
-    engine = create_engine('sqlite:///:memory:', echo=True)
-    return Backend(engine = engine)
-
 class MyMovie(Movie):
 
     best_actor = ForeignKeyField(Actor)
 
+@pytest.fixture(scope="function")
+def backend():
+
+    engine = create_engine('sqlite:///:memory:', echo=False)
+    backend = Backend(engine = engine,autodiscover_classes = False)
+    backend.register(MyMovie)
+    backend.register(Actor)
+    backend.register(Director)
+    backend.register(Movie)
+    return backend
+
 def test_multiple_joins(backend):
 
+    backend.init_schema()
     backend.create_schema()
 
     francis_coppola = Director({'name' : 'Francis Coppola'})
@@ -35,9 +41,17 @@ def test_multiple_joins(backend):
     assert len(result) == 1
     assert the_godfather in result
 
+    result = backend.filter(MyMovie,{'director.name' : {'$in' : [francis_coppola.name,'Al Pacino']}})
+    assert len(result) == 1
+    assert the_godfather in result
+
+    result = backend.filter(MyMovie,{'director.name' : {'$in' : []}})
+    assert len(result) == 0
+
 
 def test_basics(backend):
 
+    backend.init_schema()
     backend.create_schema()
 
     francis_coppola = Director({'name' : 'Francis Coppola'})

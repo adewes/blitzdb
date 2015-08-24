@@ -22,7 +22,6 @@ class MyDocument(Document):
 def test_pre_save_hook(backend, small_test_data):
 
     my_document = MyDocument({'test': 123})
-
     backend.save(my_document)
 
     assert hasattr(my_document, 'foo')

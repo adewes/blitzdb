@@ -57,11 +57,11 @@ class ManyToManyProxy(object):
             foreign_table = self.obj.backend.get_collection_table(self.params['collection'])
             collection = self.obj.backend.get_collection_for_obj(self.obj)
             condition = relationship_table.c['pk_%s' % collection] \
-                == expression.cast(self.obj.pk,self.obj.backend.Meta.PkType)
+                == expression.cast(self.obj.pk,self.params['type'])
             self._queryset = QuerySet(backend = self.obj.backend,
                                       table = foreign_table,
                                       cls = self.params['class'],
-                                      joins = [relationship_table],
+                                      joins = [(relationship_table,)],
                                       condition = condition)
         return self._queryset
 

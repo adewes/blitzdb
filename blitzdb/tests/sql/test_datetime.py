@@ -10,13 +10,18 @@ from sqlalchemy.types import String
 
 class Actor(Document):
 
+    class Meta(Document.Meta):
+        autoregister = False
+
     created_at = DateTimeField(auto_now_add = True,indexed = True)
 
 @pytest.fixture(scope="function")
 def backend():
 
     engine = create_engine('sqlite:///:memory:', echo=True)
-    return Backend(engine = engine)
+    backend = Backend(engine = engine,autodiscover_classes = False)
+    backend.register(Actor)
+    return backend
 
 def test_basics(backend):
 

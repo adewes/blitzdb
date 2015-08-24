@@ -96,8 +96,7 @@ class Backend(BaseBackend):
     """
 
     class Meta(BaseBackend.Meta):
-
-        PkType = VARCHAR(64)
+        pass
 
     def __init__(self, engine, table_postfix = '',create_schema = False,**kwargs):
         super(Backend, self).__init__(**kwargs)
@@ -130,7 +129,7 @@ class Backend(BaseBackend):
         m = {
             IntegerField : Integer,
             FloatField : Float,
-            CharField : VARCHAR,
+            CharField : VARCHAR(60),
             TextField : Text,
             BooleanField: Boolean,
             BinaryField: LargeBinary,
@@ -144,7 +143,14 @@ class Backend(BaseBackend):
 
     def init_schema(self):
 
-        def add_foreign_key_field(collection,key,field):
+        self._index_tables = defaultdict(dict)
+        self._relationship_tables = defaultdict(dict)
+        self._index_fields = defaultdict(dict)
+        self._list_indexes = defaultdict(dict)
+        self._related_fields = defaultdict(dict)
+        self._excluded_fields = defaultdict(dict)
+
+        def add_foreign_key_field(collection,cls,key,field):
             field_name = key
             column_name = key.replace('.','_')
             self._excluded_fields[collection][field_name] = True
@@ -154,16 +160,17 @@ class Backend(BaseBackend):
                 related_collection = self.get_collection_for_cls(field.related)
             related_class = self.get_cls_for_collection(related_collection)
 
-            column = Column(column_name,self.Meta.PkType,ForeignKey('%s%s.pk' % (related_collection,self.table_postfix)),index=True,nullable = True if field.nullable else False)
+            column = Column(column_name,self.get_field_type(related_class.Meta.PkType),ForeignKey('%s%s.pk' % (related_collection,self.table_postfix)),index=True,nullable = True if field.nullable else False)
             self._related_fields[collection][field_name] = {'field' : field,
                                                             'key' : key,
                                                             'column' : column_name,
                                                             'collection' : related_collection,
-                                                            'class' : related_class
+                                                            'class' : related_class,
+                                                            'type' : self.get_field_type(related_class.Meta.PkType)
                                                             }
             return column
 
-        def add_many_to_many_field(collection,key,field):
+        def add_many_to_many_field(collection,cls,key,field):
 
             if isinstance(field.related,(list,tuple)):
                 raise AttributeError("Currently not supported!")
@@ -180,21 +187,22 @@ class Backend(BaseBackend):
             params = {'field' : field,
                       'key' : key,
                       'collection' : related_collection,
-                      'class' : related_class
+                      'class' : related_class,
+                      'type' : self.get_field_type(related_class.Meta.PkType)
                      }
             extra_columns = [
                 UniqueConstraint('pk_%s' % related_collection,'pk_%s' % collection)
                 ]
             relationship_table = Table('%s%s' % (relationship_name,self.table_postfix),self._metadata,
-                    Column('pk_%s' % related_collection,self.Meta.PkType,ForeignKey('%s%s.pk' % (related_collection,self.table_postfix)),index = True),
-                    Column('pk_%s' % collection,self.Meta.PkType,ForeignKey('%s%s.pk' % (collection,self.table_postfix)),index = True),
+                    Column('pk_%s' % related_collection,self.get_field_type(related_class.Meta.PkType),ForeignKey('%s%s.pk' % (related_collection,self.table_postfix)),index = True),
+                    Column('pk_%s' % collection,self.get_field_type(cls.Meta.PkType),ForeignKey('%s%s.pk' % (collection,self.table_postfix)),index = True),
                     *extra_columns
                 )
             params['relationship_table'] = relationship_table
             self._relationship_tables[collection][field_name] = relationship_table
             self._related_fields[collection][field_name] = params
 
-        def add_list_field(collection,key,field):
+        def add_list_field(collection,cls,key,field):
             self._excluded_fields[collection][key] = True
             column_name = key.replace('.','_')
             index_name = "%s_%s" % (collection,column_name)
@@ -204,7 +212,7 @@ class Backend(BaseBackend):
                             'type' : self.get_field_type(field.type),
                             'column' : column_name}
             self._index_tables[collection][key] = Table('%s%s' % (index_name,self.table_postfix),self._metadata,
-                    Column('pk',self.Meta.PkType,ForeignKey('%s%s.pk' % (collection,self.table_postfix)),index = True),
+                    Column('pk',self.get_field_type(cls.Meta.PkType),ForeignKey('%s%s.pk' % (collection,self.table_postfix)),index = True),
                     Column(column_name,index_params['type'],index = True),
                     UniqueConstraint('pk',key,name = 'unique_index')
                 )
@@ -226,7 +234,13 @@ class Backend(BaseBackend):
         for cls in self.classes:
             collection = self.get_collection_for_cls(cls)
 
-            extra_columns = []
+            self._index_fields[collection]['pk'] = {
+                'field' : cls.Meta.PkType,
+                'type' : self.get_field_type(cls.Meta.PkType),
+                'column' : 'pk'
+            }
+
+            extra_columns = [Column('pk',self.get_field_type(cls.Meta.PkType),primary_key = True,index = True)]
 
             meta_attributes = self.get_meta_attributes(cls)
 
@@ -234,16 +248,15 @@ class Backend(BaseBackend):
                 if not isinstance(field,BaseField):
                     raise AttributeError("Not a valid field: %s = %s" % (key,field))
                 if isinstance(field,ForeignKeyField):
-                    extra_columns.append(add_foreign_key_field(collection,key,field))
+                    extra_columns.append(add_foreign_key_field(collection,cls,key,field))
                 elif isinstance(field,ManyToManyField):
-                    add_many_to_many_field(collection,key,field)
+                    add_many_to_many_field(collection,cls,key,field)
                 elif isinstance(field,ListField):
-                    add_list_field(collection,key,field)
+                    add_list_field(collection,cls,key,field)
                 else:
                     extra_columns.append(add_field(collection,key,field))
 
             self._collection_tables[collection] = Table('%s%s' % (collection,self.table_postfix),self._metadata,
-                    Column('pk',self.Meta.PkType,primary_key = True,index = True),
                     Column('data',LargeBinary),
                     *extra_columns
                 )
@@ -313,6 +326,8 @@ class Backend(BaseBackend):
         - Store related objects in the DB
         """
 
+        pk_type = self._index_fields[collection]['pk']['type']
+
         if hasattr(obj, 'pre_save') and callable(obj.pre_save):
             obj.pre_save()
 
@@ -323,11 +338,11 @@ class Backend(BaseBackend):
                     if isinstance(index_params['field'],ListField):
                         #to do: check if this is a RelatedList
                         table = self._index_tables[collection][index_field]
-                        delete = table.delete().where(table.c['pk'] == expression.cast(obj.pk,self.Meta.PkType))
+                        delete = table.delete().where(table.c['pk'] == expression.cast(obj.pk,pk_type))
                         self.connection.execute(delete)
                         for element in value:
                             ed = {
-                                'pk' : expression.cast(obj.pk,self.Meta.PkType),
+                                'pk' : expression.cast(obj.pk,pk_type),
                                 index_params['column'] : expression.cast(element,index_params['type']),
                             }
                             insert = table.insert().values(**ed)
@@ -351,7 +366,7 @@ class Backend(BaseBackend):
                     value = _get_value(obj,related_field)
                     if isinstance(relation_params['field'],ManyToManyField):
                         relationship_table = self._relationship_tables[collection][related_field]
-                        delete = relationship_table.delete().where(relationship_table.c['pk_%s' % collection] == expression.cast(obj.pk,self.Meta.PkType))
+                        delete = relationship_table.delete().where(relationship_table.c['pk_%s' % collection] == expression.cast(obj.pk,pk_type))
                         self.connection.execute(delete)
                         for element in value:
                             if not isinstance(element,Document):
@@ -375,7 +390,7 @@ class Backend(BaseBackend):
                                 self.save(value)
                             else:
                                 raise AttributeError("Related document in field %s has no primary key!" % related_field)
-                        d[relation_params['column']] = expression.cast(value.pk,self.Meta.PkType)
+                        d[relation_params['column']] = expression.cast(value.pk,relation_params['type'])
 
                 except KeyError:
                     #this index value does not exist in the object
@@ -387,7 +402,7 @@ class Backend(BaseBackend):
             insert = True
 
         d = {'data' : JsonSerializer.serialize(self.serialize(obj.attributes)),
-             'pk' : expression.cast(obj.pk,self.Meta.PkType)}
+             'pk' : expression.cast(obj.pk,pk_type)}
 
         serialize_and_update_indexes(obj,d)
         serialize_and_update_relations(obj,d)
@@ -588,9 +603,6 @@ class Backend(BaseBackend):
 
             #this is a normal, field-base query
             for key,value in query.items():
-                if key == 'pk':
-                    where_statements.append(table.c.pk == expression.cast(value,self.Meta.PkType))
-                    continue
                 for field_name,params in self._index_fields[collection].items():
                     if key == field_name:
                         #this is a list-indexed field
