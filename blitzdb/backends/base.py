@@ -288,17 +288,14 @@ class Backend(object):
             obj = encoder.decode(obj)
 
         if isinstance(obj, dict):
-            print("dict!")
             if '__pk__' in obj:
                 pk_field = '__pk__'
             elif 'pk' in obj:
                 pk_field = 'pk'
             else:
                 pk_field = None
-            print(self.collections.keys(),obj)
             if '__collection__' in obj and obj['__collection__'] in self.collections and pk_field:
                 #for backwards compatibility
-                print("This is an embedded document!")
                 attributes = copy.deepcopy(obj)
                 del attributes[pk_field]
                 del attributes['__collection__']
@@ -309,7 +306,6 @@ class Backend(object):
             else:
                 output_obj = {}
                 for key, value in obj.items():
-                    print(key)
                     output_obj[key] = self.deserialize(value,encoders = encoders)
         elif isinstance(obj, list) or isinstance(obj, tuple):
             output_obj = list(map(lambda x: self.deserialize(x), obj))

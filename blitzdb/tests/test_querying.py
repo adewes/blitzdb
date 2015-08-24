@@ -21,18 +21,6 @@ def test_basic_storage(backend, small_test_data):
     assert len(backend.filter(Actor, {})) == len(actors)
 
 
-#removed this functionality since it was misleading...
-@pytest.skip
-def test_keys_with_dots(backend):
-
-    actor = Actor({'some.key.with.nasty.dots': [{'some.more.nasty.dots': 100}], 'pk': 'test'})
-
-    backend.save(actor)
-    backend.commit()
-
-    assert actor == backend.get(Actor, {'pk': 'test'})
-
-
 def test_delete(backend):
 
     actor = Actor({'foo' : 'bar'})
@@ -86,10 +74,10 @@ def test_missing_keys_in_slice(backend, small_test_data):
 
 def test_query_set(backend):
 
-    actors = [Actor({'foo': 'bar', 'value': 10}),
-              Actor({'foo': 'baz', 'value': 10}),
-              Actor({'foo': 'baz', 'value': 11}),
-              Actor({'foo': 'bar', 'value': 11})
+    actors = [Actor({'name': 'bar', 'is_funny': True}),
+              Actor({'name': 'baz', 'is_funny': False}),
+              Actor({'name': 'baz', 'is_funny': False}),
+              Actor({'name': 'bar', 'is_funny': False})
               ]
 
     for actor in actors:
@@ -97,54 +85,26 @@ def test_query_set(backend):
 
     backend.commit()
 
-    queryset = backend.filter(Actor, {'foo': 'bar','value' : 10})
+    queryset = backend.filter(Actor, {'name': 'bar','is_funny' : True})
 
     assert queryset.next() == actors[0]
 
 def test_and_queries(backend):
 
-    backend.save(Actor({'foo': 'bar', 'value': 10}))
-    backend.save(Actor({'foo': 'baz', 'value': 10}))
-    backend.save(Actor({'foo': 'baz', 'value': 11}))
-    backend.save(Actor({'foo': 'bar', 'value': 11}))
+    backend.save(Actor({'name': 'bar', 'is_funny': False}))
+    backend.save(Actor({'name': 'baz', 'is_funny': False}))
+    backend.save(Actor({'name': 'baz', 'is_funny': True}))
+    backend.save(Actor({'name': 'bar', 'is_funny': True}))
 
     backend.commit()
 
-    assert len(backend.filter(Actor, {'foo': 'bar'})) == 2
-    assert len(backend.filter(Actor, {'value': 10})) == 2
-    assert len(backend.filter(Actor, {'foo': 'bar', 'value': 10})) == 1
-    assert len(backend.filter(Actor, {'foo': 'baz', 'value': 10})) == 1
-    assert len(backend.filter(Actor, {'foo': 'bar', 'value': 11})) == 1
-    assert len(backend.filter(Actor, {'foo': 'baz', 'value': 11})) == 1
+    assert len(backend.filter(Actor, {'name': 'bar'})) == 2
+    assert len(backend.filter(Actor, {'is_funny': False})) == 2
+    assert len(backend.filter(Actor, {'name': 'bar', 'is_funny': False})) == 1
+    assert len(backend.filter(Actor, {'name': 'baz', 'is_funny': False})) == 1
+    assert len(backend.filter(Actor, {'name': 'bar', 'is_funny': False})) == 1
+    assert len(backend.filter(Actor, {'name': 'baz', 'is_funny': False})) == 1
 
-
-def test_composite_queries(backend):
-
-    backend.filter(Actor, {}).delete()
-
-    backend.save(Actor({'values': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]}))
-    backend.save(Actor({'values': [7, 6, 5, 4, 3, 2, 1]}))
-    backend.save(Actor({'values': [1, 2, 3, 4]}))
-    backend.save(Actor({'values': [1, 2, 3, 4, {'foo': 'bar'}]}))
-    backend.save(Actor({'values': 'foobar'}))
-
-    backend.commit()
-
-    for f in (lambda: True, lambda: backend.create_index(Actor, 'values')):
-
-        assert len(backend.filter(Actor, {})) == 5
-        assert len(backend.filter(Actor, {'values': [1, 2, 3, 4]})) == 1
-        assert len(backend.filter(Actor, {'values': [1, 2, 3, 4, {'foo': 'bar'}]})) == 1
-        assert len(backend.filter(Actor, {'values': [1, 2, 3, {'foo': 'bar'}, 4]})) == 0
-        assert len(backend.filter(Actor, {'values': [1, 2, 3, 4, 5]})) == 0
-        assert len(backend.filter(Actor, {'values': [10, 9, 8, 7, 6, 5, 4, 3, 2, 1]})) == 0
-
-        assert len(backend.filter(Actor, {'values': {'$all': [4, 3, 2, 1]}})) == 4
-        assert len(backend.filter(Actor, {'values': {'$all': [4, 3, 2, 1, {'foo': 'bar'}]}})) == 1
-        assert len(backend.filter(Actor, {'values': {'$all': [{'foo': 'bar'}]}})) == 1
-        assert len(backend.filter(Actor, {'values': {'$all': [4, 3, 2, 1, 14]}})) == 0
-        assert len(backend.filter(Actor, {'values': {'$all': [10, 9, 8, 7, 6, 5, 4, 3, 2, 1]}})) == 1
-        assert len(backend.filter(Actor, {'values': {'$in': [[1, 2, 3, 4], [7, 6, 5, 4, 3, 2, 1], [1, 2, 3, 5], 'foobar']}})) == 3
 
 
 def test_operators(backend):
@@ -152,7 +112,7 @@ def test_operators(backend):
     backend.filter(Actor, {}).delete()
 
     marlon_brando = Actor({'name': 'Marlon Brando', 'gross_income_m': 1.453, 'appearances': 78, 'is_funny': False, 'birth_year': 1924})
-    leonardo_di_caprio = Actor({'name': 'Leonardo di Caprio', 'gross_income_m': 12.453, 'appearances': 34, 'is_funny': 'it depends', 'birth_year': 1974})
+    leonardo_di_caprio = Actor({'name': 'Leonardo di Caprio', 'gross_income_m': 12.453, 'appearances': 34, 'is_funny': False, 'birth_year': 1974})
     david_hasselhoff = Actor({'name': 'David Hasselhoff', 'gross_income_m': 12.453, 'appearances': 173, 'is_funny': True, 'birth_year': 1952})
     charlie_chaplin = Actor({'name': 'Charlie Chaplin', 'gross_income_m': 0.371, 'appearances': 473, 'is_funny': True, 'birth_year': 1889})
 
@@ -202,21 +162,6 @@ def test_operators(backend):
     assert len(backend.filter(Actor, {'name': {'$not': {'$in': ['David Hasselhoff', 'Marlon Brando', 'Charlie Chaplin']}}})) == 1
     assert len(backend.filter(Actor, {'name': {'$in': ['Marlon Brando', 'Leonardo di Caprio']}})) == 2
 
-
-def test_regex_operator(backend, small_test_data):
-
-    backend.filter(Actor, {}).delete()
-    marlon_brando = Actor({'name': 'Marlon Brando', 'gross_income_m': 1.453, 'appearances': 78, 'is_funny': False, 'birth_year': 1924})
-    marlon_wayans = Actor({'name': 'Marlon Wayans'})
-    backend.save(marlon_brando)
-    backend.save(marlon_wayans)
-    backend.commit()
-
-    assert backend.get(Actor, {'name': {'$regex': r'^Marlon\s+(?!Wayans)[\w]+$'}}) == marlon_brando
-    assert len(backend.filter(Actor, {'name': {'$regex': r'^Marlon\s+.*$'}})) == 2
-    assert len(backend.filter(Actor, {'name': {'$regex': r'^.*\s+Brando$'}})) == 1
-
-
 def test_list_query(backend, small_test_data):
 
     (movies, actors, directors) = small_test_data
@@ -227,7 +172,7 @@ def test_list_query(backend, small_test_data):
         movie = movies[i]
         i += 1
 
-    actor = movie.cast[0]['actor']
+    actor = movie.cast[0]
     other_movie = movies[i % len(movies)]
 
     while other_movie in actor.movies:
@@ -248,7 +193,12 @@ def test_list_query_multiple_items(backend, small_test_data):
         actor = actors[i]
         i += 1
 
-    assert actor in backend.filter(Actor, {'movies': actor.movies})
+    assert len(backend.filter(Actor, {'movies': {'$all' : actor.movies}}))
+
+    print(backend.filter(Actor, {'movies': {'$all' : actor.movies}})[0])
+    print(actor)
+
+    assert actor in backend.filter(Actor, {'movies': {'$all' : actor.movies}})
 
 
 def test_indexed_delete(backend, small_test_data):
@@ -256,12 +206,11 @@ def test_indexed_delete(backend, small_test_data):
     all_movies = backend.filter(Movie, {})
 
     for movie in all_movies:
-        backend.filter(Actor, {'movies': movie}).delete()
+        backend.filter(Actor, {'$in' : movie.cast}).delete()
 
     backend.commit()
 
-    for actor in backend.filter(Actor, {}):
-        assert actor.movies == []
+    assert len(backend.filter(Actor,{})) == 0
 
 
 def test_non_indexed_delete(backend, small_test_data):
@@ -269,32 +218,14 @@ def test_non_indexed_delete(backend, small_test_data):
     (movies, actors, directors) = small_test_data
 
     for movie in movies:
-        backend.filter(Director, {'movies': {'$all': [movie]}}).delete()
+        if movie.get('director'):
+            backend.delete(movie.director)
+            movie.director = None
+            backend.update(movie,['director'])
 
     backend.commit()
 
-    for director in backend.filter(Director, {}):
-        assert director.movies == []
-
-
-def test_positional_query(backend, small_test_data):
-    """
-    We test a search query which explicitly references a given list item in an object
-    """
-
-    (movies, actors, directors) = small_test_data
-
-    movie = None
-    i = 0
-    while not movie or len(movie.cast) < 3:
-        if len(movies[i].cast):
-            movie = movies[i]
-            actor = movie.cast[0]['actor']
-            index = actor.movies.index(movie)
-        i += 1
-
-    assert actor in backend.filter(Actor, {'movies.%d' % index: movie})
-
+    assert len(backend.filter(Director,{})) == 0
 
 def test_default_backend(backend, small_test_data):
 

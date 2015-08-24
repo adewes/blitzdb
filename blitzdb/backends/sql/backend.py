@@ -11,10 +11,38 @@ from ..file.serializers import JsonSerializer
 from .queryset import QuerySet
 from .relations import ListProxy,ManyToManyProxy
 
+from blitzdb.fields import (ForeignKeyField,
+                            ManyToManyField,
+                            CharField,
+                            IntegerField,
+                            TextField,
+                            FloatField,
+                            ListField,
+                            BooleanField,
+                            BinaryField,
+                            DateField,
+                            DateTimeField,
+                            BaseField
+                            )
+
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.schema import MetaData,Table,Column,ForeignKey,UniqueConstraint
-from sqlalchemy.types import Integer,VARCHAR,String,Text,LargeBinary,Unicode
+from sqlalchemy.types import (Integer,
+                              VARCHAR,
+                              String,
+                              Float,
+                              Boolean,
+                              Date,
+                              DateTime,
+                              Text,
+                              LargeBinary,
+                              Unicode)
 from sqlalchemy.sql import select,insert,update,func,and_,or_,not_,expression,null
+from sqlalchemy.ext.compiler import compiles
+
+@compiles(DateTime, "sqlite")
+def compile_binary_sqlite(type_, compiler, **kw):
+    return "VARCHAR(64)"
 
 """
 Base model for SQL backend:
@@ -98,102 +126,126 @@ class Backend(BaseBackend):
     def connection(self):
         return self._conn
 
+    def get_field_type(self,field):
+        m = {
+            IntegerField : Integer,
+            FloatField : Float,
+            CharField : VARCHAR,
+            TextField : Text,
+            BooleanField: Boolean,
+            BinaryField: LargeBinary,
+            DateField: Date,
+            DateTimeField: DateTime
+        }
+        for cls,t in m.items():
+            if isinstance(field,cls):
+                return t
+        raise AttributeError("Invalid field type: %s" % field)
+
     def init_schema(self):
+
+        def add_foreign_key_field(collection,key,field):
+            field_name = key
+            column_name = key.replace('.','_')
+            self._excluded_fields[collection][field_name] = True
+            if isinstance(field.related,six.string_types):
+                related_collection = self.get_collection_for_cls_name(field.related)
+            else:
+                related_collection = self.get_collection_for_cls(field.related)
+            related_class = self.get_cls_for_collection(related_collection)
+
+            column = Column(column_name,self.Meta.PkType,ForeignKey('%s%s.pk' % (related_collection,self.table_postfix)),index=True,nullable = True if field.nullable else False)
+            self._related_fields[collection][field_name] = {'field' : field,
+                                                            'key' : key,
+                                                            'column' : column_name,
+                                                            'collection' : related_collection,
+                                                            'class' : related_class
+                                                            }
+            return column
+
+        def add_many_to_many_field(collection,key,field):
+
+            if isinstance(field.related,(list,tuple)):
+                raise AttributeError("Currently not supported!")
+
+            field_name = key
+            self._excluded_fields[collection][field_name] = True
+            if isinstance(field.related,six.string_types):
+                related_collection = self.get_collection_for_cls_name(field.related)
+            else:
+                related_collection = self.get_collection_for_cls(field.related)
+            related_class = self.get_cls_for_collection(related_collection)
+            relationship_name = "%s_%s" % (collection,related_collection)
+
+            params = {'field' : field,
+                      'key' : key,
+                      'collection' : related_collection,
+                      'class' : related_class
+                     }
+            extra_columns = [
+                UniqueConstraint('pk_%s' % related_collection,'pk_%s' % collection)
+                ]
+            relationship_table = Table('%s%s' % (relationship_name,self.table_postfix),self._metadata,
+                    Column('pk_%s' % related_collection,self.Meta.PkType,ForeignKey('%s%s.pk' % (related_collection,self.table_postfix)),index = True),
+                    Column('pk_%s' % collection,self.Meta.PkType,ForeignKey('%s%s.pk' % (collection,self.table_postfix)),index = True),
+                    *extra_columns
+                )
+            params['relationship_table'] = relationship_table
+            self._relationship_tables[collection][field_name] = relationship_table
+            self._related_fields[collection][field_name] = params
+
+        def add_list_field(collection,key,field):
+            self._excluded_fields[collection][key] = True
+            column_name = key.replace('.','_')
+            index_name = "%s_%s" % (collection,column_name)
+
+            index_params = {'field' : field,
+                            'key' : key,
+                            'type' : self.get_field_type(field.type),
+                            'column' : column_name}
+            self._index_tables[collection][key] = Table('%s%s' % (index_name,self.table_postfix),self._metadata,
+                    Column('pk',self.Meta.PkType,ForeignKey('%s%s.pk' % (collection,self.table_postfix)),index = True),
+                    Column(column_name,index_params['type'],index = True),
+                    UniqueConstraint('pk',key,name = 'unique_index')
+                )
+            self._list_indexes[key] = index_params
+            self._index_fields[collection][key] = index_params
+
+        def add_field(collection,key,field):
+            self._excluded_fields[collection][key] = True
+            column_name = key.replace('.','_')
+            index_params = {'field' : field,
+                            'key' : key,
+                            'type' : self.get_field_type(field),
+                            'column' : column_name}
+            self._index_fields[collection][key] = index_params
+            return Column(column_name,index_params['type'],index = field.indexed)
 
         self._metadata = MetaData()
 
         for cls in self.classes:
             collection = self.get_collection_for_cls(cls)
 
-            index_columns = []
+            extra_columns = []
 
             meta_attributes = self.get_meta_attributes(cls)
 
-            if 'indexes' in meta_attributes:
-                for i,index in enumerate(meta_attributes['indexes']):
-                    if not 'sql' in index:
-                        raise AttributeError("You need to specify a parameter for index %d in class %s" % (i,str(cls)))
-                    opts = index['sql']
-
-                    if callable(opts):
-                        opts = opts()
-
-                    field_name = opts['field']
-                    self._excluded_fields[collection][field_name] = True
-                    column_name = field_name.replace('.','_')
-                    index_name = "%s_%s" % (collection,column_name)
-
-                    index_params = {'opts' : opts,
-                                    'column' : column_name}
-                    if 'list' in opts and opts['list']:
-                        #This is a list index, so we create a dedicated table for it.
-                        self._index_tables[collection][field_name] = Table('%s%s' % (index_name,self.table_postfix),self._metadata,
-                                Column('pk',self.Meta.PkType,ForeignKey('%s%s.pk' % (collection,self.table_postfix)),index = True),
-                                Column(column_name,opts['type'],index = True),
-                                UniqueConstraint('pk',field_name,name = 'unique_index')
-                            )
-                        self._list_indexes[field_name] = index_params
-                    else:
-                        index_columns.append(
-                            Column(column_name,opts['type'],index = True)
-                            )
-                    self._index_fields[collection][field_name] = index_params
-
-            if 'relations' in meta_attributes:
-                for relation in meta_attributes['relations']:
-                    field_name = relation['field']
-                    self._excluded_fields[collection][field_name] = True
-                    related_collection = self.get_collection_for_cls_name(relation['related'])
-                    related_class = self.get_cls_for_collection(related_collection)
-                    if 'qualifier' in relation:
-                        relationship_name = "%s_%s_%s" % (collection,related_collection,relation['qualifier'])
-                    else:
-                        relationship_name = "%s_%s" % (collection,related_collection)
-                    if relation['type'] == 'ManyToMany':
-                        params = {'opts' : relation,
-                                  'collection' : related_collection,
-                                  'class' : related_class
-                                 }
-                        if isinstance(relation['related'],(list,tuple)):
-                            raise AttributeError("Currently not supported!")
-                            #this is a relation to multiple collections
-                        else:
-                            #this is a relation with one single collection
-                            extra_columns = []
-                            if 'qualifier' in relation:
-                                extra_columns = [
-                                    Column(relation['qualifier'],String,index = True),
-                                    UniqueConstraint('pk_%s' % related_collection,'pk_%s' % collection,relation['qualifier'])
-                                ]
-                            else:
-                                extra_columns = [
-                                    UniqueConstraint('pk_%s' % related_collection,'pk_%s' % collection)
-                                    ]
-                            relationship_table = Table('%s%s' % (relationship_name,self.table_postfix),self._metadata,
-                                    Column('pk_%s' % related_collection,self.Meta.PkType,ForeignKey('%s%s.pk' % (related_collection,self.table_postfix)),index = True),
-                                    Column('pk_%s' % collection,self.Meta.PkType,ForeignKey('%s%s.pk' % (collection,self.table_postfix)),index = True),
-                                    *extra_columns
-                                )
-                            params['relationship_table'] = relationship_table
-                            self._relationship_tables[collection][field_name] = relationship_table
-                        self._related_fields[collection][field_name] = params
-                    elif relation['type'] == 'ForeignKey':
-                        column_name = relation['field'].replace('.','_')
-                        self._related_fields[collection][field_name] = {'opts' : relation,
-                                                                        'column' : column_name,
-                                                                        'collection' : related_collection,
-                                                                        'class' : related_class
-                                                                        }
-                        index_columns.append(
-                            Column(column_name,self.Meta.PkType,ForeignKey('%s%s.pk' %(related_collection,self.table_postfix)),index=True,nullable = True if 'nullable' in relation and relation['nullable'] else False)
-                            )
-                    else:
-                        raise AttributeError("Unknown relationship type %s" % relation['type'])
+            for key,field in cls._fields.items():
+                if not isinstance(field,BaseField):
+                    raise AttributeError("Not a valid field: %s = %s" % (key,field))
+                if isinstance(field,ForeignKeyField):
+                    extra_columns.append(add_foreign_key_field(collection,key,field))
+                elif isinstance(field,ManyToManyField):
+                    add_many_to_many_field(collection,key,field)
+                elif isinstance(field,ListField):
+                    add_list_field(collection,key,field)
+                else:
+                    extra_columns.append(add_field(collection,key,field))
 
             self._collection_tables[collection] = Table('%s%s' % (collection,self.table_postfix),self._metadata,
                     Column('pk',self.Meta.PkType,primary_key = True,index = True),
                     Column('data',LargeBinary),
-                    *index_columns
+                    *extra_columns
                 )
 
     def get_collection_table(self,collection):
@@ -230,10 +282,21 @@ class Backend(BaseBackend):
         if hasattr(obj, 'pre_delete') and callable(obj.pre_delete):
             obj.pre_delete()
 
-        collection = self.get_collection_for_cls(obj.__class__)
         if obj.pk == None:
             raise obj.DoesNotExist
-        #...
+        
+        self.filter(obj.__class__,{'pk' : obj.pk}).delete()
+
+    def update(self,obj,set_fields=None, unset_fields=None, update_obj=True):
+        if set_fields is not None:
+            if isinstance(set_fields,dict):
+                for key,value in set_fields.items():
+                    obj[key] = value
+        if unset_fields is not None:
+            for key in unset_fields:
+                del obj[key]
+        self.save(obj)
+        return obj
 
     def save(self,obj,autosave_dependent = True):
         collection = self.get_collection_for_cls(obj.__class__)
@@ -257,7 +320,7 @@ class Backend(BaseBackend):
             for index_field,index_params in self._index_fields[collection].items():
                 try:
                     value = _get_value(obj,index_field)
-                    if 'list' in index_params['opts'] and index_params['opts']['list']:
+                    if isinstance(index_params['field'],ListField):
                         #to do: check if this is a RelatedList
                         table = self._index_tables[collection][index_field]
                         delete = table.delete().where(table.c['pk'] == expression.cast(obj.pk,self.Meta.PkType))
@@ -265,28 +328,28 @@ class Backend(BaseBackend):
                         for element in value:
                             ed = {
                                 'pk' : expression.cast(obj.pk,self.Meta.PkType),
-                                index_params['column'] : expression.cast(element,index_params['opts']['type']),
+                                index_params['column'] : expression.cast(element,index_params['type']),
                             }
                             insert = table.insert().values(**ed)
                             self.connection.execute(insert)
                     else:
                         if value is None:
-                            if not 'nullable' in index_params['opts'] or not index_params['opts']['nullable']:
-                                raise ValueError("No value for %s given, but this is a mandatory field!" % index_field)
+                            if not index_params['field'].nullable:
+                                raise ValueError("No value for %s given, but this is a mandatory field!" % index_field['key'])
                             d[index_params['column']] = null()
                         else:
-                            d[index_params['column']] = expression.cast(value,index_params['opts']['type'])
+                            d[index_params['column']] = expression.cast(value,index_params['type'])
                 except KeyError:
-                    if not 'list' in index_params['opts']:
-                        if not 'nullable' in index_params['opts'] or not index_params['opts']['nullable']:
-                            raise ValueError("No value for %s given, but this is a mandatory field!" % index_field)
+                    if not isinstance(index_params['field'],ListField):
+                        if not index_params['field'].nullable:
+                            raise ValueError("No value for %s given, but this is a mandatory field!" % index_field['key'])
                         d[index_params['column']] = null()
 
         def serialize_and_update_relations(obj,d):
             for related_field,relation_params in self._related_fields[collection].items():
                 try:
                     value = _get_value(obj,related_field)
-                    if relation_params['opts']['type'] == 'ManyToMany':
+                    if isinstance(relation_params['field'],ManyToManyField):
                         relationship_table = self._relationship_tables[collection][related_field]
                         delete = relationship_table.delete().where(relationship_table.c['pk_%s' % collection] == expression.cast(obj.pk,self.Meta.PkType))
                         self.connection.execute(delete)
@@ -304,7 +367,7 @@ class Backend(BaseBackend):
                             }
                             insert = relationship_table.insert().values(**ed)
                             self.connection.execute(insert)
-                    elif relation_params['opts']['type'] == 'ForeignKey':
+                    elif isinstance(relation_params['field'],ForeignKeyField):
                         if not isinstance(value,Document):
                             raise AttributeError("Field %s must be a document!" % related_field)
                         if value.pk is None:
@@ -319,8 +382,7 @@ class Backend(BaseBackend):
                     pass
 
         insert = False
-
-        if obj.pk is None:
+        if not obj.pk:
             obj.pk = uuid.uuid4().hex
             insert = True
 
@@ -330,16 +392,15 @@ class Backend(BaseBackend):
         serialize_and_update_indexes(obj,d)
         serialize_and_update_relations(obj,d)
 
+        #if we got an object with a PK, we try to perform an UPDATE operation
         if not insert:
-            try:
-                update = self._collection_tables[collection].update().values(**d).where(table.c.pk == obj.pk)
-                self.connection.execute(update)
-            except:
-                #this document does not exist in the DB yet, we try to insert it instead...
-                insert = True
-        if insert:
+            update = self._collection_tables[collection].update().values(**d).where(table.c.pk == obj.pk)
+            result = self.connection.execute(update)
+
+        #if we did not get a PK the UPDATE did not match any rows, we perform an INSERT instead
+        if insert or not result.rowcount:
             insert = self._collection_tables[collection].insert().values(**d)
-            self.connection.execute(insert)
+            result = self.connection.execute(insert)
 
         return obj
 
@@ -370,9 +431,9 @@ class Backend(BaseBackend):
         for field_name,params in self._list_indexes[collection].items():
             _set_value(data,field_name,ListProxy(obj,field_name,params))
         for field_name,params in self._related_fields[collection].items():
-            if params['opts']['type'] == 'ManyToMany':
+            if isinstance(params['field'],ManyToManyField):
                 _set_value(data,field_name,ManyToManyProxy(obj,field_name,params))
-            elif params['opts']['type'] == 'ForeignKey':
+            elif isinstance(params['field'],ForeignKeyField):
                 try:
                     foreign_pk = _get_value(attributes,field_name)
                 except KeyError:
@@ -450,13 +511,16 @@ class Backend(BaseBackend):
 
         table = self._collection_tables[collection]
 
-        def compile_query(collection,query):
+        joins = []
+
+        def compile_query(collection,query,table = None):
 
             """
             This function emits a list of WHERE statements that can be used to retrieve 
             """
 
-            table = self._collection_tables[collection]
+            if table is None:
+                table = self._collection_tables[collection]
 
             where_statements  = []
 
@@ -530,10 +594,10 @@ class Backend(BaseBackend):
                 for field_name,params in self._index_fields[collection].items():
                     if key == field_name:
                         #this is a list-indexed field
-                        if 'list' in params['opts'] and params['opts']['list']:
+                        if isinstance(params['field'],ListField):
                             index_table = self._index_tables[collection][field_name]
                             if isinstance(value,dict):
-                                related_query = lambda op: index_table.c[field_name].in_([expression.cast(v,params['opts']['type']) for v in value[op]])
+                                related_query = lambda op: index_table.c[field_name].in_([expression.cast(v,params['type']) for v in value[op]])
                                 if '$in' in value:
                                     #do type-cast here?
                                     where_statements.append(related_query('$in'))
@@ -550,7 +614,7 @@ class Backend(BaseBackend):
                                 else:
                                     raise AttributeError("Invalid query!")
                             else:
-                                where_statements.append(index_table.c[field_name] == expression.cast(value,params['opts']['type']))
+                                where_statements.append(index_table.c[field_name] == expression.cast(value,params['type']))
                         else:
                             #this is a normal column index
                             if isinstance(value,dict):
@@ -558,18 +622,21 @@ class Backend(BaseBackend):
                                 where_statements.extend(prepare_special_query(field_name,value))
                             else:
                                 #this is a normal value query
-                                where_statements.append(table.c[field_name] == expression.cast(value,params['opts']['type']))
+                                where_statements.append(table.c[field_name] == expression.cast(value,params['type']))
                         break
                 else:
                     #this is a non-indexed field! We try to find a relation...
                     for field_name,params in self._related_fields[collection].items():
                         if key.startswith(field_name):
-                            if params['opts']['type'] == 'ManyToMany':
+                            if isinstance(params['field'],ManyToManyField):
                                 relationship_table = self._relationship_tables[collection][field_name]
                                 related_collection = params['collection']
                                 related_table = self._collection_tables[related_collection]
                                 tail = key[len(field_name)+1:]
-                                if not isinstance(value,dict):
+                                #this is a query for a document
+                                if isinstance(value,Document) and not tail:
+                                    value = {'pk' : value.pk}
+                                elif not isinstance(value,dict):
                                     if tail:
                                         value = {tail : value}
                                     else:
@@ -621,15 +688,17 @@ class Backend(BaseBackend):
                                     if not isinstance(value,Document):
                                         raise AttributeError("ForeignKey query with non-document!")
                                     where_statements.append(table.c[params['column']] == value.pk)
-                                elif key == field_name+'.pk':
-                                    pass
                                 else:
                                     #we query a sub-field of the relation
                                     head,tail = key[:len(field_name)],key[len(field_name)+1:]
-                                    where_statements.append(table.c.pk.in_(compile_query(params['collection'],{tail : value})))
+                                    related_table = self._collection_tables[params['collection']]
+                                    if not related_table in joins:
+                                        related_table_alias = related_table.alias()
+                                        joins.append((related_table_alias,table.c[params['column']] == related_table_alias.c['pk']))
+                                    where_statements.extend(compile_query(params['collection'],{tail : value},table = related_table_alias))
                             break
                     else:
-                        raise AttributeError("Query over non-indexed field %s!" % key)
+                        raise AttributeError("Query over non-indexed field %s in collection %s!" % (key,collection))
             return where_statements
 
         compiled_query = compile_query(collection,query)
@@ -641,4 +710,4 @@ class Backend(BaseBackend):
         else:
             compiled_query = None
 
-        return QuerySet(backend = self, table = table,cls = cls,condition = compiled_query)
+        return QuerySet(backend = self, table = table,joins = joins,cls = cls,condition = compiled_query)

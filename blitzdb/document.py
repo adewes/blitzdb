@@ -1,6 +1,8 @@
 import copy
 import uuid
 
+from blitzdb.fields.base import BaseField
+
 import logging
 
 logger = logging.getLogger(__name__)
@@ -17,6 +19,23 @@ class MetaDocument(type):
     """
 
     def __new__(meta, name, bases, dct):
+        sanitized_dct = {}
+        sanitized_dct['_fields'] = {}
+
+        class_type = type.__new__(meta, name, bases, dct)
+
+        fields = {}
+
+        #we inherit the fields from the base type(s)
+        if hasattr(class_type,'_fields'):
+            fields.update(class_type._fields)
+
+        for key,value in dct.items():
+            if isinstance(value,BaseField):
+                fields[key] = value
+                delattr(class_type,key)
+
+        class_type._fields = fields
 
         class DoesNotExist(BaseException):
 
@@ -28,10 +47,8 @@ class MetaDocument(type):
             def __str__(self):
                 return "MultipleDocumentsReturned(%s)" % name
 
-        dct['DoesNotExist'] = DoesNotExist
-        dct['MultipleDocumentsReturned'] = MultipleDocumentsReturned
-
-        class_type = type.__new__(meta, name, bases, dct)
+        class_type.DoesNotExist = DoesNotExist
+        class_type.MultipleDocumentsReturned = MultipleDocumentsReturned
 
         if class_type in document_classes:
             document_classes.remove(class_type)
@@ -39,12 +56,14 @@ class MetaDocument(type):
             pass
         else:
             document_classes.append(class_type)
+
         return class_type
 
 document_classes = []
 
-
 class BaseDocument(object):
+
+    __metaclass__ = MetaDocument
 
     """
     The Document object is the base class for all documents stored in the database.

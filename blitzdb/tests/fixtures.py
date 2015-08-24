@@ -2,6 +2,9 @@ import pytest
 import tempfile
 import subprocess
 
+from blitzdb.backends.file import Backend as FileBackend
+from blitzdb.tests.helpers.movie_data import Actor, Director, Movie, generate_test_data
+
 @pytest.fixture(scope="function")
 def temporary_path(request):
     d = tempfile.mkdtemp()
@@ -33,6 +36,7 @@ except ImportError:
 
 try:
     from sqlalchemy import create_engine
+    from sqlalchemy.types import Integer
     from blitzdb.backends.sql import Backend as SqlBackend
 
     @pytest.fixture(scope="function")
@@ -49,9 +53,6 @@ try:
 except ImportError:
     print("SQLAlchemy not found, skipping tests.")
     test_sql = False
-
-from blitzdb.backends.file import Backend as FileBackend
-from blitzdb.tests.helpers.movie_data import Actor, Director, Movie, generate_test_data
 
 @pytest.fixture(scope="function", params=["file_json", "file_marshal", "file_pickle"]
                 + (["mongo"] if test_mongo else [])
@@ -71,7 +72,8 @@ def no_autoload_mongodb_backend(request, temporary_path):
     return _backend(request, temporary_path, autoload_embedded=False)
 
 
-@pytest.fixture(scope="function", params=["file_json", "file_marshal", "file_pickle"] + (["mongo"] if test_mongo else []))
+@pytest.fixture(scope="function", params=["file_json", "file_marshal", "file_pickle"] +\
+                                         (["mongo"] if test_mongo else []))
 def transactional_backend(request, temporary_path):
     return _backend(request, temporary_path)
 
@@ -124,6 +126,7 @@ def _init_indexes(backend):
 
 def _sql_backend(request,config):
     engine = create_engine('sqlite:///:memory:', echo=False)
+
     backend = SqlBackend(engine = engine)
     backend.init_schema()
     backend.create_schema()

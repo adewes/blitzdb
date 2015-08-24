@@ -110,7 +110,8 @@ def all_query(expression):
     """Match arrays that contain all elements in the query."""
     def _all(index, expression=expression):
         """Return store key for documents that satisfy expression."""
-        ev = [compile_query(e) for e in expression]
+        ev = expression() if callable(expression) else expression
+        print(ev),index.key
         try:
             iter(ev)
         except TypeError:
