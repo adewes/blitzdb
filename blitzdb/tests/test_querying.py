@@ -3,6 +3,7 @@ from __future__ import absolute_import
 from .fixtures import *
 
 from blitzdb.tests.helpers.movie_data import Actor, Director, Movie
+import blitzdb
 
 
 def test_basic_delete(backend, small_test_data):
@@ -22,7 +23,7 @@ def test_basic_storage(backend, small_test_data):
 
 
 #removed this functionality since it was misleading...
-@pytest.skip
+@pytest.mark.skipif(True, reason='Removed functionality')
 def test_keys_with_dots(backend):
 
     actor = Actor({'some.key.with.nasty.dots': [{'some.more.nasty.dots': 100}], 'pk': 'test'})
@@ -318,3 +319,20 @@ def test_index_reloading(backend, small_test_data):
     backend.commit()
 
     assert list(backend.filter(Actor, {'movies': movies[0]})) == []
+
+
+def test_query_function(backend):
+    if isinstance(backend, blitzdb.backends.mongo.Backend):
+        pytest.skip('Query by function is not supported for MongoDB')
+
+    Movie({'name': 'The Godfather', 'year': 1972}).save(backend)
+    Movie({'name': 'Goodfellas', 'year': 1990}).save(backend)
+    Movie({'name': 'Star Wars', 'year': 1977}).save(backend)
+
+    backend.commit()
+
+    movies = backend.filter(Movie, {
+        'year': lambda year: year >= 1970 and year <= 1979,
+    })
+
+    assert sorted([m.name for m in movies]) == ['Star Wars', 'The Godfather']
