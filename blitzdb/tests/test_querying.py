@@ -162,27 +162,6 @@ def test_operators(backend):
     assert len(backend.filter(Actor, {'name': {'$not': {'$in': ['David Hasselhoff', 'Marlon Brando', 'Charlie Chaplin']}}})) == 1
     assert len(backend.filter(Actor, {'name': {'$in': ['Marlon Brando', 'Leonardo di Caprio']}})) == 2
 
-def test_list_query(backend, small_test_data):
-
-    (movies, actors, directors) = small_test_data
-
-    movie = None
-    i = 0
-    while not movie or len(movie.cast) < 4:
-        movie = movies[i]
-        i += 1
-
-    actor = movie.cast[0]
-    other_movie = movies[i % len(movies)]
-
-    while other_movie in actor.movies:
-        other_movie = movies[i % len(movies)]
-        i += 1
-
-    assert actor in backend.filter(Actor, {'movies': movie})
-    assert actor not in backend.filter(Actor, {'movies': other_movie})
-
-
 def test_list_query_multiple_items(backend, small_test_data):
 
     (movies, actors, directors) = small_test_data
@@ -197,16 +176,10 @@ def test_list_query_multiple_items(backend, small_test_data):
     assert actor in backend.filter(Actor, {'movies': {'$all' : actor.movies}})
 
 
-def test_indexed_delete(backend, small_test_data):
+def test_invalid_query(backend, small_test_data):
 
-    all_movies = backend.filter(Movie, {})
-
-    for movie in all_movies:
-        backend.filter(Actor, {'$in' : movie.cast}).delete()
-
-    backend.commit()
-
-    assert len(backend.filter(Actor,{})) == 0
+    with pytest.raises(BaseException):
+        backend.filter(Actor, {'$in' : movie.cast})
 
 
 def test_non_indexed_delete(backend, small_test_data):
@@ -221,7 +194,10 @@ def test_non_indexed_delete(backend, small_test_data):
 
     backend.commit()
 
-    assert len(backend.filter(Director,{})) == 0
+    directors = backend.filter(Director,{})
+
+    for director in directors:
+        assert len(backend.filter(Movie,{'director' : director})) == 0
 
 def test_default_backend(backend, small_test_data):
 

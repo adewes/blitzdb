@@ -153,12 +153,7 @@ class QuerySet(BaseQuerySet):
         return new_qs
 
     def delete(self):
-        if self.condition is not None:
-            delete_stmt = self.table.delete().where(self.condition)
-        elif self.select is not None:
-            delete_stmt = self.table.delete().where(self.table.c.pk.in_(self.select.select_from([self.table.c.pk])))
-        else:
-            delete_stmt = self.table.delete()
+        delete_stmt = self.table.delete().where(self.table.c.pk.in_(self.get_select(fields = [self.table.c.pk])))
         self.backend.connection.execute(delete_stmt)
 
     def get_select(self,fields = None):

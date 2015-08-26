@@ -74,12 +74,13 @@ def generate_test_data(request, backend, n):
             {
                 'name': fake.name(),
                 'pk': uuid.uuid4().hex,
-            }            
+                'movies' : []
+            }
         )
         n_movies = 1 + int((1.0 - math.log(random.randint(1, 1000)) / math.log(1000.0)) * 5)
         actor_movies = random.sample(movies, n_movies)
         for movie in actor_movies:
-            movie.cast.append(actor)
+            actor.movies.append(movie)
             movie.save(backend)
         actors.append(actor)
         actor.save(backend)

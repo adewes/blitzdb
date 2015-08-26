@@ -402,14 +402,19 @@ class Backend(BaseBackend):
                             insert = relationship_table.insert().values(**ed)
                             self.connection.execute(insert)
                     elif isinstance(relation_params['field'],ForeignKeyField):
-                        if not isinstance(value,Document):
+                        if value is None:
+                            if not relation_params['field'].nullable:
+                                raise AttributeError("Field %s cannot be None!" % related_field)
+                            d[relation_params['column']] = None
+                        elif not isinstance(value,Document):
                             raise AttributeError("Field %s must be a document!" % related_field)
-                        if value.pk is None:
-                            if autosave_dependent:
-                                self.save(value)
-                            else:
-                                raise AttributeError("Related document in field %s has no primary key!" % related_field)
-                        d[relation_params['column']] = expression.cast(value.pk,relation_params['type'])
+                        else:
+                            if value.pk is None:
+                                if autosave_dependent:
+                                    self.save(value)
+                                else:
+                                    raise AttributeError("Related document in field %s has no primary key!" % related_field)
+                            d[relation_params['column']] = expression.cast(value.pk,relation_params['type'])
 
                 except KeyError:
                     #this index value does not exist in the object
