@@ -4,14 +4,21 @@ import sqlalchemy
 
 from blitzdb.queryset import QuerySet as BaseQuerySet
 from functools import wraps
-from sqlalchemy.sql import select,func,expression,delete
+from sqlalchemy.sql import select,func,expression,delete,distinct
 from sqlalchemy.sql.expression import join,asc,desc
 from ..file.serializers import JsonSerializer
 
 class QuerySet(BaseQuerySet):
 
     def __init__(self, backend, table, cls,
-                 condition = None,select = None,intersects = None,raw = False,joins = None,
+                 condition = None,
+                 select = None,
+                 intersects = None,
+                 raw = False,
+                 joins = None,
+                 extra_fields = None,
+                 group_bys = None,
+                 havings = None,
                  limit = None,
                  offset = None
                  ):
@@ -21,6 +28,9 @@ class QuerySet(BaseQuerySet):
         self.backend = backend
         self.condition = condition
         self.select = select
+        self.havings = havings
+        self.extra_fields = extra_fields
+        self.group_bys = group_bys
         self.cls = cls
         self._limit = limit
         self._offset = offset
@@ -49,7 +59,10 @@ class QuerySet(BaseQuerySet):
         deserialized_attributes = self.backend.deserialize(d)
         return self.backend.create_instance(self.cls, deserialized_attributes)
 
-    def sort(self, columns):
+    def sort(self, columns,direction = None):
+        #we sort by a single argument
+        if direction:
+            columns = ((columns,direction),)
         order_bys = []
         for column,direction in columns:
             if direction > 0:
@@ -146,10 +159,12 @@ class QuerySet(BaseQuerySet):
     def get_select(self,fields = None):
         if fields is None:
             fields = [self.table]
-        if self.condition is not None:
-            s = select(fields).where(self.condition)
-        else:
-            s = select(fields)
+        if self.extra_fields:
+            fields.extend(self.extra_fields)
+        s = select(fields)
+        print("---")
+        print(s)
+        print("---")
         if self.joins:
             full_join = None
             for j in self.joins:
@@ -158,17 +173,26 @@ class QuerySet(BaseQuerySet):
                 else:
                     full_join = join(self.table,*j)
             s = s.select_from(full_join)
+
+        if self.condition is not None:
+            s = s.where(self.condition)
+        if self.group_bys:
+            s = s.group_by(*self.group_bys)
+        if self.havings:
+            for having in self.havings:
+                s = s.having(having)
         if self.order_bys:
             s = s.order_by(*self.order_bys)
         if self._offset:
             s = s.offset(self._offset)
         if self._limit:
             s = s.limit(self._limit)
+        print(s)
         return s
 
     def __len__(self):
         if self.count is None:
-            s = self.get_select(fields = [func.count(self.table.c.pk)])
+            s = select([func.count()]).select_from(self.get_select(fields = [self.table.c.pk]))
             result = self.backend.connection.execute(s)
             self.count = result.first()[0]
             result.close()

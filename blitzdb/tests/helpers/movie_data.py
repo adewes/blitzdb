@@ -31,13 +31,14 @@ class Actor(Document):
     favorite_food = ListField(type = CharField(), indexed = True)
     birth_year = IntegerField(indexed = True)
     is_funny = BooleanField(indexed = True)
-    movies = ManyToManyField('Movie')
+    movies = ManyToManyField('Movie',backref = 'actors')
     
 
 class Director(Document):
 
     name = CharField(indexed = True)
-    
+    favorite_actor = ForeignKeyField('Actor')
+
 class Role(Document):
 
     role = CharField(indexed = True)

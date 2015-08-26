@@ -56,6 +56,7 @@ class MetaDocument(type):
         if name == 'Document' and bases == (object,):
             pass
         elif not (hasattr(class_type.Meta,'autoregister') and class_type.Meta.autoregister == False):
+            print class_type
             document_classes.append(class_type)
 
         return class_type

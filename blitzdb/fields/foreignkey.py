@@ -10,6 +10,7 @@ class ForeignKeyField(BaseField):
     - Remove documents from the relation
     """
 
-    def __init__(self,related,*args,**kwargs):
+    def __init__(self,related,backref = None,*args,**kwargs):
         super(ForeignKeyField,self).__init__(*args,**kwargs)
         self.related = related
+        self.backref = backref

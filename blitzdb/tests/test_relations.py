@@ -58,16 +58,3 @@ def test_delete(backend):
     with pytest.raises(AttributeError):
         backend.get(Actor,{'pk' : actor.pk}).foo
 
-
-def test_negative_indexing(backend, small_test_data):
-
-    (movies, actors, directors) = small_test_data
-
-    actors = backend.filter(Actor, {})
-
-    assert actors[-1] == actors[len(actors) - 1]
-    assert actors[-10:-1] == actors[len(actors) - 10:len(actors) - 1]
-    assert actors[-len(actors):-1] == actors[0:len(actors) - 1]
-
-    # To do: Make step tests for file backend (MongoDB does not support this)
-#    assert actors[-10:-1:2] == actors[len(actors)-10:len(actors)-1:2]

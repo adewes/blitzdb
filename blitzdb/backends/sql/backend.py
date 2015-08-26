@@ -37,7 +37,7 @@ from sqlalchemy.types import (Integer,
                               Text,
                               LargeBinary,
                               Unicode)
-from sqlalchemy.sql import select,insert,update,func,and_,or_,not_,expression,null
+from sqlalchemy.sql import select,insert,update,func,and_,or_,not_,expression,null,distinct
 from sqlalchemy.ext.compiler import compiles
 
 @compiles(DateTime, "sqlite")
@@ -102,14 +102,6 @@ class Backend(BaseBackend):
         super(Backend, self).__init__(**kwargs)
 
         self._engine = engine
-        self._collection_tables = {}
-
-        self._index_tables = defaultdict(dict)
-        self._relationship_tables = defaultdict(dict)
-        self._index_fields = defaultdict(dict)
-        self._list_indexes = defaultdict(dict)
-        self._related_fields = defaultdict(dict)
-        self._excluded_fields = defaultdict(dict)
         self._transaction = None
 
         self.table_postfix = table_postfix
@@ -118,7 +110,6 @@ class Backend(BaseBackend):
             self.create_schema()
 
         self._conn = self._engine.connect()
-
         self.begin()
 
     @property
@@ -143,12 +134,34 @@ class Backend(BaseBackend):
 
     def init_schema(self):
 
+        self._collection_tables = {}
         self._index_tables = defaultdict(dict)
         self._relationship_tables = defaultdict(dict)
         self._index_fields = defaultdict(dict)
         self._list_indexes = defaultdict(dict)
         self._related_fields = defaultdict(dict)
         self._excluded_fields = defaultdict(dict)
+        self._foreign_key_backrefs = defaultdict(dict)
+        self._many_to_many_backrefs = defaultdict(dict)
+
+        def add_backref(collection,related_collection,column_name,field,many_to_many = False):
+            if field.backref:
+                backref_name = field.backref
+            else:
+                backref_name = 'related_%s' % (collection)
+
+            if many_to_many:
+                backref_dict = self._many_to_many_backrefs
+            else:
+                backref_dict = self._foreign_key_backrefs
+
+            if backref_name in backref_dict[related_collection]:
+                raise AttributeError("Backref %s for collection %s clashes with existing backref for collection %s!" % (backref_name,related_collection,backref_dict[related_collection][backref_name]))
+
+            backref_dict[related_collection][backref_name] = {'collection' : collection,
+                                                              'field' : field,
+                                                              'column' : column_name
+                                                             }
 
         def add_foreign_key_field(collection,cls,key,field):
             field_name = key
@@ -159,6 +172,8 @@ class Backend(BaseBackend):
             else:
                 related_collection = self.get_collection_for_cls(field.related)
             related_class = self.get_cls_for_collection(related_collection)
+
+            add_backref(collection,related_collection,column_name,field)
 
             column = Column(column_name,self.get_field_type(related_class.Meta.PkType),ForeignKey('%s%s.pk' % (related_collection,self.table_postfix)),index=True,nullable = True if field.nullable else False)
             self._related_fields[collection][field_name] = {'field' : field,
@@ -176,6 +191,7 @@ class Backend(BaseBackend):
                 raise AttributeError("Currently not supported!")
 
             field_name = key
+            column_name = key.replace('.','_')
             self._excluded_fields[collection][field_name] = True
             if isinstance(field.related,six.string_types):
                 related_collection = self.get_collection_for_cls_name(field.related)
@@ -183,6 +199,8 @@ class Backend(BaseBackend):
                 related_collection = self.get_collection_for_cls(field.related)
             related_class = self.get_cls_for_collection(related_collection)
             relationship_name = "%s_%s" % (collection,related_collection)
+
+            add_backref(collection,related_collection,column_name,field,many_to_many = True)
 
             params = {'field' : field,
                       'key' : key,
@@ -231,8 +249,7 @@ class Backend(BaseBackend):
 
         self._metadata = MetaData()
 
-        for cls in self.classes:
-            collection = self.get_collection_for_cls(cls)
+        for collection,cls in self.collections.items():
 
             self._index_fields[collection]['pk'] = {
                 'field' : cls.Meta.PkType,
@@ -245,6 +262,8 @@ class Backend(BaseBackend):
             meta_attributes = self.get_meta_attributes(cls)
 
             for key,field in cls._fields.items():
+                if field.key:
+                    key = field.key
                 if not isinstance(field,BaseField):
                     raise AttributeError("Not a valid field: %s = %s" % (key,field))
                 if isinstance(field,ForeignKeyField):
@@ -488,7 +507,7 @@ class Backend(BaseBackend):
             raise cls.DoesNotExist
 
 
-    def filter(self, cls_or_collection, query, sort_by=None, limit=None, offset=None):
+    def filter(self, cls_or_collection, query, raw = False,only = None):
         """
         Filter objects from the database that correspond to a given set of properties.
 
@@ -526,9 +545,14 @@ class Backend(BaseBackend):
 
         table = self._collection_tables[collection]
 
-        joins = []
+        joins = defaultdict(dict)
+        group_bys = []
+        havings = []
+        extra_fields = []
 
-        def compile_query(collection,query,table = None):
+        def compile_query(collection,query,table = None,path = None):
+            if path is None:
+                path = []
 
             """
             This function emits a list of WHERE statements that can be used to retrieve 
@@ -539,19 +563,149 @@ class Backend(BaseBackend):
 
             where_statements  = []
 
-            if len(query) == 1 and query.keys()[0].startswith('$'):
+            if any([True if key.startswith('$') else False for key in query.keys()]):
                 #this is a special operator query
+                if len(query) > 1:
+                    raise AttributeError('Currently not supported!')
                 operator = query.keys()[0][1:]
                 if not operator in ('and','or','not'):
                     raise AttributeError("Non-supported logical operator: $%s" % operator)
                 if operator in ('and','or'):
-                    where_statements = [sq for expr in query['$%s' % operator] for sq in compile_query(collection,expr)]
+                    where_statements = [sq for expr in query['$%s' % operator] for sq in compile_query(collection,expr,path = path)]
                     if operator == 'and':
                         return [and_(*where_statements)]
                     else:
                         return [or_(*where_statements)]
                 elif operator  == 'not':
-                    return not_(compile_query(query['$not']))
+                    return not_(compile_query(query['$not'],path = path))
+
+            def compile_one_to_many_query(key,query,field_name,related_table,count_column,path):
+
+                tail = key[len(field_name)+1:]
+                if isinstance(query,Document) and not tail:
+                    query = {'pk' : query.pk}
+                elif not isinstance(query,dict):
+                    if tail:
+                        query = {tail : query}
+                    else:
+                        raise AttributeError
+                        query = {'$all' : query}
+
+                if len(query) == 1 and query.keys()[0].startswith('$'):
+                    query_type = query.keys()[0][1:]
+                    subquery = query.values()[0]
+
+                    if query_type not in ('nin','in','all','elemMatch'):
+                        raise AttributeError("Unsupported operator: %s" % query_type)
+                    if query_type == 'elemMatch':
+                        queries = compile_query(params['collection'],
+                                                prepare_subquery(tail,query['$elemMatch']),
+                                                table = related_table,
+                                                path = path)
+                        query_type = 'all'
+                    else:
+                        if len(subquery) and isinstance(subquery[0],dict) and len(subquery[0]) == 1 and \
+                        subquery[0].keys()[0] == '$elemMatch':
+                            queries = [sq for v in subquery for sq in compile_query(params['collection'],
+                                                                                    prepare_subquery(tail,v['$elemMatch']),
+                                                                                    table = related_table,
+                                                                                    path = path)]
+                        else:
+                            queries = [sq for v in subquery for sq in compile_query(params['collection'],
+                                                                                    prepare_subquery(tail,v),
+                                                                                    table = related_table,
+                                                                                    path = path)]
+                else:
+                    query_type = 'all'
+                    queries = compile_query(params['collection'],query,
+                                            table = related_table,
+                                            path = path)
+
+
+                where_statement = or_(*queries)
+
+                if query_type == 'nin':
+                    where_statement = not_(where_statement)
+
+                if query_type == 'all' and len(queries) > 1:
+                    cnt = func.count(count_column)
+                    havings.append(cnt == len(queries))
+
+                return [where_statement]
+
+            def compile_many_to_many_query(key,value,field_name,related_collection,relationship_table):
+
+                """
+                1) {'movies.title' : {'$all' : ['The Godfather','Apocalypse Now']}}
+                2) {'movies.title' : {'$in' : ['The Godfather','Apocalypse Now']}}
+                3) {'movies' : {'$in' : [the_godfather,apocalypse_now]}}
+                4) {'movies' : the_godfather}
+                5) {'movies' : {'$all' : [{'$elemMatch' : {'title' : 'The Godfather','language' : 'English'}},{'$elemMatch' : {'title' : 'Apocalypse Now'}}]}}
+
+                SELECT 
+                    [...],
+                    COUNT(*) as movie_cnt -- 1)
+                FROM 
+                    actor
+                LEFT JOIN --we join the relationship table
+                    actor_movie ON actor.pk = actor_movie.actor_pk
+                LEFT JOIN --we join the related table
+                    movie ON actor_movie.actor_pk = movie.pk
+
+                WHERE --we preform an IN query
+                    ---
+                    movie.title in ('The Godfather','Apocalypse Now') --1
+                    ---
+                    movie.pk in ([the_godfather.pk],[apocalypse_now.pk]) -- 3
+                    ---
+                    movie.pk = [the-godfather.pk] --4
+                    ---
+                    (movie.title = 'The Godfather' AND movie.language = 'English')
+                    OR
+                    movie.title = 'Apocalypse Now'
+                GROUP BY 
+                    actor.pk --we group by actor
+                -- only in 1.)
+                HAVING 
+                    movie_cnt = 2 --only select elements where all conditions matched
+               """
+                related_table = self._collection_tables[related_collection]
+
+                #this is a query for a document
+                """
+                Possible values:
+
+                -A document, e.g. the_godfather (replace by pk matching)
+                -A list of values, e.g. ('The Godfather','Apocalypse Now') (only valid if a tail is given)
+                -A $elemMatch query, e.g. {'title' : 'Apocalypse Now'}
+                -A list of $elemMatch queries
+
+                Currently NOT valid:
+                -A list of documents, e.g. [the_godfather,apocalypse_now] (NOT valid)
+
+                """
+
+                #to do: allow modifiers when using special queries (e.g. for regex)
+                #Currently we only support $elemMatch, $all and $in operators
+
+                new_path = path+[field_name]
+                path_str = ".".join(new_path)
+
+                if path_str in joins[relationship_table]:
+                    relationship_table_alias = joins[relationship_table][path_str][0]
+                else:
+                    relationship_table_alias = relationship_table.alias()
+                    joins[relationship_table][path_str] = (relationship_table_alias,
+                                                           relationship_table_alias.c['pk_%s' % collection] == table.c['pk'])
+                    group_bys.append(relationship_table_alias.c['pk_%s' % collection])
+                if path_str in joins[related_table]:
+                    related_table_alias = joins[related_table][path_str][0]
+                else:
+                    related_table_alias = related_table.alias()
+                    joins[related_table][path_str] = (related_table_alias,
+                                                      relationship_table_alias.c['pk_%s' % related_collection] == related_table_alias.c['pk'])
+
+                return compile_one_to_many_query(key,value,field_name,related_table_alias,relationship_table_alias.c['pk_%s' % collection],new_path)
 
             def prepare_subquery(tail,query_dict):
                 d = {}
@@ -601,6 +755,8 @@ class Backend(BaseBackend):
                 else:
                     raise AttributeError("Invalid query!")
 
+            foreign_key_backrefs = self._foreign_key_backrefs[collection]
+            many_to_many_backrefs = self._many_to_many_backrefs[collection]
             #this is a normal, field-base query
             for key,value in query.items():
                 for field_name,params in self._index_fields[collection].items():
@@ -609,7 +765,7 @@ class Backend(BaseBackend):
                         if isinstance(params['field'],ListField):
                             index_table = self._index_tables[collection][field_name]
                             if isinstance(value,dict):
-                                related_query = lambda op: index_table.c[field_name].in_([expression.cast(v,params['type']) for v in value[op]])
+                                related_query = lambda op: index_table.c[params['column']].in_([expression.cast(v,params['type']) for v in value[op]])
                                 if '$in' in value:
                                     #do type-cast here?
                                     where_statements.append(related_query('$in'))
@@ -626,7 +782,7 @@ class Backend(BaseBackend):
                                 else:
                                     raise AttributeError("Invalid query!")
                             else:
-                                where_statements.append(index_table.c[field_name] == expression.cast(value,params['type']))
+                                where_statements.append(index_table.c[params['column']] == expression.cast(value,params['type']))
                         else:
                             #this is a normal column index
                             if isinstance(value,dict):
@@ -634,83 +790,69 @@ class Backend(BaseBackend):
                                 where_statements.extend(prepare_special_query(field_name,value))
                             else:
                                 #this is a normal value query
-                                where_statements.append(table.c[field_name] == expression.cast(value,params['type']))
+                                where_statements.append(table.c[params['column']] == expression.cast(value,params['type']))
                         break
                 else:
                     #this is a non-indexed field! We try to find a relation...
-                    for field_name,params in self._related_fields[collection].items():
+                    for field_name,params in foreign_key_backrefs.items():
                         if key.startswith(field_name):
-                            if isinstance(params['field'],ManyToManyField):
-                                relationship_table = self._relationship_tables[collection][field_name]
-                                related_collection = params['collection']
-                                related_table = self._collection_tables[related_collection]
-                                tail = key[len(field_name)+1:]
-                                #this is a query for a document
-                                if isinstance(value,Document) and not tail:
-                                    value = {'pk' : value.pk}
-                                elif not isinstance(value,dict):
-                                    if tail:
-                                        value = {tail : value}
-                                    else:
-                                        raise AttributeError("Query over a ManyToMany field must be a dictionary!")
-                                #to do: allow modifiers when using special queries (e.g. for regex)
-                                #Currently we only support $elemMatch, $all and $in operators
-                                if len(value) == 1 and value.keys()[0].startswith('$'):
-                                    operator = value.keys()[0][1:]
-                                    subquery = value.values()[0]
-                                    if operator == 'elemMatch':
-                                        query_type = 'all'
-                                        queries = compile_query(params['collection'],prepare_subquery(tail,value['$elemMatch']))
-                                    elif operator == 'all':
-                                        query_type = 'all'
-                                        if len(subquery) and isinstance(subquery[0],dict) and len(subquery[0]) == 1 and \
-                                        subquery[0].keys()[0] == '$elemMatch':
-                                            queries = [sq for v in subquery for sq in compile_query(params['collection'],prepare_subquery(tail,v['$elemMatch']))]
-                                        else:
-                                            queries = [sq for v in subquery for sq in compile_query(params['collection'],prepare_subquery(tail,v))]
-                                    elif operator == 'in':
-                                        query_type = 'in'
-                                        queries = [sq for v in subquery for sq in compile_query(params['collection'],prepare_subquery(tail,v))]
-                                    elif operator == 'nin':
-                                        query_type = 'nin'
-                                        queries = [sq for v in subquery for sq in compile_query(params['collection'],prepare_subquery(tail,v))]
-                                    elif operator == '$size':
-                                        raise AttributeError("Size operator is currently not supported!")
-                                    else:
-                                        raise AttributeError("Unsupported operator: %s" % operator)
-                                else:
-                                    query_type = 'all'
-                                    queries = compile_query(params['collection'],value)
-                                    #this is an exact query
-                                related_select = select([related_table.c.pk]).where(or_(*queries))
-                                related_query = relationship_table.c['pk_%s' % related_collection].in_(related_select)
-                                pk_column = relationship_table.c['pk_%s' % collection].label('pk')
-                                if query_type == 'all':
-                                    cnt = func.count(pk_column).label('cnt')
-                                    s = select([pk_column]).where(related_query).group_by('pk').having(cnt == len(queries))
-                                elif query_type == 'in':
-                                    s = select([pk_column]).where(related_query)
-                                elif query_type == 'nin':
-                                    s = select([pk_column]).where(not_(related_query))
-                                else:
-                                    raise AttributeError("Invalid query!")
-                                where_statements.append(table.c.pk.in_(s))
-                            else:#this is a normal ForeignKey relation
-                                if key == field_name:
-                                    if not isinstance(value,Document):
-                                        raise AttributeError("ForeignKey query with non-document!")
-                                    where_statements.append(table.c[params['column']] == value.pk)
-                                else:
-                                    #we query a sub-field of the relation
-                                    head,tail = key[:len(field_name)],key[len(field_name)+1:]
-                                    related_table = self._collection_tables[params['collection']]
-                                    if not related_table in joins:
-                                        related_table_alias = related_table.alias()
-                                        joins.append((related_table_alias,table.c[params['column']] == related_table_alias.c['pk']))
-                                    where_statements.extend(compile_query(params['collection'],{tail : value},table = related_table_alias))
+                            """
+                            filter(Director,{'movies.name' : 'The Godfather'}) #foreign key backref
+                            """
+                            related_table = self._collection_tables[params['collection']]
+                            relationship_params = self._related_fields[params['collection']][params['column']]
+                            #join the table and
+                            new_path = path + [field_name]
+                            path_str = '.'.join(new_path)
+                            if path_str in joins[related_table]:
+                                related_table_alias = joins[related_table][path_str][0]
+                            else:
+                                related_table_alias = related_table.alias()
+                                joins[related_table][path_str] = (related_table_alias,related_table_alias.c[params['column']] == table.c['pk'])
+                            where_statements.extend(compile_one_to_many_query(key,value,field_name,related_table_alias,table.c.pk,new_path))
                             break
                     else:
-                        raise AttributeError("Query over non-indexed field %s in collection %s!" % (key,collection))
+                        #we check the many-to-many backreferences...
+                        for field_name,params in many_to_many_backrefs.items():
+                            if key.startswith(field_name):
+                                """
+                                filter(Movie,{'actors.name' : 'Al Pacino'}) #many-to-many backref
+                                
+                                This should use the same functionality as a ManyToMany query
+
+
+                                """
+                                relationship_table = self._relationship_tables[params['collection']][params['column']]
+                                where_statements.extend(compile_many_to_many_query(key,value,field_name,params['collection'],relationship_table))
+                                break
+                        else:
+                            #we check the normal relationships
+                            for field_name,params in self._related_fields[collection].items():
+                                if key.startswith(field_name):
+                                    #ManyToManyField
+                                    if isinstance(params['field'],ManyToManyField):
+                                        relationship_table = self._relationship_tables[collection][field_name]
+                                        where_statements.extend(compile_many_to_many_query(key,value,field_name,params['collection'],relationship_table))
+                                    else:#this is a normal ForeignKey relation
+                                        if key == field_name:
+                                            if not isinstance(value,Document):
+                                                raise AttributeError("ForeignKey query with non-document!")
+                                            where_statements.append(table.c[params['column']] == value.pk)
+                                        else:
+                                            #we query a sub-field of the relation
+                                            head,tail = key[:len(field_name)],key[len(field_name)+1:]
+                                            related_table = self._collection_tables[params['collection']]
+                                            new_path = path + [field_name]
+                                            path_str = ".".join(new_path)
+                                            if path_str in joins[related_table]:
+                                                related_table_alias = joins[related_table][path_str][0]
+                                            else:
+                                                related_table_alias = related_table.alias()
+                                                joins[related_table][path_str] = (related_table_alias,table.c[params['column']] == related_table_alias.c['pk'])
+                                            where_statements.extend(compile_query(params['collection'],{tail : value},table = related_table_alias))
+                                    break
+                            else:
+                                raise AttributeError("Query over non-indexed field %s in collection %s!" % (key,collection))
             return where_statements
 
         compiled_query = compile_query(collection,query)
@@ -722,4 +864,17 @@ class Backend(BaseBackend):
         else:
             compiled_query = None
 
-        return QuerySet(backend = self, table = table,joins = joins,cls = cls,condition = compiled_query)
+        joins_list = []
+
+        for t,params in joins.items():
+            for path,j in params.items():
+                joins_list.append(j)
+
+        return QuerySet(backend = self, table = table,
+                        joins = joins_list,
+                        cls = cls,
+                        extra_fields = extra_fields,
+                        condition = compiled_query,
+                        group_bys = group_bys,
+                        havings = havings
+                        )

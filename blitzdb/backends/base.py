@@ -123,7 +123,16 @@ class Backend(object):
             Also, when :py:meth:`blitzdb.backends.base.Backend.autoregister` is used to register a class, 
             you can't pass in any parameters to customize e.g. the collection name for that class 
             (you can of course do this throught the `Meta` attribute of the class)
+
+        ## Inheritance
+
+        If `register` encounters a document class with a collection name that overlaps with the
+        collection name of an already registered document class, it checks if the new class is a
+        subclass of the one that is already register. If yes, it associates the new class to the
+        collection name. Otherwise, it leaves the collection associated to the already
+        registered class.
         """
+
         if parameters is None:
             parameters = {}
         if 'collection' in parameters:
@@ -134,14 +143,14 @@ class Backend(object):
             collection_name = cls.__name__.lower()
 
         delete_list = []
-        for new_cls, new_params in self.classes.items():
-            if 'collection' in new_params and new_params['collection'] == collection_name:
-                delete_list.append(new_cls)
 
-        for delete_cls in delete_list:
-            del self.classes[delete_cls]
-
-        self.collections[collection_name] = cls
+        if collection_name in self.collections:
+            old_cls = self.collections[collection_name]
+            if issubclass(cls,old_cls) and not (cls is old_cls):
+                logger.debug("Replacing class %s with %s for collection %s" % (old_cls,cls,collection_name))
+                self.collections[collection_name] = cls
+        else:
+            self.collections[collection_name] = cls
         self.classes[cls] = parameters.copy()
         self.classes[cls]['collection'] = collection_name
 
