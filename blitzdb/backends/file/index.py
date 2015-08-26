@@ -292,7 +292,7 @@ class Index(object):
 
         """
         if self._unique and hash_value in self._index:
-            raise NonUnique("Hash value %s already in index" % hash_value)
+            raise NonUnique('Hash value %s already in index' % hash_value)
         if store_key not in self._index[hash_value]:
             self._index[hash_value].append(store_key)
         if hash_value not in self._reverse_index[store_key]:
@@ -386,7 +386,9 @@ class TransactionalIndex(Index):
 
     def commit(self):
         """Commit current transaction."""
-        if not self._add_cache and not self._remove_cache and not self._undefined_cache:
+        if (not self._add_cache and
+                not self._remove_cache and
+                not self._undefined_cache):
             return
 
         for store_key, hash_values in self._add_cache.items():

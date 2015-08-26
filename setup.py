@@ -1,18 +1,19 @@
 from distutils.core import setup
 from setuptools import find_packages
 
-setup(name='blitzdb',
-version='0.2.12',
-author='Andreas Dewes - 7scientists',
-author_email='andreas@7scientists.com',
-license='MIT',
-entry_points={
-    },
-url='https://github.com/adewes/blitzdb',
-packages=find_packages(),
-zip_safe=False,
-description='A document-oriented database written purely in Python.',
-long_description="""Blitz is a document-oriented database toolkit for Python that is backend-agnostic. 
+setup(
+    name='blitzdb',
+    version='0.2.12',
+    author='Andreas Dewes - 7scientists',
+    author_email='andreas@7scientists.com',
+    license='MIT',
+    entry_points={},
+    url='https://github.com/adewes/blitzdb',
+    packages=find_packages(),
+    install_requires=['six'],
+    zip_safe=False,
+    description='A document-oriented database written purely in Python.',
+    long_description="""Blitz is a document-oriented database toolkit for Python that is backend-agnostic. 
 
 It comes with a flat-file database for JSON documents and provides MongoDB-like querying capabilities.
 
