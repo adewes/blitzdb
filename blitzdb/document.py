@@ -56,7 +56,6 @@ class MetaDocument(type):
         if name == 'Document' and bases == (object,):
             pass
         elif not (hasattr(class_type.Meta,'autoregister') and class_type.Meta.autoregister == False):
-            print class_type
             document_classes.append(class_type)
 
         return class_type
@@ -101,7 +100,7 @@ class Document(object):
 
        marlon = Actor({'name' : 'Marlon Brando', 'birth_year' : 1924})
 
-       print "%s was born in %d" % (marlon.name,marlon.birth_year)
+       print("%s was born in %d" % (marlon.name,marlon.birth_year))
 
     In case one of your attributes shadows a class attribute or function, you can still access it
     using the `attributes` attribute.
@@ -110,9 +109,9 @@ class Document(object):
 
       fail = Document({'delete': False,'save' : True})
 
-      print fail.delete #will print <bound method Document.save ...>
+      print(fail.delete) #will print <bound method Document.save ...>
 
-      print fail.attributes['delete'] #will print 'False'
+      print(fail.attributes['delete']) #will print 'False'
 
     **Defining "non-database" attributes**
 
