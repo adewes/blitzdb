@@ -8,6 +8,7 @@ import pytest
 class MyMovie(Movie):
 
     best_actor = ForeignKeyField(Actor,backref = 'best_movies')
+    director = ForeignKeyField(Director,backref = 'my_movies')
 
 @pytest.fixture(scope="function")
 def backend():

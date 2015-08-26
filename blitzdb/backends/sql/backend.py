@@ -156,7 +156,7 @@ class Backend(BaseBackend):
                 backref_dict = self._foreign_key_backrefs
 
             if backref_name in backref_dict[related_collection]:
-                raise AttributeError("Backref %s for collection %s clashes with existing backref for collection %s!" % (backref_name,related_collection,backref_dict[related_collection][backref_name]))
+                raise AttributeError("Backref %s for collection %s clashes with existing backref for collection %s!" % (backref_name,related_collection,backref_dict[related_collection][backref_name]['collection']))
 
             backref_dict[related_collection][backref_name] = {'collection' : collection,
                                                               'field' : field,
@@ -577,7 +577,7 @@ class Backend(BaseBackend):
                     else:
                         return [or_(*where_statements)]
                 elif operator  == 'not':
-                    return not_(compile_query(query['$not'],path = path))
+                    return [not_(*compile_query(collection,query['$not'],table = table,path = path))]
 
             def compile_one_to_many_query(key,query,field_name,related_table,count_column,path):
 
@@ -697,7 +697,8 @@ class Backend(BaseBackend):
                     relationship_table_alias = relationship_table.alias()
                     joins[relationship_table][path_str] = (relationship_table_alias,
                                                            relationship_table_alias.c['pk_%s' % collection] == table.c['pk'])
-                    group_bys.append(relationship_table_alias.c['pk_%s' % collection])
+                    if not group_bys:
+                        group_bys.append(table.c.pk)
                 if path_str in joins[related_table]:
                     related_table_alias = joins[related_table][path_str][0]
                 else:
@@ -796,9 +797,6 @@ class Backend(BaseBackend):
                     #this is a non-indexed field! We try to find a relation...
                     for field_name,params in foreign_key_backrefs.items():
                         if key.startswith(field_name):
-                            """
-                            filter(Director,{'movies.name' : 'The Godfather'}) #foreign key backref
-                            """
                             related_table = self._collection_tables[params['collection']]
                             relationship_params = self._related_fields[params['collection']][params['column']]
                             #join the table and
@@ -809,19 +807,13 @@ class Backend(BaseBackend):
                             else:
                                 related_table_alias = related_table.alias()
                                 joins[related_table][path_str] = (related_table_alias,related_table_alias.c[params['column']] == table.c['pk'])
+                            #this is a one-to-many query
                             where_statements.extend(compile_one_to_many_query(key,value,field_name,related_table_alias,table.c.pk,new_path))
                             break
                     else:
                         #we check the many-to-many backreferences...
                         for field_name,params in many_to_many_backrefs.items():
                             if key.startswith(field_name):
-                                """
-                                filter(Movie,{'actors.name' : 'Al Pacino'}) #many-to-many backref
-                                
-                                This should use the same functionality as a ManyToMany query
-
-
-                                """
                                 relationship_table = self._relationship_tables[params['collection']][params['column']]
                                 where_statements.extend(compile_many_to_many_query(key,value,field_name,params['collection'],relationship_table))
                                 break

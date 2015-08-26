@@ -4,7 +4,7 @@ import sqlalchemy
 
 from blitzdb.queryset import QuerySet as BaseQuerySet
 from functools import wraps
-from sqlalchemy.sql import select,func,expression,delete,distinct
+from sqlalchemy.sql import select,func,expression,delete,distinct,and_,union,intersect
 from sqlalchemy.sql.expression import join,asc,desc
 from ..file.serializers import JsonSerializer
 
@@ -144,8 +144,13 @@ class QuerySet(BaseQuerySet):
         raise IndexError("No more results!")
 
     def filter(self,*args,**kwargs):
-        qs = self.backend.filter(*args,**kwargs)
+        qs = self.backend.filter(self.cls,*args,**kwargs)
         return self.intersect(qs)
+
+    def intersect(self,qs):
+        new_qs = QuerySet(self.backend,self.table,self.cls,select = intersect(self.get_select(),qs.get_select()))
+        print(new_qs.get_select())
+        return new_qs
 
     def delete(self):
         if self.condition is not None:
@@ -157,14 +162,13 @@ class QuerySet(BaseQuerySet):
         self.backend.connection.execute(delete_stmt)
 
     def get_select(self,fields = None):
+        if self.select is not None:
+            return self.select
         if fields is None:
             fields = [self.table]
         if self.extra_fields:
             fields.extend(self.extra_fields)
         s = select(fields)
-        print("---")
-        print(s)
-        print("---")
         if self.joins:
             full_join = None
             for j in self.joins:
@@ -187,7 +191,6 @@ class QuerySet(BaseQuerySet):
             s = s.offset(self._offset)
         if self._limit:
             s = s.limit(self._limit)
-        print(s)
         return s
 
     def __len__(self):

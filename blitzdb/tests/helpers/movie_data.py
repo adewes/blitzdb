@@ -16,7 +16,7 @@ class Movie(Document):
 
     title = CharField(nullable = True,indexed = True)
     tags = ListField(type = CharField(), indexed = True)
-    director = ForeignKeyField(related = 'Director',nullable = True)
+    director = ForeignKeyField(related = 'Director',nullable = True,backref = 'movies')
     cast = ManyToManyField(related = 'Actor')
 
     class Meta(Document.Meta):
