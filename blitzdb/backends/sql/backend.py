@@ -1,6 +1,7 @@
 import abc
 import six
 import uuid
+import re
 import pprint
 from collections import defaultdict
 
@@ -131,6 +132,16 @@ class Backend(BaseBackend):
             if isinstance(field,cls):
                 return t
         raise AttributeError("Invalid field type: %s" % field)
+
+    def get_column_for_key(self,cls,key):
+        collection = self.get_collection_for_cls(cls)
+        if key in self._index_fields[collection]:
+            return self._index_fields[collection][key]['column']
+        raise KeyError
+
+    @property
+    def metadata(self):
+        return self._metadata
 
     def init_schema(self):
 
@@ -496,7 +507,7 @@ class Backend(BaseBackend):
             collection = cls_or_collection
         self.db[collection].ensure_index(*args, **kwargs)
 
-    def get(self, cls_or_collection, query):
+    def get(self, cls_or_collection, query,raw=False, only=None):
 
         if not isinstance(cls_or_collection, six.string_types):
             collection = self.get_collection_for_cls(cls_or_collection)
@@ -505,7 +516,7 @@ class Backend(BaseBackend):
             collection = cls_or_collection
             cls = self.get_cls_for_collection(collection)
 
-        result = self.filter(cls_or_collection,query)
+        result = self.filter(cls_or_collection,query,raw = raw,only = only)
         try:
             return result[0]
         except IndexError:
@@ -551,6 +562,7 @@ class Backend(BaseBackend):
         table = self._collection_tables[collection]
 
         joins = defaultdict(dict)
+        joins_list = []
         group_bys = []
         havings = []
         extra_fields = []
@@ -697,19 +709,20 @@ class Backend(BaseBackend):
                 path_str = ".".join(new_path)
 
                 if path_str in joins[relationship_table]:
-                    relationship_table_alias = joins[relationship_table][path_str][0]
+                    relationship_table_alias = joins[relationship_table][path_str]
                 else:
                     relationship_table_alias = relationship_table.alias()
-                    joins[relationship_table][path_str] = (relationship_table_alias,
-                                                           relationship_table_alias.c['pk_%s' % collection] == table.c['pk'])
+                    joins[relationship_table][path_str] = relationship_table_alias
+                    joins_list.append((relationship_table_alias,
+                                       relationship_table_alias.c['pk_%s' % collection] == table.c['pk']))
                     if not group_bys:
                         group_bys.append(table.c.pk)
                 if path_str in joins[related_table]:
-                    related_table_alias = joins[related_table][path_str][0]
+                    related_table_alias = joins[related_table][path_str]
                 else:
                     related_table_alias = related_table.alias()
-                    joins[related_table][path_str] = (related_table_alias,
-                                                      relationship_table_alias.c['pk_%s' % related_collection] == related_table_alias.c['pk'])
+                    joins[related_table][path_str] = related_table_alias
+                    joins_list.append((related_table_alias,relationship_table_alias.c['pk_%s' % related_collection] == related_table_alias.c['pk']))
 
                 return compile_one_to_many_query(key,value,field_name,related_table_alias,relationship_table_alias.c['pk_%s' % collection],new_path)
 
@@ -728,36 +741,37 @@ class Backend(BaseBackend):
                 else:
                     return {tail : query_dict}
 
-            def prepare_special_query(field_name,query):
+            def prepare_special_query(field_name,params,query):
+                column_name = params['column']
                 if '$not' in query:
-                    return [not_(*prepare_special_query(field_name,query['$not']))]
+                    return [not_(*prepare_special_query(column_name,params,query['$not']))]
                 elif '$in' in query:
-                    return [table.c[field_name].in_(query['$in'])]
+                    return [table.c[column_name].in_(query['$in'])]
                 elif '$nin' in query:
-                    return [~table.c[field_name].in_(query['$in'])]
+                    return [~table.c[column_name].in_(query['$in'])]
                 elif '$eq' in query:
-                    return [table.c[field_name] == query['$eq']]
+                    return [table.c[column_name] == query['$eq']]
                 elif '$ne' in query:
-                    return [table.c[field_name] != query['$ne']]
+                    return [table.c[column_name] != query['$ne']]
                 elif '$gt' in query:
-                    return [table.c[field_name] > query['$gt']]
+                    return [table.c[column_name] > query['$gt']]
                 elif '$gte' in query:
-                    return [table.c[field_name] >= query['$gte']]
+                    return [table.c[column_name] >= query['$gte']]
                 elif '$lt' in query:
-                    return [table.c[field_name] < query['$lt']]
+                    return [table.c[column_name] < query['$lt']]
                 elif '$lte' in query:
-                    return [table.c[field_name] <= query['$lte']]
+                    return [table.c[column_name] <= query['$lte']]
                 elif '$exists' in query:
                     if query['$exists']:
-                        return [table.c[field_name] != None]
+                        return [table.c[column_name] != None]
                     else:
-                        return [table.c[field_name] == None]
+                        return [table.c[column_name] == None]
                 elif '$like' in query:
-                    where_statements.append(table.c[field_name].like(expression.cast(query['$regex'],String)))
+                    return [table.c[column_name].like(expression.cast(query['$like'],String))]
                 elif '$regex' in query:
-                    if not self._engine.url.drivername in ('postgres','mysql'):
+                    if not self._engine.url.drivername in ('postgres','mysql','sqlite'):
                         raise AttributeError("Regex queries not supported with %s engine!" % self._engine.url.drivername)
-                    where_statements.append(table.c[field_name].op('REGEXP')(expression.cast(query['$regex'],String)))
+                    return [table.c[column_name].op('REGEXP')(expression.cast(query['$regex'],String))]
                 else:
                     raise AttributeError("Invalid query!")
 
@@ -791,9 +805,11 @@ class Backend(BaseBackend):
                                 where_statements.append(index_table.c[params['column']] == expression.cast(value,params['type']))
                         else:
                             #this is a normal column index
+                            if isinstance(value,re._pattern_type):
+                                value = {'$regex' : value.pattern}
                             if isinstance(value,dict):
                                 #this is a special query
-                                where_statements.extend(prepare_special_query(field_name,value))
+                                where_statements.extend(prepare_special_query(field_name,params,value))
                             else:
                                 #this is a normal value query
                                 where_statements.append(table.c[params['column']] == expression.cast(value,params['type']))
@@ -808,10 +824,11 @@ class Backend(BaseBackend):
                             new_path = path + [field_name]
                             path_str = '.'.join(new_path)
                             if path_str in joins[related_table]:
-                                related_table_alias = joins[related_table][path_str][0]
+                                related_table_alias = joins[related_table][path_str]
                             else:
                                 related_table_alias = related_table.alias()
-                                joins[related_table][path_str] = (related_table_alias,related_table_alias.c[params['column']] == table.c['pk'])
+                                joins[related_table][path_str] = related_table_alias
+                                joins_list.append((related_table_alias,related_table_alias.c[params['column']] == table.c['pk']))
                             #this is a one-to-many query
                             where_statements.extend(compile_one_to_many_query(key,value,field_name,related_table_alias,table.c.pk,new_path))
                             break
@@ -842,10 +859,11 @@ class Backend(BaseBackend):
                                             new_path = path + [field_name]
                                             path_str = ".".join(new_path)
                                             if path_str in joins[related_table]:
-                                                related_table_alias = joins[related_table][path_str][0]
+                                                related_table_alias = joins[related_table][path_str]
                                             else:
                                                 related_table_alias = related_table.alias()
-                                                joins[related_table][path_str] = (related_table_alias,table.c[params['column']] == related_table_alias.c['pk'])
+                                                joins[related_table][path_str] = related_table_alias
+                                                joins_list.append((related_table_alias,table.c[params['column']] == related_table_alias.c['pk']))
                                             where_statements.extend(compile_query(params['collection'],{tail : value},table = related_table_alias))
                                     break
                             else:
@@ -860,12 +878,6 @@ class Backend(BaseBackend):
             compiled_query = compiled_query[0]
         else:
             compiled_query = None
-
-        joins_list = []
-
-        for t,params in joins.items():
-            for path,j in params.items():
-                joins_list.append(j)
 
         return QuerySet(backend = self, table = table,
                         joins = joins_list,

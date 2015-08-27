@@ -59,6 +59,11 @@ def test_basics(backend):
 
     result = backend.filter(Movie,{'$or' : [{'actors' : harrison_ford},{'actors.name' : 'Al Pacino'},{'actors.name' : 'Robert de Niro'}]})
 
+    print(result.get_select())
+
+    for item in result:
+        print item.title
+
     assert len(result) == 3
     assert scarface in result
     assert the_godfather in result

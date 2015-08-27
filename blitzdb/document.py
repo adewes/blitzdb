@@ -175,12 +175,14 @@ class Document(object):
         lazily loads the document from the database by calling `revert` and sets `_lazy = False'
         after doing so.
         """
+
         try:
             lazy = super(Document, self).__getattribute__('_lazy')
             autoload = super(Document, self).__getattribute__('_autoload')
         except AttributeError:
             lazy = False
             autoload = False
+
         if lazy:
             if key == 'lazy_attributes':
                 return super(Document, self).__getattribute__('_attributes')
@@ -200,6 +202,7 @@ class Document(object):
             elif autoload:
                 self.revert()
                 self._lazy = False
+
         return super(Document,self).__getattribute__(key)
 
     def get(self,key,default = None):
@@ -229,7 +232,7 @@ class Document(object):
 
     def __getattr__(self, key):
         try:
-            super(Document, self).__getattr__(key)
+            return super(Document, self).__getattr__(key)
         except AttributeError:
             try:
                 return self.attributes[key]

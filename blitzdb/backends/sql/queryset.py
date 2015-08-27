@@ -5,7 +5,7 @@ import sqlalchemy
 from blitzdb.queryset import QuerySet as BaseQuerySet
 from functools import wraps
 from sqlalchemy.sql import select,func,expression,delete,distinct,and_,union,intersect
-from sqlalchemy.sql.expression import join,asc,desc
+from sqlalchemy.sql.expression import join,asc,desc,outerjoin
 from ..file.serializers import JsonSerializer
 
 class QuerySet(BaseQuerySet):
@@ -46,9 +46,11 @@ class QuerySet(BaseQuerySet):
 
     def limit(self,limit):
         self._limit = limit
+        return self
 
     def offset(self,offset):
         self._offset = offset
+        return self
 
     def deserialize(self, data):
         d = {key : value for key,value in data.items()}
@@ -59,16 +61,20 @@ class QuerySet(BaseQuerySet):
         deserialized_attributes = self.backend.deserialize(d)
         return self.backend.create_instance(self.cls, deserialized_attributes)
 
-    def sort(self, columns,direction = None):
+    def sort(self, keys,direction = None):
         #we sort by a single argument
         if direction:
-            columns = ((columns,direction),)
+            keys = ((keys,direction),)
         order_bys = []
-        for column,direction in columns:
+        for key,direction in keys:
             if direction > 0:
                 direction = asc
             else:
                 direction = desc
+            try:
+                column = self.backend.get_column_for_key(self.cls,key)
+            except KeyError:
+                raise AttributeError("Attempting to sort results by a non-indexed field %s" % key)
             order_bys.append(direction(column))
         self.order_bys = order_bys
         self.objects = None
@@ -149,7 +155,6 @@ class QuerySet(BaseQuerySet):
 
     def intersect(self,qs):
         new_qs = QuerySet(self.backend,self.table,self.cls,select = intersect(self.get_select(),qs.get_select()))
-        print(new_qs.get_select())
         return new_qs
 
     def delete(self):
@@ -170,7 +175,7 @@ class QuerySet(BaseQuerySet):
                 if full_join is not None:
                     full_join = full_join.join(*j)
                 else:
-                    full_join = join(self.table,*j)
+                    full_join = outerjoin(self.table,*j)
             s = s.select_from(full_join)
 
         if self.condition is not None:
@@ -190,7 +195,7 @@ class QuerySet(BaseQuerySet):
 
     def __len__(self):
         if self.count is None:
-            s = select([func.count()]).select_from(self.get_select(fields = [self.table.c.pk]))
+            s = select([func.count()]).select_from(self.get_select(fields = [self.table.c.pk]).alias('count_select'))
             result = self.backend.connection.execute(s)
             self.count = result.first()[0]
             result.close()
