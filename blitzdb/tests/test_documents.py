@@ -160,7 +160,7 @@ def test_class_properties(mockup_backend):
 
 
     def get_lazy_doc():
-        return MyDocument({'pk': 1,'path' : 'bar'}, lazy=True, backend=mockup_backend)
+        return MyDocument({'pk': 1}, lazy=True, backend=mockup_backend)
 
     # Fetchin of attribute by class attribute
 
@@ -168,10 +168,9 @@ def test_class_properties(mockup_backend):
 
     assert doc._lazy == True
     assert doc.path == 'foo'
-    assert doc['path'] == 'bar'
     assert hasattr(doc,'path')
     assert doc._lazy
-    assert 'path' in doc
+    assert not 'path' in doc
     #we force a revert
     doc.attributes
     assert not 'path' in doc

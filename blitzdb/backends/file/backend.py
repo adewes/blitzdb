@@ -329,8 +329,8 @@ class Backend(BaseBackend):
         return self.index_stores[collection][store_key]
 
     def register(self, cls, parameters=None):
-        super(Backend, self).register(cls, parameters)
-        self.init_indexes(self.get_collection_for_cls(cls))
+        if super(Backend, self).register(cls, parameters):
+            self.init_indexes(self.get_collection_for_cls(cls))
 
     def get_storage_key_for(self, obj):
         collection = self.get_collection_for_obj(obj)

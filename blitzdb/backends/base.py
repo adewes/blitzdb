@@ -88,6 +88,7 @@ class Backend(object):
 
     def __init__(self, autodiscover_classes=True, autoload_embedded=True, allow_documents_in_query=True):
         self.classes = {}
+        self.deprecated_classes = {}
         self.collections = {}
         self._autoload_embedded = autoload_embedded
         self._allow_documents_in_query = allow_documents_in_query
@@ -103,7 +104,7 @@ class Backend(object):
         for document_class in document_classes:
             self.register(document_class)
 
-    def register(self, cls, parameters=None):
+    def register(self, cls, parameters=None,overwrite = False):
         """
         Explicitly register a new document class for use in the backend.
 
@@ -133,6 +134,9 @@ class Backend(object):
         registered class.
         """
 
+        if cls in self.deprecated_classes and not overwrite:
+            return False
+
         if parameters is None:
             parameters = {}
         if 'collection' in parameters:
@@ -144,15 +148,25 @@ class Backend(object):
 
         delete_list = []
 
+        def register_class(collection_name,cls):
+            self.collections[collection_name] = cls
+            self.classes[cls] = parameters.copy()
+            self.classes[cls]['collection'] = collection_name
+
         if collection_name in self.collections:
             old_cls = self.collections[collection_name]
-            if issubclass(cls,old_cls) and not (cls is old_cls):
-                logger.debug("Replacing class %s with %s for collection %s" % (old_cls,cls,collection_name))
-                self.collections[collection_name] = cls
+            if (issubclass(cls,old_cls) and not (cls is old_cls)) or overwrite:
+                logger.info("Replacing class %s with %s for collection %s" % (old_cls,cls,collection_name))
+                self.deprecated_classes[old_cls] = self.classes[old_cls]
+                del self.classes[old_cls]
+                register_class(collection_name,cls)
+                return True
         else:
-            self.collections[collection_name] = cls
-        self.classes[cls] = parameters.copy()
-        self.classes[cls]['collection'] = collection_name
+            logger.info("Registering class %s under collection %s" % (cls,collection_name))
+            register_class(collection_name,cls)
+            return True
+
+        return False
 
     def get_meta_attributes(self, cls):
 
@@ -367,7 +381,7 @@ class Backend(object):
         :returns: The collection name for the given class.
         """
         if cls not in self.classes:
-            if issubclass(cls, Document) and cls not in self.classes:
+            if issubclass(cls, Document) and cls not in self.classes and cls not in self.deprecated_classes:
                 self.autoregister(cls)
             else:
                 raise AttributeError("Unknown object type: %s" % cls.__name__)
