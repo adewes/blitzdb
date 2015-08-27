@@ -143,18 +143,17 @@ class Document(object):
         """
         if not attributes:
             attributes = {}
-        self.__dict__['_attributes'] = attributes
-        self.__dict__['embed'] = False
-        self.__dict__['_autoload'] = autoload
+        self._attributes = attributes
+        self._autoload = autoload
         self._backend = backend
-        if self.pk is None:
-            self.pk = None
 
         if not lazy:
             self._lazy = False
             self.initialize()
         else:
             self._lazy = True
+
+        self._embed = False
 
     def __getitem__(self,key):
         try:
@@ -164,46 +163,23 @@ class Document(object):
         if lazy:
             if key in self.lazy_attributes:
                 return self.lazy_attributes[key]
-            else:
+            elif self._autoload:
                 self.revert()
-                self._lazy = False
         return self.attributes[key]
 
-    def __getattribute__(self,key):
-        """
-        Checks if the `_lazy` attribute of the document is set. If this is the case, the function
-        lazily loads the document from the database by calling `revert` and sets `_lazy = False'
-        after doing so.
-        """
+    @property
+    def lazy_attributes(self):
+        return self._attributes
 
-        try:
-            lazy = super(Document, self).__getattribute__('_lazy')
-            autoload = super(Document, self).__getattribute__('_autoload')
-        except AttributeError:
-            lazy = False
-            autoload = False
+    @property
+    def attributes(self):
+        if self._lazy and self._autoload:
+            self.revert()
+        return self._attributes
 
-        if lazy:
-            if key == 'lazy_attributes':
-                return super(Document, self).__getattribute__('_attributes')
-            # If we demand the attributes, we load the object from the DB in any case.
-            if key in ('attributes',):
-                if autoload:
-                    self.revert()
-                    self._lazy = False
-                else:
-                    return super(Document, self).__getattribute__('_attributes')
-            try:
-                return super(Document, self).__getattribute__(key)
-            except AttributeError:
-                pass
-            if key in self.lazy_attributes:
-                return self.lazy_attributes[key]
-            elif autoload:
-                self.revert()
-                self._lazy = False
-
-        return super(Document,self).__getattribute__(key)
+    @attributes.setter
+    def attributes(self,value):
+        self._attributes = value
 
     def get(self,key,default = None):
         return self[key] if key in self else default
@@ -224,7 +200,7 @@ class Document(object):
         return self.attributes.items()
 
     def __contains__(self, key):
-        return True if key in self.attributes else False
+        return True if (key in self.lazy_attributes or key in self.attributes) else False
 
     def __iter__(self):
         for key in self.keys():
@@ -235,6 +211,8 @@ class Document(object):
             return super(Document, self).__getattr__(key)
         except AttributeError:
             try:
+                if self._lazy and self._autoload:
+                    self.revert()
                 return self.attributes[key]
             except KeyError:
                 raise AttributeError(key)
@@ -381,8 +359,12 @@ class Document(object):
         """
         primary_key = self.get_pk_name()
         if primary_key in self._attributes:
-            return self._attributes[self.get_pk_name()]
+            return self._attributes[primary_key]
         return None
+
+    @property
+    def embed(self):
+        return self._embed
 
     @property
     def eager(self):
@@ -392,18 +374,6 @@ class Document(object):
     @pk.setter
     def pk(self, value):
         self._attributes[self.get_pk_name()] = value
-
-    @property
-    def attributes(self):
-        """
-        Returns a reference to the attributes of the document. The attributes are the 
-        *"unique source of truth"* about the state of a document.
-        """
-        return self._attributes
-
-    @attributes.setter
-    def attributes(self,value):
-        self._attributes = value
 
     @property
     def backend(self):
@@ -467,14 +437,10 @@ class Document(object):
         obj = self._backend.get(self.__class__, {self.get_pk_name(): self.pk})
         self._attributes = obj.attributes
         self.initialize()
+        self._lazy = False
 
     def load_if_lazy(self):
-        try:
-            lazy = super(Document, self).__getattribute__('_lazy')
-        except AttributeError:
-            lazy = False
-        if lazy:
-            self._lazy = False
+        if self._lazy:
             self.revert()
 
 #Document = MetaDocument('Document', (Document,), {})
