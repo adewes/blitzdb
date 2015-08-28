@@ -146,6 +146,7 @@ class Document(object):
         self._attributes = attributes
         self._autoload = autoload
         self._backend = backend
+        self._properties = {}
 
         if not lazy:
             self._lazy = False
@@ -199,6 +200,14 @@ class Document(object):
     def items(self):
         return self.attributes.items()
 
+    @property
+    def properties(self):
+        return self._properties
+
+    @properties.setter
+    def properties(self,value):
+        self._properties = value
+
     def __contains__(self, key):
         return True if (key in self.lazy_attributes or key in self.attributes) else False
 
@@ -210,6 +219,8 @@ class Document(object):
         try:
             return super(Document, self).__getattr__(key)
         except AttributeError:
+            if key in self._properties:
+                return self._properties[key]
             try:
                 if self._lazy and self._autoload:
                     self.revert()

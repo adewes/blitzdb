@@ -148,7 +148,17 @@ def test_lazy_attributes(mockup_backend):
     doc.foo = 'faz'
     assert doc._lazy == False
     assert doc.foo == 'faz'
-    
+
+def test_properties():
+
+    my_document = Document({'foo' : 'baz'})
+
+    my_document.properties['foo'] = 'bar'
+
+    assert my_document.foo == 'bar'
+
+    assert my_document['foo'] == 'baz'
+
 
 def test_class_properties(mockup_backend):
 
