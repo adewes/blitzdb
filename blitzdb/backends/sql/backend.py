@@ -322,8 +322,7 @@ class Backend(BaseBackend):
 
     def delete(self, obj):
 
-        if hasattr(obj, 'pre_delete') and callable(obj.pre_delete):
-            obj.pre_delete()
+        self.call_hook('before_delete',obj)
 
         if obj.pk == None:
             raise obj.DoesNotExist
@@ -331,6 +330,7 @@ class Backend(BaseBackend):
         self.filter(obj.__class__,{'pk' : obj.pk}).delete()
 
     def update(self,obj,set_fields=None, unset_fields=None, update_obj=True):
+
         if set_fields is not None:
             if isinstance(set_fields,dict):
                 for key,value in set_fields.items():
@@ -342,6 +342,9 @@ class Backend(BaseBackend):
         return obj
 
     def save(self,obj,autosave_dependent = True):
+
+        self.call_hook('before_save',obj)
+
         collection = self.get_collection_for_cls(obj.__class__)
         table = self._collection_tables[collection]
 
@@ -357,9 +360,6 @@ class Backend(BaseBackend):
         """
 
         pk_type = self._index_fields[collection]['pk']['type']
-
-        if hasattr(obj, 'pre_save') and callable(obj.pre_save):
-            obj.pre_save()
 
         def serialize_and_update_indexes(obj,d):
             for index_field,index_params in self._index_fields[collection].items():
@@ -475,7 +475,7 @@ class Backend(BaseBackend):
             collection = self.get_collection_for_cls(collection_or_class)
 
         #we create the object first
-        obj = super(Backend,self).create_instance(collection_or_class, data,lazy)
+        obj = super(Backend,self).create_instance(collection_or_class, data,lazy,call_hook = False)
 
         #now we update the data dictionary with foreign key fields...
         for field_name,params in self._list_indexes[collection].items():
@@ -495,6 +495,9 @@ class Backend(BaseBackend):
                 _set_value(data,field_name,foreign_obj)
         #we update the attributes of the object
         obj.attributes = data
+
+        self.call_hook('after_load',obj)
+
         return obj
 
     def deserialize(self, obj, encoders=None):

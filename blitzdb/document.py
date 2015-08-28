@@ -215,18 +215,26 @@ class Document(object):
         for key in self.keys():
             yield key
 
-    def __getattr__(self, key):
+    def get_lazy_attribute(self,key):
+        #we make sure not to revert the document...
+        return object.__getattribute__(self,key)
+
+    def __getattr__(self, key,load_if_lazy = True):
+
         try:
-            return super(Document, self).__getattr__(key)
+            return super(Document,self).__getattr__(key)
         except AttributeError:
-            if key in self._properties:
-                return self._properties[key]
-            try:
-                if self._lazy and self._autoload:
-                    self.revert()
-                return self.attributes[key]
-            except KeyError:
-                raise AttributeError(key)
+            pass
+
+        if key in self._properties:
+            return self._properties[key]
+        try:
+            if self._lazy and self._autoload:
+                self.revert()
+            return self.attributes[key]
+        except KeyError:
+            pass
+        raise AttributeError(key)
 
     def __setattr__(self, key, value):
         if key.startswith('_') or key in ('attributes','pk'):

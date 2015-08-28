@@ -112,11 +112,12 @@ class Backend(BaseBackend):
             self._delete_cache[collection].update(dict([(pk, True) for pk in pks]))
 
     def delete(self, obj):
+
+        self.call_hook('before_delete',obj)
+
         collection = self.get_collection_for_cls(obj.__class__)
         if obj.pk == None:
             raise obj.DoesNotExist
-        if hasattr(obj, 'pre_delete') and callable(obj.pre_delete):
-            obj.pre_delete()
         if self.autocommit:
             self.db[collection].remove({'_id': obj.pk})
         else:
@@ -130,8 +131,7 @@ class Backend(BaseBackend):
         serialized_attributes_list = []
         collection = self.get_collection_for_cls(objs[0].__class__)
         for obj in objs:
-            if hasattr(obj, 'pre_save') and callable(obj.pre_save):
-                obj.pre_save()
+            self.call_hook('before_save',obj)
             if obj.pk == None:
                 obj.pk = uuid.uuid4().hex
             serialized_attributes = self.serialize(obj.attributes)
@@ -149,9 +149,10 @@ class Backend(BaseBackend):
         return self.save_multiple([obj])
 
     def update(self, obj, set_fields=None, unset_fields=None, update_obj=True):
+
+        self.call_hook('before_save',obj)
+
         collection = self.get_collection_for_cls(obj.__class__)
-        if hasattr(obj, 'pre_save') and callable(obj.pre_save):
-            obj.pre_save()
 
         if obj.pk == None:
             raise obj.DoesNotExist("update() called on document without primary key!")

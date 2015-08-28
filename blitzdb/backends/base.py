@@ -337,7 +337,7 @@ class Backend(object):
 
         return output_obj
 
-    def create_instance(self, collection_or_class, attributes, lazy=False):
+    def create_instance(self, collection_or_class, attributes, lazy=False,call_hook = True):
         """
         Creates an instance of a `Document` class corresponding to the given collection name or class.
 
@@ -360,6 +360,10 @@ class Backend(object):
                                                    lazy=lazy)
         else:
             obj = cls(attributes, lazy=lazy, backend=self, autoload=self._autoload_embedded)
+
+        if call_hook:
+            self.call_hook('after_load',obj)
+
         return obj
 
     def get_collection_for_obj(self, obj):
@@ -413,6 +417,15 @@ class Backend(object):
             if params['collection'] == collection:
                 return cls
         raise AttributeError("Unknown collection: %s" % collection)
+
+    def call_hook(self,name,obj):
+        try:
+            print name
+            hook = obj.get_lazy_attribute(name)
+            print hook
+            hook()
+        except AttributeError:
+            pass
 
     @abc.abstractmethod
     def save(self, obj, cache=None):
