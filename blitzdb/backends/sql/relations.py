@@ -1,5 +1,5 @@
 from sqlalchemy.sql import select,func,expression,delete
-from sqlalchemy.sql.expression import join,asc,desc
+from sqlalchemy.sql.expression import join,asc,desc,func,text,and_
 from .queryset import QuerySet
 
 class ManyToManyProxy(object):
@@ -37,26 +37,34 @@ class ManyToManyProxy(object):
           invalidate the QuerySet object that we use to retrieve objects.
         """
         self.obj = obj
+        self.collection = self.obj.backend.get_collection_for_obj(self.obj)
         self.field_name = field_name
         self.params = params
         self._queryset = None
 
-    def __getitem__(self,item):
+    def __getitem__(self,i):
+        if not isinstance(i,(slice,int)):
+            raise TypeError("Index must be an integer or slice object")
         queryset = self.get_queryset()
-        return queryset[item]
+        return queryset[i]
 
-    def __setitem__(self,item,value):
+    def __setitem__(self,i,value):
+        #there is (IMHO) no reasonable and non-ambiguous way to implement this in SQL...
         raise NotImplementedError
 
-    def __delitem__(self,item):
-        raise NotImplementedError
+    def __contains__(self,item):
+        queryset = self.get_queryset()
+        return item in queryset
+
+    def __delitem__(self,i):
+        obj = self[i]
+        self.remove(obj)
 
     def get_queryset(self):
         if not self._queryset:
             relationship_table = self.params['relationship_table']
             foreign_table = self.obj.backend.get_collection_table(self.params['collection'])
-            collection = self.obj.backend.get_collection_for_obj(self.obj)
-            condition = relationship_table.c['pk_%s' % collection] \
+            condition = relationship_table.c['pk_%s' % self.collection] \
                 == expression.cast(self.obj.pk,self.params['type'])
             self._queryset = QuerySet(backend = self.obj.backend,
                                       table = foreign_table,
@@ -65,12 +73,27 @@ class ManyToManyProxy(object):
                                       condition = condition)
         return self._queryset
 
-
     def append(self,obj):
-        raise NotImplementedError
+        with self.obj.backend.transaction():
+            relationship_table = self.params['relationship_table']
+            condition = and_(relationship_table.c['pk_%s' % self.params['collection']] == obj.pk,
+                             relationship_table.c['pk_%s' % self.collection] == self.obj.pk)
+            s = select([func.count(text('*'))]).where(condition)
+            result = self.obj.backend.connection.execute(s)
+            cnt = result.first()[0]
+            if cnt:
+                return #the object is already inside
+            values = {
+                'pk_%s' % self.collection : self.obj.pk,
+                'pk_%s' % self.params['collection'] : obj.pk
+            }
+            insert = relationship_table.insert().values(**values)
+            self.obj.backend.connection.execute(insert)
+            self._queryset = None
 
     def extend(self,objects):
-        raise NotImplementedError
+        for obj in objects:
+            self.append(obj)
 
     def insert(self,i,obj):
         raise NotImplementedError
@@ -79,19 +102,20 @@ class ManyToManyProxy(object):
         """
         Remove an object from the relation
         """
-        raise NotImplementedError
+        with self.obj.backend.transaction():
+            relationship_table = self.params['relationship_table']
+            condition = and_(relationship_table.c['pk_%s' % self.params['collection']] == obj.pk,
+                             relationship_table.c['pk_%s' % self.collection] == self.obj.pk)
+            self.obj.backend.connection.execute(delete(relationship_table).where(condition))
+            self._queryset = None
 
     def pop(self,i = None):
-        raise NotImplementedError
+        queryset = self.get_queryset()
+        return queryset.pop(i)
 
-    def index(self,obj):
-        raise NotImplementedError
-
-    def count(self,obj):
-        raise NotImplementedError
-
-    def reverse(self,obj):
-        raise NotImplementedError
+    def __len__(self):
+        queryset = self.get_queryset()
+        return len(queryset)
 
 class ListProxy(object):
 

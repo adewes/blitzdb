@@ -138,6 +138,7 @@ class QuerySet(BaseQuerySet):
                 qs.offset(start)
             qs.limit(stop-start)
             qs.objects = None
+            qs.count = None
             return qs
         if self.objects is None:
             self.get_objects()
