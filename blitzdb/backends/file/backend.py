@@ -110,6 +110,8 @@ class Backend(BaseBackend):
         self.indexes = defaultdict(lambda: {})
         self.index_stores = defaultdict(lambda: {})
         self.load_config(config, overwrite_config)
+        self._auto_transaction = False
+        self.begin()
 
         super(Backend, self).__init__(**kwargs)
 
@@ -123,9 +125,12 @@ class Backend(BaseBackend):
             raise TypeError('Value must be boolean!')
         self.config['autocommit'] = value
 
-    def begin(self):
+    def begin(self, transaction=None):
         """Start a new transaction."""
         if self.in_transaction:  # we're already in a transaction...
+            if self._auto_transaction:
+                self._auto_transaction = False
+                return
             self.commit()
         self.in_transaction = True
         for collection, store in self.stores.items():
@@ -150,7 +155,7 @@ class Backend(BaseBackend):
     def SerializerClass(self):
         return serializer_classes[self.config['serializer_class']]
 
-    def rollback(self):
+    def rollback(self, transaction = None):
         """Roll back a transaction."""
         if not self.in_transaction:
             raise NotInTransaction
@@ -169,7 +174,7 @@ class Backend(BaseBackend):
                 self.rebuild_indexes(collection, indexes_to_rebuild)
         self.in_transaction = False
 
-    def commit(self):
+    def commit(self,transaction = None):
         """Commit all pending transactions to the database.
 
         .. admonition:: Warning

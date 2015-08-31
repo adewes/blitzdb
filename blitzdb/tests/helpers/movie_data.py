@@ -18,6 +18,7 @@ class Movie(Document):
     tags = ListField(type = CharField(), indexed = True)
     director = ForeignKeyField(related = 'Director',nullable = True,backref = 'movies')
     cast = ManyToManyField(related = 'Actor')
+    year = IntegerField(indexed = True)
 
     class Meta(Document.Meta):
 
@@ -52,6 +53,8 @@ def generate_test_data(request, backend, n):
     actors = []
     movies = []
     directors = []
+
+    backend.begin()
 
     backend.filter(Movie, {}).delete()
     backend.filter(Actor, {}).delete()

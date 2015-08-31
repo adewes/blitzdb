@@ -3,6 +3,8 @@ import six
 import uuid
 import re
 import pprint
+import traceback
+
 from collections import defaultdict
 
 from ...document import Document
@@ -103,7 +105,7 @@ class Backend(BaseBackend):
         super(Backend, self).__init__(**kwargs)
 
         self._engine = engine
-        self._transaction = None
+        self._transactions = []
 
         self.table_postfix = table_postfix
 
@@ -111,6 +113,7 @@ class Backend(BaseBackend):
             self.create_schema()
 
         self._conn = self._engine.connect()
+        self._auto_transaction = False
         self.begin()
 
     @property
@@ -286,6 +289,11 @@ class Backend(BaseBackend):
                 else:
                     extra_columns.append(add_field(collection,key,field))
 
+            if 'unique_together' in meta_attributes:
+                for keys in meta_attributes['unique_together']:
+                    name = '_'.join(keys)
+                    extra_columns.append(UniqueConstraint(*keys,name = name))
+
             self._collection_tables[collection] = Table('%s%s' % (collection,self.table_postfix),self._metadata,
                     Column('data',LargeBinary),
                     *extra_columns
@@ -294,20 +302,59 @@ class Backend(BaseBackend):
     def get_collection_table(self,collection):
         return self._collection_tables[collection]
 
-    def begin(self):
-        if self._transaction:
-            self.commit()
-        self._transaction = self.connection.begin()
+    def begin(self,use_auto = True):
+        if not self._transactions:
+            self._auto_transaction = True
+        elif self._auto_transaction and use_auto:
+            self._auto_transaction = False
+            return self._transactions[0]
+        self._transactions.append(self.connection.begin())
+        return self._transactions[-1]
 
-    def commit(self):
-        self._transaction.commit()
-        self._transaction = None
-        self.begin()
+    def commit(self,transaction = None):
+        if not self._transactions:#should never happen
+            raise AttributeError("Not in a transaction!")
+        last_transaction = self._transactions.pop()
+        if transaction is not None and last_transaction is not transaction:
+            raise AttributeError("Transactions do not match!")
+        last_transaction.commit()
+        #if we have committed the last transaction, we open a new one
+        if not self._transactions:
+            self.begin()
 
-    def rollback(self):
-        self._transaction.rollback()
-        self._transaction = None
-        self.begin()
+    def rollback(self,transaction = None):
+        if not self._transactions:
+            raise AttributeError("Not in a transaction!")
+        last_transaction = self._transactions.pop()
+        if transaction is not None and last_transaction is not transaction:
+            raise AttributeError("Transactions do not match!")
+        last_transaction.rollback()
+        #we roll back ALL transactions.
+        self._transactions = []
+        if not self._transactions:
+            self.begin()
+
+    def transaction(self,use_auto = True):
+        """
+        This returns a context guard which will automatically open and close a transaction
+        """
+
+        class TransactionManager(object):
+
+            def __init__(self,backend,use_auto = True):
+                self.use_auto = use_auto
+                self.backend = backend
+
+            def __enter__(self):
+                self.transaction = self.backend.begin(use_auto = self.use_auto)
+
+            def __exit__(self,exc_type,exc_value,traceback_obj):
+                if exc_type:
+                    self.backend.rollback(self.transaction)
+                else:
+                    self.backend.commit(self.transaction)
+
+        return TransactionManager(self,use_auto = use_auto)
 
     def close_connection(self):
         return self.connection.close()
@@ -361,98 +408,105 @@ class Backend(BaseBackend):
 
         pk_type = self._index_fields[collection]['pk']['type']
 
-        def serialize_and_update_indexes(obj,d):
-            for index_field,index_params in self._index_fields[collection].items():
-                try:
-                    value = _get_value(obj,index_field)
-                    if isinstance(index_params['field'],ListField):
-                        #to do: check if this is a RelatedList
-                        table = self._index_tables[collection][index_field]
-                        delete = table.delete().where(table.c['pk'] == expression.cast(obj.pk,pk_type))
-                        self.connection.execute(delete)
-                        for element in value:
-                            ed = {
-                                'pk' : expression.cast(obj.pk,pk_type),
-                                index_params['column'] : expression.cast(element,index_params['type']),
-                            }
-                            insert = table.insert().values(**ed)
-                            self.connection.execute(insert)
-                    else:
-                        if value is None:
+        deletes = []
+        inserts = []
+
+        with self.transaction(use_auto = False):
+
+            def serialize_and_update_indexes(obj,d):
+                for index_field,index_params in self._index_fields[collection].items():
+                    try:
+                        value = _get_value(obj,index_field)
+                        if isinstance(index_params['field'],ListField):
+                            #to do: check if this is a RelatedList
+                            table = self._index_tables[collection][index_field]
+                            deletes.append(table.delete().where(table.c['pk'] == expression.cast(obj.pk,pk_type)))
+                            for element in value:
+                                ed = {
+                                    'pk' : expression.cast(obj.pk,pk_type),
+                                    index_params['column'] : expression.cast(element,index_params['type']),
+                                }
+                                inserts.append(table.insert().values(**ed))
+                        else:
+                            if value is None:
+                                if not index_params['field'].nullable:
+                                    raise ValueError("No value for %s given, but this is a mandatory field!" % index_field['key'])
+                                d[index_params['column']] = null()
+                            else:
+                                d[index_params['column']] = expression.cast(value,index_params['type'])
+                    except KeyError:
+                        if not isinstance(index_params['field'],ListField):
                             if not index_params['field'].nullable:
                                 raise ValueError("No value for %s given, but this is a mandatory field!" % index_field['key'])
                             d[index_params['column']] = null()
-                        else:
-                            d[index_params['column']] = expression.cast(value,index_params['type'])
-                except KeyError:
-                    if not isinstance(index_params['field'],ListField):
-                        if not index_params['field'].nullable:
-                            raise ValueError("No value for %s given, but this is a mandatory field!" % index_field['key'])
-                        d[index_params['column']] = null()
 
-        def serialize_and_update_relations(obj,d):
-            for related_field,relation_params in self._related_fields[collection].items():
-                try:
-                    value = _get_value(obj,related_field)
-                    if isinstance(relation_params['field'],ManyToManyField):
-                        relationship_table = self._relationship_tables[collection][related_field]
-                        delete = relationship_table.delete().where(relationship_table.c['pk_%s' % collection] == expression.cast(obj.pk,pk_type))
-                        self.connection.execute(delete)
-                        for element in value:
-                            if not isinstance(element,Document):
-                                raise AttributeError("ManyToMany field %s contains an invalid value!" % related_field)
-                            if element.pk is None:
-                                if autosave_dependent:
-                                    self.save(element)
-                                else:
-                                    raise AttributeError("Related document in field %s has no primary key!" % related_field)
-                            ed = {
-                                'pk_%s' % collection : obj.pk,
-                                'pk_%s' % relation_params['collection'] : element.pk,
-                            }
-                            insert = relationship_table.insert().values(**ed)
-                            self.connection.execute(insert)
-                    elif isinstance(relation_params['field'],ForeignKeyField):
-                        if value is None:
-                            if not relation_params['field'].nullable:
-                                raise AttributeError("Field %s cannot be None!" % related_field)
-                            d[relation_params['column']] = None
-                        elif not isinstance(value,Document):
-                            raise AttributeError("Field %s must be a document!" % related_field)
-                        else:
-                            if value.pk is None:
-                                if autosave_dependent:
-                                    self.save(value)
-                                else:
-                                    raise AttributeError("Related document in field %s has no primary key!" % related_field)
-                            d[relation_params['column']] = expression.cast(value.pk,relation_params['type'])
+            def serialize_and_update_relations(obj,d):
+                for related_field,relation_params in self._related_fields[collection].items():
+                    try:
+                        value = _get_value(obj,related_field)
+                        if isinstance(relation_params['field'],ManyToManyField):
+                            relationship_table = self._relationship_tables[collection][related_field]
+                            deletes.append(relationship_table.delete().where(relationship_table.c['pk_%s' % collection] == expression.cast(obj.pk,pk_type)))
+                            for element in value:
+                                if not isinstance(element,Document):
+                                    raise AttributeError("ManyToMany field %s contains an invalid value!" % related_field)
+                                if element.pk is None:
+                                    if autosave_dependent:
+                                        self.save(element)
+                                    else:
+                                        raise AttributeError("Related document in field %s has no primary key!" % related_field)
+                                ed = {
+                                    'pk_%s' % collection : obj.pk,
+                                    'pk_%s' % relation_params['collection'] : element.pk,
+                                }
+                                inserts.append(relationship_table.insert().values(**ed))
+                        elif isinstance(relation_params['field'],ForeignKeyField):
+                            if value is None:
+                                if not relation_params['field'].nullable:
+                                    raise AttributeError("Field %s cannot be None!" % related_field)
+                                d[relation_params['column']] = None
+                            elif not isinstance(value,Document):
+                                raise AttributeError("Field %s must be a document!" % related_field)
+                            else:
+                                if value.pk is None:
+                                    if autosave_dependent:
+                                        self.save(value)
+                                    else:
+                                        raise AttributeError("Related document in field %s has no primary key!" % related_field)
+                                d[relation_params['column']] = expression.cast(value.pk,relation_params['type'])
 
-                except KeyError:
-                    #this index value does not exist in the object
-                    pass
+                    except KeyError:
+                        #this index value does not exist in the object
+                        pass
 
-        insert = False
-        if not obj.pk:
-            obj.pk = uuid.uuid4().hex
-            insert = True
+            insert = False
+            if not obj.pk:
+                obj.pk = uuid.uuid4().hex
+                insert = True
 
-        d = {'data' : JsonSerializer.serialize(self.serialize(obj.attributes)),
-             'pk' : expression.cast(obj.pk,pk_type)}
+            d = {'data' : JsonSerializer.serialize(self.serialize(obj.attributes)),
+                 'pk' : expression.cast(obj.pk,pk_type)}
 
-        serialize_and_update_indexes(obj,d)
-        serialize_and_update_relations(obj,d)
+            serialize_and_update_indexes(obj,d)
+            serialize_and_update_relations(obj,d)
 
-        #if we got an object with a PK, we try to perform an UPDATE operation
-        if not insert:
-            update = self._collection_tables[collection].update().values(**d).where(table.c.pk == obj.pk)
-            result = self.connection.execute(update)
+            #if we got an object with a PK, we try to perform an UPDATE operation
+            if not insert:
+                update = self._collection_tables[collection].update().values(**d).where(table.c.pk == obj.pk)
+                result = self.connection.execute(update)
 
-        #if we did not get a PK the UPDATE did not match any rows, we perform an INSERT instead
-        if insert or not result.rowcount:
-            insert = self._collection_tables[collection].insert().values(**d)
-            result = self.connection.execute(insert)
+            #if we did not get a PK the UPDATE did not match any rows, we perform an INSERT instead
+            if insert or not result.rowcount:
+                insert = self._collection_tables[collection].insert().values(**d)
+                result = self.connection.execute(insert)
 
-        return obj
+            for delete in deletes:
+                self.connection.execute(delete)
+
+            for insert in inserts:
+                self.connection.execute(insert)
+
+            return obj
 
     def serialize(self, obj, convert_keys_to_str=True, embed_level=0, encoders=None,**kwargs):
         """

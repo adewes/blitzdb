@@ -107,11 +107,12 @@ class QuerySet(BaseQuerySet):
 
     def get_objects(self):
         s = self.get_select()
-        try:
-            self.objects = self.backend.connection.execute(s).fetchall()
-        except sqlalchemy.exc.ResourceClosedError:
-            self.objects = None
-            raise
+        with self.backend.transaction(use_auto = False):
+            try:
+                self.objects = self.backend.connection.execute(s).fetchall()
+            except sqlalchemy.exc.ResourceClosedError:
+                self.objects = None
+                raise
         self.pop_objects = self.objects[:]
 
     def as_list(self):
@@ -158,8 +159,9 @@ class QuerySet(BaseQuerySet):
         return new_qs
 
     def delete(self):
-        delete_stmt = self.table.delete().where(self.table.c.pk.in_(self.get_select(fields = [self.table.c.pk])))
-        self.backend.connection.execute(delete_stmt)
+        with self.backend.transaction(use_auto = False):
+            delete_stmt = self.table.delete().where(self.table.c.pk.in_(self.get_select(fields = [self.table.c.pk])))
+            self.backend.connection.execute(delete_stmt)
 
     def get_select(self,fields = None):
         if self.select is not None:
@@ -195,16 +197,18 @@ class QuerySet(BaseQuerySet):
 
     def __len__(self):
         if self.count is None:
-            s = select([func.count()]).select_from(self.get_select(fields = [self.table.c.pk]).alias('count_select'))
-            result = self.backend.connection.execute(s)
-            self.count = result.first()[0]
-            result.close()
+            with self.backend.transaction(use_auto = False):
+                s = select([func.count()]).select_from(self.get_select(fields = [self.table.c.pk]).alias('count_select'))
+                result = self.backend.connection.execute(s)
+                self.count = result.first()[0]
+                result.close()
         return self.count
 
     def distinct_pks(self):
-        s = self.get_select([self.table.c.pk]).distinct(self.table.c.pk)
-        result = self.backend.connection.execute(s)
-        return set([r[0] for r in result.fetchall()])
+        with self.backend.transaction(use_auto = False):
+            s = self.get_select([self.table.c.pk]).distinct(self.table.c.pk)
+            result = self.backend.connection.execute(s)
+            return set([r[0] for r in result.fetchall()])
         
     def __ne__(self, other):
         return not self.__eq__(other)

@@ -420,9 +420,7 @@ class Backend(object):
 
     def call_hook(self,name,obj):
         try:
-            print name
             hook = obj.get_lazy_attribute(name)
-            print hook
             hook()
         except AttributeError:
             pass

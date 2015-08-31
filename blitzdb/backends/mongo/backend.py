@@ -52,7 +52,7 @@ class Backend(BaseBackend):
             self.commit()
         self.in_transaction = True
 
-    def rollback(self):
+    def rollback(self,transaction = None):
         if not self.in_transaction:
             raise NotInTransaction("Not in a transaction!")
         
@@ -62,7 +62,7 @@ class Backend(BaseBackend):
         
         self.in_transaction = False
 
-    def commit(self):
+    def commit(self,transaction = None):
         try:
             for collection, cache in self._save_cache.items():
                 for pk, attributes in cache.items():

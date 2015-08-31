@@ -73,8 +73,9 @@ def no_autoload_mongodb_backend(request, temporary_path):
     return _backend(request, temporary_path, autoload_embedded=False)
 
 
-@pytest.fixture(scope="function", params=["file_json", "file_marshal", "file_pickle"] +\
-                                         (["mongo"] if test_mongo else []))
+@pytest.fixture(scope="function", params=["file_json", "file_marshal", "file_pickle"]
+                                         + (["mongo"] if test_mongo else [])
+                                         + (["sql"] if test_sql else []))
 def transactional_backend(request, temporary_path):
     return _backend(request, temporary_path)
 
