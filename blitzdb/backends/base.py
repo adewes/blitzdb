@@ -222,11 +222,16 @@ class Backend(object):
                 current_dict = current_dict[key_fragment]
             return current_dict
 
-        serialize_with_opts = lambda value,*args,**kwargs : self.serialize(value,*args,convert_keys_to_str = convert_keys_to_str,autosave = autosave,for_query = for_query, **kwargs)
-
+        serialize_with_opts = lambda value,*args,**kwargs : self.serialize(value,*args, 
+                                                                           encoders = encoders,
+                                                                           convert_keys_to_str = convert_keys_to_str,
+                                                                           autosave = autosave,
+                                                                           for_query = for_query,
+                                                                           **kwargs)
 
         if encoders is None:
             encoders = []
+
         for encoder in self.standard_encoders+encoders:
             obj = encoder.encode(obj,path = path)
 
@@ -255,19 +260,20 @@ class Backend(object):
             collection = self.get_collection_for_obj(obj)
             if embed_level > 0:
                 try:
-                    output_obj = serialize_with_opts(obj.eager.attributes, embed_level=embed_level - 1,path = path)
+                    output_obj = self.serialize(obj, embed_level=embed_level-1)
                 except obj.DoesNotExist:#cannot load object, ignoring...
-                    output_obj = serialize_with_opts(obj.attributes, embed_level=embed_level - 1,path = path)
+                    output_obj = self.serialize(obj.lazy_attributes, embed_level=embed_level-1)
                 except DoNotSerialize:
                     pass
             elif obj.embed:
-                output_obj = obj.serialize(embed=True)
+                output_obj = self.serialize(obj)
             else:
                 if obj.pk == None and autosave:
                     obj.save(self)
+
                 if obj._lazy:
                     # We make sure that all attributes that are already present get included in the reference
-                    output_obj = copy.deepcopy(obj.lazy_attributes)
+                    output_obj = {}
                     if obj.get_pk_name() in output_obj:
                         del output_obj[obj.get_pk_name()]
                     output_obj['pk'] = obj.pk
@@ -280,14 +286,14 @@ class Backend(object):
                     else:
                         ref = "%s:%s" % (self.classes[obj.__class__]['collection'],str(obj.pk))
                         output_obj = {'__ref__' : ref,'pk':obj.pk,'__collection__':self.classes[obj.__class__]['collection']}
-                    #We include fields to the reference, as given by the document's Meta class
-                    if hasattr(obj,'Meta') and hasattr(obj.Meta,'dbref_includes') and obj.Meta.dbref_includes:
-                        for include_key in obj.Meta.dbref_includes:
-                            try:
-                                value = get_value(obj,include_key)
-                                output_obj[include_key.replace(".","_")] = value
-                            except KeyError:
-                                continue
+
+                if hasattr(obj,'Meta') and hasattr(obj.Meta,'dbref_includes') and obj.Meta.dbref_includes:
+                    for include_key in obj.Meta.dbref_includes:
+                        try:
+                            value = get_value(obj,include_key)
+                            output_obj[include_key.replace(".","_")] = value
+                        except KeyError:
+                            continue
                 
 
         else:

@@ -154,7 +154,7 @@ class Backend(BaseBackend):
         self._index_fields = defaultdict(dict)
         self._list_indexes = defaultdict(dict)
         self._related_fields = defaultdict(dict)
-        self._excluded_fields = defaultdict(dict)
+        self._excluded_keys = defaultdict(dict)
         self._foreign_key_backrefs = defaultdict(dict)
         self._many_to_many_backrefs = defaultdict(dict)
 
@@ -180,7 +180,7 @@ class Backend(BaseBackend):
         def add_foreign_key_field(collection,cls,key,field):
             field_name = key
             column_name = key.replace('.','_')
-            self._excluded_fields[collection][field_name] = True
+            self._excluded_keys[collection][key] = True
             if isinstance(field.related,six.string_types):
                 related_collection = self.get_collection_for_cls_name(field.related)
             else:
@@ -197,7 +197,11 @@ class Backend(BaseBackend):
                                                             'class' : related_class,
                                                             'type' : self.get_field_type(related_class.Meta.PkType)
                                                             }
-            return column
+            extra_columns.append(column)
+
+            if field.unique:
+                name = 'unique_%s_%s' % (collection,column_name)
+                extra_columns.append(UniqueConstraint(column_name,name = name))
 
         def add_many_to_many_field(collection,cls,key,field):
 
@@ -206,7 +210,7 @@ class Backend(BaseBackend):
 
             field_name = key
             column_name = key.replace('.','_')
-            self._excluded_fields[collection][field_name] = True
+            self._excluded_keys[collection][key] = True
             if isinstance(field.related,six.string_types):
                 related_collection = self.get_collection_for_cls_name(field.related)
             else:
@@ -235,7 +239,7 @@ class Backend(BaseBackend):
             self._related_fields[collection][field_name] = params
 
         def add_list_field(collection,cls,key,field):
-            self._excluded_fields[collection][key] = True
+            self._excluded_keys[collection][key] = True
             column_name = key.replace('.','_')
             index_name = "%s_%s" % (collection,column_name)
 
@@ -246,20 +250,24 @@ class Backend(BaseBackend):
             self._index_tables[collection][key] = Table('%s%s' % (index_name,self.table_postfix),self._metadata,
                     Column('pk',self.get_field_type(cls.Meta.PkType),ForeignKey('%s%s.pk' % (collection,self.table_postfix)),index = True),
                     Column(column_name,index_params['type'],index = True),
-                    UniqueConstraint('pk',key,name = 'unique_index')
+                    UniqueConstraint('pk',column_name,name = 'unique_%s_%s' % (collection,column_name))
                 )
             self._list_indexes[key] = index_params
             self._index_fields[collection][key] = index_params
 
         def add_field(collection,key,field):
-            self._excluded_fields[collection][key] = True
+            self._excluded_keys[collection][key] = True
             column_name = key.replace('.','_')
             index_params = {'field' : field,
                             'key' : key,
                             'type' : self.get_field_type(field),
                             'column' : column_name}
             self._index_fields[collection][key] = index_params
-            return Column(column_name,index_params['type'],index = field.indexed)
+            extra_columns.append(Column(column_name,index_params['type'],index = field.indexed))
+
+            if field.unique:
+                name = 'unique_%s_%s' % (collection,column_name)
+                extra_columns.append(UniqueConstraint(column_name,name = name))
 
         self._metadata = MetaData()
 
@@ -268,7 +276,8 @@ class Backend(BaseBackend):
             self._index_fields[collection]['pk'] = {
                 'field' : cls.Meta.PkType,
                 'type' : self.get_field_type(cls.Meta.PkType),
-                'column' : 'pk'
+                'column' : 'pk',
+                'key' : 'pk'
             }
 
             extra_columns = [Column('pk',self.get_field_type(cls.Meta.PkType),primary_key = True,index = True)]
@@ -281,17 +290,17 @@ class Backend(BaseBackend):
                 if not isinstance(field,BaseField):
                     raise AttributeError("Not a valid field: %s = %s" % (key,field))
                 if isinstance(field,ForeignKeyField):
-                    extra_columns.append(add_foreign_key_field(collection,cls,key,field))
+                    add_foreign_key_field(collection,cls,key,field)
                 elif isinstance(field,ManyToManyField):
                     add_many_to_many_field(collection,cls,key,field)
                 elif isinstance(field,ListField):
                     add_list_field(collection,cls,key,field)
                 else:
-                    extra_columns.append(add_field(collection,key,field))
+                    add_field(collection,key,field)
 
             if 'unique_together' in meta_attributes:
                 for keys in meta_attributes['unique_together']:
-                    name = '_'.join(keys)
+                    name = 'unique_together_%s_%s' % (collection,'_'.join(keys))
                     extra_columns.append(UniqueConstraint(*keys,name = name))
 
             self._collection_tables[collection] = Table('%s%s' % (collection,self.table_postfix),self._metadata,
@@ -411,80 +420,95 @@ class Backend(BaseBackend):
         deletes = []
         inserts = []
 
-        with self.transaction(use_auto = False):
-
-            def serialize_and_update_indexes(obj,d):
-                for index_field,index_params in self._index_fields[collection].items():
-                    try:
-                        value = _get_value(obj,index_field)
-                        if isinstance(index_params['field'],ListField):
-                            #to do: check if this is a RelatedList
-                            table = self._index_tables[collection][index_field]
-                            deletes.append(table.delete().where(table.c['pk'] == expression.cast(obj.pk,pk_type)))
-                            for element in value:
-                                ed = {
-                                    'pk' : expression.cast(obj.pk,pk_type),
-                                    index_params['column'] : expression.cast(element,index_params['type']),
-                                }
-                                inserts.append(table.insert().values(**ed))
-                        else:
-                            if value is None:
-                                if not index_params['field'].nullable:
-                                    raise ValueError("No value for %s given, but this is a mandatory field!" % index_field['key'])
-                                d[index_params['column']] = null()
-                            else:
-                                d[index_params['column']] = expression.cast(value,index_params['type'])
-                    except KeyError:
-                        if not isinstance(index_params['field'],ListField):
+        def serialize_and_update_indexes(obj,d):
+            for index_field,index_params in self._index_fields[collection].items():
+                try:
+                    value = _get_value(obj,index_field)
+                    if isinstance(index_params['field'],ListField):
+                        #to do: check if this is a RelatedList
+                        table = self._index_tables[collection][index_field]
+                        deletes.append(table.delete().where(table.c['pk'] == expression.cast(obj.pk,pk_type)))
+                        for element in value:
+                            ed = {
+                                'pk' : expression.cast(obj.pk,pk_type),
+                                index_params['column'] : expression.cast(element,index_params['type']),
+                            }
+                            inserts.append(table.insert().values(**ed))
+                    else:
+                        if value is None:
                             if not index_params['field'].nullable:
                                 raise ValueError("No value for %s given, but this is a mandatory field!" % index_field['key'])
                             d[index_params['column']] = null()
+                        else:
+                            d[index_params['column']] = expression.cast(value,index_params['type'])
+                except KeyError:
+                    if not isinstance(index_params['field'],ListField):
+                        if not index_params['field'].nullable:
+                            raise ValueError("No value for %s given, but this is a mandatory field!" % index_field['key'])
+                        d[index_params['column']] = null()
 
-            def serialize_and_update_relations(obj,d):
-                for related_field,relation_params in self._related_fields[collection].items():
-                    try:
-                        value = _get_value(obj,related_field)
-                        if isinstance(relation_params['field'],ManyToManyField):
-                            relationship_table = self._relationship_tables[collection][related_field]
-                            deletes.append(relationship_table.delete().where(relationship_table.c['pk_%s' % collection] == expression.cast(obj.pk,pk_type)))
-                            for element in value:
-                                if not isinstance(element,Document):
-                                    raise AttributeError("ManyToMany field %s contains an invalid value!" % related_field)
-                                if element.pk is None:
-                                    if autosave_dependent:
-                                        self.save(element)
-                                    else:
-                                        raise AttributeError("Related document in field %s has no primary key!" % related_field)
-                                ed = {
-                                    'pk_%s' % collection : obj.pk,
-                                    'pk_%s' % relation_params['collection'] : element.pk,
-                                }
-                                inserts.append(relationship_table.insert().values(**ed))
-                        elif isinstance(relation_params['field'],ForeignKeyField):
-                            if value is None:
-                                if not relation_params['field'].nullable:
-                                    raise AttributeError("Field %s cannot be None!" % related_field)
-                                d[relation_params['column']] = None
-                            elif not isinstance(value,Document):
-                                raise AttributeError("Field %s must be a document!" % related_field)
-                            else:
-                                if value.pk is None:
-                                    if autosave_dependent:
-                                        self.save(value)
-                                    else:
-                                        raise AttributeError("Related document in field %s has no primary key!" % related_field)
-                                d[relation_params['column']] = expression.cast(value.pk,relation_params['type'])
+        def serialize_and_update_relations(obj,d):
+            for related_field,relation_params in self._related_fields[collection].items():
+                try:
+                    value = _get_value(obj,related_field)
+                    if isinstance(relation_params['field'],ManyToManyField):
+                        relationship_table = self._relationship_tables[collection][related_field]
+                        deletes.append(relationship_table.delete().where(relationship_table.c['pk_%s' % collection] == expression.cast(obj.pk,pk_type)))
+                        for element in value:
+                            if not isinstance(element,Document):
+                                raise AttributeError("ManyToMany field %s contains an invalid value!" % related_field)
+                            if element.pk is None:
+                                if autosave_dependent:
+                                    self.save(element)
+                                else:
+                                    raise AttributeError("Related document in field %s has no primary key!" % related_field)
+                            ed = {
+                                'pk_%s' % collection : obj.pk,
+                                'pk_%s' % relation_params['collection'] : element.pk,
+                            }
+                            inserts.append(relationship_table.insert().values(**ed))
+                    elif isinstance(relation_params['field'],ForeignKeyField):
+                        if value is None:
+                            if not relation_params['field'].nullable:
+                                raise AttributeError("Field %s cannot be None!" % related_field)
+                            d[relation_params['column']] = None
+                        elif not isinstance(value,Document):
+                            raise AttributeError("Field %s must be a document!" % related_field)
+                        else:
+                            if value.pk is None:
+                                if autosave_dependent:
+                                    self.save(value)
+                                else:
+                                    raise AttributeError("Related document in field %s has no primary key!" % related_field)
+                            d[relation_params['column']] = expression.cast(value.pk,relation_params['type'])
 
-                    except KeyError:
-                        #this index value does not exist in the object
-                        pass
+                except KeyError:
+                    #this index value does not exist in the object
+                    pass
+
+        with self.transaction(use_auto = False):
 
             insert = False
             if not obj.pk:
                 obj.pk = uuid.uuid4().hex
                 insert = True
 
-            d = {'data' : JsonSerializer.serialize(self.serialize(obj.attributes)),
+            class ExcludedFieldsEncoder(object):
+
+                def __init__(self,backend,collection):
+                    self.collection = collection
+                    self.backend = backend
+
+                def encode(self,obj,path = []):
+                    if not path:
+                        return obj
+                    key = ".".join([str(p) for p in path])
+                    if key in self.backend._excluded_keys[self.collection]:
+                        raise DoNotSerialize
+                    return obj
+
+            d = {'data' : JsonSerializer.serialize(self.serialize(obj.attributes,
+                    encoders = [ExcludedFieldsEncoder(self,collection)]),),
                  'pk' : expression.cast(obj.pk,pk_type)}
 
             serialize_and_update_indexes(obj,d)
@@ -510,44 +534,51 @@ class Backend(BaseBackend):
 
     def serialize(self, obj, convert_keys_to_str=True, embed_level=0, encoders=None,**kwargs):
         """
-        Serialization strategy:
+        Only serialize fields that are not associate with a relation/backref!
         """
+
         return super(Backend, self).serialize(obj,
                                               convert_keys_to_str=convert_keys_to_str, 
                                               embed_level=embed_level,
+                                              encoders = (encoders if encoders else []),
                                               **kwargs)
 
     def create_instance(self, collection_or_class,attributes, lazy = False):
+
         data = attributes.get('data',{})
-        for key,value in attributes.items():
-            if key == 'data':
-                continue
-            data[key] = value
+
         if isinstance(collection_or_class,six.string_types):
             collection = collection_or_class
         else:
             collection = self.get_collection_for_cls(collection_or_class)
 
         #we create the object first
-        obj = super(Backend,self).create_instance(collection_or_class, data,lazy,call_hook = False)
+        obj = super(Backend,self).create_instance(collection_or_class, {},lazy,call_hook = False)
 
         #now we update the data dictionary with foreign key fields...
         for field_name,params in self._list_indexes[collection].items():
-            _set_value(data,field_name,ListProxy(obj,field_name,params))
+            _set_value(data,params['key'],ListProxy(obj,field_name,params))
+
         for field_name,params in self._related_fields[collection].items():
             if isinstance(params['field'],ManyToManyField):
-                _set_value(data,field_name,ManyToManyProxy(obj,field_name,params))
+                _set_value(data,params['key'],ManyToManyProxy(obj,field_name,params))
             elif isinstance(params['field'],ForeignKeyField):
                 try:
-                    foreign_pk = _get_value(attributes,field_name)
+                    foreign_pk = attributes[field_name]
                 except KeyError:
                     continue
                 if foreign_pk:
                     foreign_obj = self.create_instance(params['class'],{'pk' : foreign_pk},lazy = True)
                 else:
                     foreign_obj = None
-                _set_value(data,field_name,foreign_obj)
-        #we update the attributes of the object
+                _set_value(data,params['key'],foreign_obj)
+
+        for field_name,params in self._index_fields[collection].items():
+            if not 'key' in params:
+                continue
+            value = attributes.get(params['column'],None)
+            _set_value(data,params['key'],value)
+
         obj.attributes = data
 
         self.call_hook('after_load',obj)
