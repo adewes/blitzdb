@@ -136,10 +136,30 @@ class Backend(BaseBackend):
                 return t
         raise AttributeError("Invalid field type: %s" % field)
 
-    def get_column_for_key(self,cls,key):
-        collection = self.get_collection_for_cls(cls)
+    def get_column_for_key(self,cls_or_collection,key):
+        if isinstance(cls_or_collection,six.string_types):
+            collection = cls_or_collection
+        else:
+            collection = self.get_collection_for_cls(cls_or_collection)
         if key in self._index_fields[collection]:
             return self._index_fields[collection][key]['column']
+        raise KeyError
+
+    def get_table_columns(self,cls_or_collection):
+        if isinstance(cls_or_collection,six.string_types):
+            collection = cls_or_collection
+        else:
+            collection = self.get_collection_for_cls(cls_or_collection)
+        return self._table_columns[collection]
+
+    def get_key_for_column(self,cls_or_collection,key):
+        if isinstance(cls_or_collection,six.string_types):
+            collection = cls_or_collection
+        else:
+            collection = self.get_collection_for_cls(cls_or_collection)
+        for column,params in self._index_fields[collection].items():
+            if params['key'] == key:
+                return column
         raise KeyError
 
     @property
@@ -154,6 +174,7 @@ class Backend(BaseBackend):
         self._index_fields = defaultdict(dict)
         self._list_indexes = defaultdict(dict)
         self._related_fields = defaultdict(dict)
+        self._table_columns = defaultdict(dict)
         self._excluded_keys = defaultdict(dict)
         self._foreign_key_backrefs = defaultdict(dict)
         self._many_to_many_backrefs = defaultdict(dict)
@@ -190,13 +211,15 @@ class Backend(BaseBackend):
             add_backref(collection,related_collection,column_name,field)
 
             column = Column(column_name,self.get_field_type(related_class.Meta.PkType),ForeignKey('%s%s.pk' % (related_collection,self.table_postfix)),index=True,nullable = True if field.nullable else False)
-            self._related_fields[collection][field_name] = {'field' : field,
-                                                            'key' : key,
-                                                            'column' : column_name,
-                                                            'collection' : related_collection,
-                                                            'class' : related_class,
-                                                            'type' : self.get_field_type(related_class.Meta.PkType)
-                                                            }
+            params = {'field' : field,
+                      'key' : key,
+                      'column' : column_name,
+                      'collection' : related_collection,
+                      'class' : related_class,
+                      'type' : self.get_field_type(related_class.Meta.PkType)
+                      }
+            self._related_fields[collection][field_name] = params
+            self._table_columns[collection][field_name] = params
             extra_columns.append(column)
 
             if field.unique:
@@ -254,6 +277,7 @@ class Backend(BaseBackend):
                 )
             self._list_indexes[key] = index_params
             self._index_fields[collection][key] = index_params
+            self._table_columns[collection][key] = index_params
 
         def add_field(collection,key,field):
             self._excluded_keys[collection][key] = True
@@ -263,6 +287,7 @@ class Backend(BaseBackend):
                             'type' : self.get_field_type(field),
                             'column' : column_name}
             self._index_fields[collection][key] = index_params
+            self._table_columns[collection][key] = index_params
             extra_columns.append(Column(column_name,index_params['type'],index = field.indexed))
 
             if field.unique:
@@ -272,13 +297,15 @@ class Backend(BaseBackend):
         self._metadata = MetaData()
 
         for collection,cls in self.collections.items():
-
-            self._index_fields[collection]['pk'] = {
+            index_params = {
                 'field' : cls.Meta.PkType,
                 'type' : self.get_field_type(cls.Meta.PkType),
                 'column' : 'pk',
                 'key' : 'pk'
             }
+            self._index_fields[collection]['pk'] = index_params
+            self._table_columns[collection]['pk'] = index_params
+            self._excluded_keys[collection]['pk'] = True
 
             extra_columns = [Column('pk',self.get_field_type(cls.Meta.PkType),primary_key = True,index = True)]
 
@@ -532,6 +559,44 @@ class Backend(BaseBackend):
 
             return obj
 
+    def get_include_joins(self,cls,includes):
+        collection = self.get_collection_for_cls(cls)
+
+        include_params = {'joins' : {},'fields' : set()}
+
+        def resolve_include(include,collection,d):
+            d['collection'] = collection
+            d['table'] = self._collection_tables[collection]
+            if isinstance(include,(tuple,list)):
+                if len(include) >= 2:
+                    main_include,sub_includes = include[0],include[1:]
+                else:
+                    main_include = include[0]
+                    sub_includes = None
+            else:
+                main_include = include
+                sub_includes = None
+
+            for key,params in self._related_fields[collection].items():
+                if main_include == key:
+                    if not key in d['joins']:
+                        d['joins'][key] = {'relation' : params,
+                                           'table' : self._collection_tables[params['collection']],
+                                           'collection' : params['collection'],
+                                           'joins' : {},
+                                           'fields' : set()}
+                    if sub_includes:
+                        for sub_include in sub_includes:
+                            resolve_include(sub_include,params['collection'],d['joins'][key])
+                    return
+            else:
+                d['fields'].add(include)
+
+        for include in includes:
+            resolve_include(include,collection,include_params)
+
+        return include_params
+
     def serialize(self, obj, convert_keys_to_str=True, embed_level=0, encoders=None,**kwargs):
         """
         Only serialize fields that are not associate with a relation/backref!
@@ -561,8 +626,10 @@ class Backend(BaseBackend):
 
         for field_name,params in self._related_fields[collection].items():
             if isinstance(params['field'],ManyToManyField):
+                #check if we have data for this ManyToMany proxy. If yes, pass it along!
                 _set_value(data,params['key'],ManyToManyProxy(obj,field_name,params))
             elif isinstance(params['field'],ForeignKeyField):
+                #check if we have data for this ForeignKey object. If yes, pass it along!
                 try:
                     foreign_pk = attributes[field_name]
                 except KeyError:
@@ -595,7 +662,7 @@ class Backend(BaseBackend):
             collection = cls_or_collection
         self.db[collection].ensure_index(*args, **kwargs)
 
-    def get(self, cls_or_collection, query,raw=False, only=None):
+    def get(self, cls_or_collection, query,raw=False, only=None,include = None):
 
         if not isinstance(cls_or_collection, six.string_types):
             collection = self.get_collection_for_cls(cls_or_collection)
@@ -604,14 +671,14 @@ class Backend(BaseBackend):
             collection = cls_or_collection
             cls = self.get_cls_for_collection(collection)
 
-        result = self.filter(cls_or_collection,query,raw = raw,only = only)
+        result = self.filter(cls_or_collection,query,raw = raw,only = only,include = include)
         try:
             return result[0]
         except IndexError:
             raise cls.DoesNotExist
 
 
-    def filter(self, cls_or_collection, query, raw = False,only = None):
+    def filter(self, cls_or_collection, query, raw = False,only = None,include = None):
         """
         Filter objects from the database that correspond to a given set of properties.
 
@@ -973,5 +1040,6 @@ class Backend(BaseBackend):
                         extra_fields = extra_fields,
                         condition = compiled_query,
                         group_bys = group_bys,
+                        include = include,
                         havings = havings
                         )

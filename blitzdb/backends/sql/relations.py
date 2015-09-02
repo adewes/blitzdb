@@ -27,7 +27,7 @@ class ManyToManyProxy(object):
 
     """
 
-    def __init__(self,obj,field_name,params):
+    def __init__(self,obj,field_name,params,queryset = None):
         """
         - Get the related class
         - Create a query that will retrieve related objects according to our criteria
@@ -40,7 +40,7 @@ class ManyToManyProxy(object):
         self.collection = self.obj.backend.get_collection_for_obj(self.obj)
         self.field_name = field_name
         self.params = params
-        self._queryset = None
+        self._queryset = queryset
 
     def __getitem__(self,i):
         if not isinstance(i,(slice,int)):

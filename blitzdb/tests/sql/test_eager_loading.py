@@ -4,6 +4,7 @@ import pprint
 from ..helpers.movie_data import Movie,Actor,Director
 
 from .fixtures import backend
+from blitzdb.backends.sql.relations import ManyToManyProxy
 
 def test_basics(backend):
 
@@ -51,39 +52,7 @@ def test_basics(backend):
     backend.save(harrison_ford)
     backend.commit()
 
-    #we have a backreference from director to movies
+    actors = backend.filter(Actor,{},include = (('movies',('director',),'title'),('movies','year')))
 
-    assert backend.get(Director,{'movies' : {'$all' : [the_godfather]}}) == francis_coppola
-
-    assert backend.get(Director,{'movies.title' : {'$in' : ['Apocalypse Now','The Godfather']}}) == francis_coppola
-
-    result = backend.filter(Movie,{'$or' : [{'actors' : harrison_ford},
-                                            {'actors.name' : 'Al Pacino'},
-                                            {'actors.name' : 'Robert de Niro'}]})
-
-    assert len(result) == 3
-    assert scarface in result
-    assert the_godfather in result
-    assert star_wars_v in result
-
-    result = backend.filter(Movie,{'actors' : {'$all': [al_pacino,robert_de_niro]}})
-    assert len(result) == 1
-    assert result[0] == the_godfather
-
-    result = backend.filter(Director,{'movies.title' : {'$all' : ['The Godfather']}}) 
-
-    al_pacino_movies = backend.filter(Movie,{'actors' : al_pacino})
-    assert len(al_pacino_movies) == 2
-    assert the_godfather in al_pacino_movies
-    assert scarface in al_pacino_movies
-
-    assert len(result) == 1
-    assert francis_coppola in result
-
-    result = backend.filter(Movie,{'actors' : {'$all' : [stanley_kubrick.favorite_actor,
-                                                         francis_coppola.favorite_actor]}})
-
-    assert len(result) == 1
-    assert result[0] == the_godfather
-
-    result = backend.filter(Director,{'movies.actors' : al_pacino})
+    assert isinstance(actors[0].movies,ManyToManyProxy)
+    assert actors[0].movies._queryset is not None
