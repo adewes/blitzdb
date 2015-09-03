@@ -6,7 +6,7 @@ from ..helpers.movie_data import Movie,Actor,Director
 from .fixtures import backend
 from blitzdb.backends.sql.relations import ManyToManyProxy
 
-def test_basics(backend):
+def prepare_data(backend):
 
     backend.init_schema()
     backend.create_schema()
@@ -15,6 +15,7 @@ def test_basics(backend):
     stanley_kubrick = Director({'name' : 'Stanley Kubrick'})
     robert_de_niro = Actor({'name' : 'Robert de Niro','movies' : []})
     harrison_ford = Actor({'name' : 'Harrison Ford'})
+    andreas_dewes = Actor({'name' : 'Andreas Dewes'})
     brian_de_palma = Director({'name' : 'Brian de Palma'})
 
     al_pacino = Actor({'name' : 'Al Pacino','movies' : []})
@@ -44,6 +45,7 @@ def test_basics(backend):
     backend.save(robert_de_niro)
     backend.save(al_pacino)
     backend.save(francis_coppola)
+    backend.save(andreas_dewes)
     backend.save(stanley_kubrick)
     backend.save(clockwork_orange)
     backend.save(space_odyssey)
@@ -51,6 +53,10 @@ def test_basics(backend):
     backend.save(scarface)
     backend.save(harrison_ford)
     backend.commit()
+
+def test_basics(backend):
+
+    prepare_data(backend)
 
     actors = backend.filter(Actor,{},include = (('movies',('director',),'title'),('movies','year')))
 
@@ -60,3 +66,20 @@ def test_basics(backend):
     assert actors[0].movies._queryset is not None
     assert actors[0].movies._queryset.objects is not None
     assert actors[0].movies[0].lazy
+
+    actor = backend.get(Actor,{'name' : 'Andreas Dewes'},include = (('movies',('director','favorite_actor')),) )
+
+    assert isinstance(actor,Actor)
+    assert not actor.lazy
+    assert isinstance(actor.movies,ManyToManyProxy)
+    assert actor.movies._queryset is not None
+    assert actor.movies._queryset.objects == [] #no movies yet :(
+
+def test_raw(backend):
+
+    prepare_data(backend)
+
+    actors = backend.filter(Actor,{},include = (('movies',('director',),'title'),('movies','year'),'gross_income_m'),raw = True)
+
+    assert isinstance(actors[0],dict)
+    assert isinstance(actors[0]['movies'],list)

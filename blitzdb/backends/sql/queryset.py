@@ -15,8 +15,9 @@ class QuerySet(BaseQuerySet):
                  select = None,
                  intersects = None,
                  raw = False,
-                 joins = None,
                  include = None,
+                 only = None,
+                 joins = None,
                  extra_fields = None,
                  group_bys = None,
                  objects = None,
@@ -30,8 +31,9 @@ class QuerySet(BaseQuerySet):
         self.backend = backend
         self.condition = condition
         self.select = select
-        self.include = include
         self.havings = havings
+        self.only = only
+        self.include = include
         self.extra_fields = extra_fields
         self.group_bys = group_bys
         self.cls = cls
@@ -139,10 +141,15 @@ class QuerySet(BaseQuerySet):
 
         def update_keymap(path,field,label):
             cd = keymap
+            last_cd = None
             for path_element in path:
                 if not path_element in cd:
                     cd[path_element] = {}
+                last_cd = cd
                 cd = cd[path_element]
+            if not isinstance(cd,dict):
+                last_cd[path_element] = {}
+                cd = last_cd[path_element]
             cd[field] = label
 
         def process_fields_and_subkeys(related_collection,related_table,params,path):
@@ -189,7 +196,7 @@ class QuerySet(BaseQuerySet):
 
         if self.include:
             include_joins = self.backend.get_include_joins(self.cls,self.include)
-
+            
             if include_joins['fields']:
                 if not 'pk' in include_joins['fields']:#we always include the primary key
                     rows.append(s_cte.c['pk'])
@@ -210,7 +217,7 @@ class QuerySet(BaseQuerySet):
                 keymap[column.name] = column.name
 
         if joins:
-            for j in joins:
+            for i,j in enumerate(joins):
                 s_cte = s_cte.outerjoin(*j)
 
         with self.backend.transaction(use_auto = False):
@@ -236,7 +243,11 @@ class QuerySet(BaseQuerySet):
             """
             objs = []
             while True:
-                objs.append(unpack_single_object(objects,keymap,nested = True))
+                try:
+                    objs.append(unpack_single_object(objects,keymap,nested = True))
+                except TypeError:
+                    #this is an empty object
+                    break
                 if len(objects) > 1 and objects[1][pk_key] == pk_value:
                     objects.pop(0)
                 else:
@@ -256,6 +267,8 @@ class QuerySet(BaseQuerySet):
             """
             obj = objects[0]
             d = {}
+            if obj[keymap['pk']] is None:
+                raise TypeError
             for key,value in keymap.items():
                 if key in ('__foreign_key','__many_to_many'):
                     continue
@@ -263,7 +276,10 @@ class QuerySet(BaseQuerySet):
                     if '__many_to_many' in value:
                         d[key] = unpack_many_to_many(objects,value,keymap['pk'],obj[keymap['pk']])
                     else:
-                        d[key] = unpack_single_object(objects,value,nested = True)
+                        try:
+                            d[key] = unpack_single_object(objects,value,nested = True)
+                        except TypeError:
+                            d[key] = None
                 else:
                     d[key] = obj[value]
             if not nested:

@@ -2,7 +2,6 @@ import abc
 import six
 import uuid
 import re
-import pprint
 import traceback
 
 from collections import defaultdict
@@ -155,10 +154,11 @@ class Backend(BaseBackend):
             collection = cls_or_collection
         else:
             collection = self.get_collection_for_cls(cls_or_collection)
-        if key in self._index_fields[collection]:
+        try:
             return self._index_fields[collection][key]['column']
-        raise KeyError
-
+        except KeyError:
+            raise KeyError("Invalid key %s for collection %s" % (key,collection))
+    
     def get_table_columns(self,cls_or_collection):
         if isinstance(cls_or_collection,six.string_types):
             collection = cls_or_collection
@@ -582,7 +582,7 @@ class Backend(BaseBackend):
             else:
                 main_include = include
                 sub_includes = None
-
+            
             for key,params in self._related_fields[collection].items():
                 if main_include == key:
                     if not key in d['joins']:
@@ -596,7 +596,7 @@ class Backend(BaseBackend):
                             resolve_include(sub_include,params['collection'],d['joins'][key])
                     return
             else:
-                d['fields'].add(include)
+                d['fields'].add(self.get_column_for_key(collection,include))
 
         for include in includes:
             resolve_include(include,collection,include_params)
@@ -1066,7 +1066,9 @@ class Backend(BaseBackend):
                         cls = cls,
                         extra_fields = extra_fields,
                         condition = compiled_query,
+                        raw = raw,
                         group_bys = group_bys,
+                        only = only,
                         include = include,
                         havings = havings
                         )
