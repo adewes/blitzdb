@@ -669,8 +669,8 @@ class Backend(BaseBackend):
                 continue
             if not lazy and (not params['column'] in data):
                 lazy = True
-            value = data.get(params['column'],None)
-            _set_value(data,params['key'],value)
+            if params['column'] in data:
+                _set_value(data,params['key'],params['column'])
 
         obj.attributes = data
         obj.lazy = lazy

@@ -83,3 +83,27 @@ def test_raw(backend):
 
     assert isinstance(actors[0],dict)
     assert isinstance(actors[0]['movies'],list)
+
+def test_include_with_only_raw(backend):
+
+    prepare_data(backend)
+
+    actors = backend.filter(Actor,{},include = (('movies',('director',),'title'),('movies','year')),only = ('gross_income_m',),raw = True)
+
+    assert isinstance(actors[0],dict)
+    assert set(actors[0].keys()) == set(('movies','gross_income_m','pk'))
+    assert isinstance(actors[0]['movies'],list)
+
+def test_include_with_only(backend):
+
+    prepare_data(backend)
+
+    actors = backend.filter(Actor,{},include = (('movies',('director',),'title'),('movies','year')),only = ('gross_income_m',))
+
+    assert isinstance(actors[0],Actor)
+    assert actors[0].lazy
+    print actors[0].lazy_attributes.keys()
+    assert set(actors[0].lazy_attributes.keys()) == set(('movies','gross_income_m','pk','favorite_food'))
+    assert isinstance(actors[0]['movies'],ManyToManyProxy)
+    assert actors[0]['movies']._queryset is not None
+    assert actors[0]['movies']._queryset.objects is not None

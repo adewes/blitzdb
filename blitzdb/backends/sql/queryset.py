@@ -195,8 +195,21 @@ class QuerySet(BaseQuerySet):
             update_keymap(path+[key],'__many_to_many',True)
 
         if self.include:
-            include_joins = self.backend.get_include_joins(self.cls,self.include)
-            
+            include = copy.deepcopy(self.include)
+
+            if not isinstance(include,(list,tuple)):
+                raise AttributeError("include must be a list/tuple")
+
+            if self.only:
+                if isinstance(self.only,dict):
+                    only = set(self.only.keys())
+                else:
+                    only = set(self.only)
+                include = set(include)
+                for only_key in only:
+                    include.add(only_key)
+            include_joins = self.backend.get_include_joins(self.cls,include)
+
             if include_joins['fields']:
                 if not 'pk' in include_joins['fields']:#we always include the primary key
                     rows.append(s_cte.c['pk'])
