@@ -13,6 +13,16 @@ import six
 if six.PY3:
     unicode = str
 
+class DoesNotExist(BaseException):
+
+    def __str__(self):
+        return "DoesNotExist(%s)" % self.__class__.__name__
+
+class MultipleDocumentsReturned(BaseException):
+
+    def __str__(self):
+        return "MultipleDocumentsReturned(%s)" % self.__class__.__name__
+
 class MetaDocument(type):
 
     """
@@ -38,15 +48,13 @@ class MetaDocument(type):
 
         class_type._fields = fields
 
-        class DoesNotExist(BaseException):
+        global DoesNotExist,MultipleDocumentsReturned
 
-            def __str__(self):
-                return "DoesNotExist(%s)" % name
+        class DoesNotExist(DoesNotExist):
+            pass
 
-        class MultipleDocumentsReturned(BaseException):
-
-            def __str__(self):
-                return "MultipleDocumentsReturned(%s)" % name
+        class MultipleDocumentsReturned(MultipleDocumentsReturned):
+            pass
 
         class_type.DoesNotExist = DoesNotExist
         class_type.MultipleDocumentsReturned = MultipleDocumentsReturned
@@ -169,6 +177,14 @@ class Document(object):
         return self.attributes[key]
 
     @property
+    def lazy(self):
+        return self._lazy
+
+    @lazy.setter
+    def lazy(self,lazy):
+        self._lazy = lazy
+
+    @property
     def lazy_attributes(self):
         return self._attributes
 
@@ -237,7 +253,7 @@ class Document(object):
         raise AttributeError(key)
 
     def __setattr__(self, key, value):
-        if key.startswith('_') or key in ('attributes','pk'):
+        if key.startswith('_') or key in ('attributes','pk','lazy'):
             return super(Document, self).__setattr__(key, value)
         else:
             self.attributes[key] = value

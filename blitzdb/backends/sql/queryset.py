@@ -1,7 +1,6 @@
 import time
 import copy
 import sqlalchemy
-import pprint
 
 from blitzdb.queryset import QuerySet as BaseQuerySet
 from functools import wraps
@@ -32,7 +31,6 @@ class QuerySet(BaseQuerySet):
         self.condition = condition
         self.select = select
         self.include = include
-        self.objects = objects
         self.havings = havings
         self.extra_fields = extra_fields
         self.group_bys = group_bys
@@ -40,14 +38,16 @@ class QuerySet(BaseQuerySet):
         self._limit = limit
         self._offset = offset
         self.table = table
-        self._it = None
         self._raw = raw
-        self.count = None
-        self.order_bys = None
-        self.result = None
         self.intersects = intersects
-        self.objects = None
-        self.pop_objects = None
+        self.objects = objects
+        if self.objects:
+            self.pop_objects = self.objects[:]
+
+        self._it = None
+        self.order_bys = None
+        self.count = None
+        self.result = None
 
     def limit(self,limit):
         self._limit = limit
@@ -58,7 +58,18 @@ class QuerySet(BaseQuerySet):
         return self
 
     def deserialize(self, data):
-        return self.backend.create_instance(self.cls, data)
+        if 'data' in data:
+            d = self.backend.deserialize_json(data['data'])
+            lazy = False
+        else:
+            lazy = True
+            d = {}
+        for key,value in data.items():
+            d[key] = value
+        if self._raw:
+            return d
+        deserialized_attributes = self.backend.deserialize(d)
+        return self.backend.create_instance(self.cls, deserialized_attributes,lazy = lazy)
 
     def sort(self, keys,direction = None):
         #we sort by a single argument
@@ -213,8 +224,6 @@ class QuerySet(BaseQuerySet):
                 objects = None
                 raise
 
-        pprint.pprint(keymap)
-
         def unpack_many_to_many(objects,keymap,pk_key,pk_value):
             """
             We unpack a many-to-many relation:
@@ -266,8 +275,6 @@ class QuerySet(BaseQuerySet):
 
         while objects:
             self.objects.append(unpack_single_object(objects,keymap))
-
-        pprint.pprint(self.objects)
 
         self.pop_objects = self.objects[:]
 

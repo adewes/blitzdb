@@ -77,6 +77,20 @@ def _set_value(obj,key,value):
         current_dict = current_dict[key_fragment]
     current_dict[key_fragments[-1]] = value
 
+class ExcludedFieldsEncoder(object):
+
+    def __init__(self,backend,collection):
+        self.collection = collection
+        self.backend = backend
+
+    def encode(self,obj,path = []):
+        if not path:
+            return obj
+        key = ".".join([str(p) for p in path])
+        if key in self.backend._excluded_keys[self.collection]:
+            raise DoNotSerialize
+        return obj
+
 class Backend(BaseBackend):
 
     """
@@ -275,9 +289,9 @@ class Backend(BaseBackend):
                     Column(column_name,index_params['type'],index = True),
                     UniqueConstraint('pk',column_name,name = 'unique_%s_%s' % (collection,column_name))
                 )
-            self._list_indexes[key] = index_params
+            self._list_indexes[collection][key] = index_params
             self._index_fields[collection][key] = index_params
-            self._table_columns[collection][key] = index_params
+#            self._table_columns[collection][key] = index_params
 
         def add_field(collection,key,field):
             self._excluded_keys[collection][key] = True
@@ -424,6 +438,12 @@ class Backend(BaseBackend):
         self.save(obj)
         return obj
 
+    def serialize_json(self,data):
+        return JsonSerializer.serialize(data)
+
+    def deserialize_json(self,data):
+        return JsonSerializer.deserialize(data)
+
     def save(self,obj,autosave_dependent = True):
 
         self.call_hook('before_save',obj)
@@ -520,22 +540,8 @@ class Backend(BaseBackend):
                 obj.pk = uuid.uuid4().hex
                 insert = True
 
-            class ExcludedFieldsEncoder(object):
-
-                def __init__(self,backend,collection):
-                    self.collection = collection
-                    self.backend = backend
-
-                def encode(self,obj,path = []):
-                    if not path:
-                        return obj
-                    key = ".".join([str(p) for p in path])
-                    if key in self.backend._excluded_keys[self.collection]:
-                        raise DoNotSerialize
-                    return obj
-
-            d = {'data' : JsonSerializer.serialize(self.serialize(obj.attributes,
-                    encoders = [ExcludedFieldsEncoder(self,collection)]),),
+            d = {'data' : self.serialize_json(self.serialize(obj.attributes,
+                    encoders = [ExcludedFieldsEncoder(self,collection)])),
                  'pk' : expression.cast(obj.pk,pk_type)}
 
             serialize_and_update_indexes(obj,d)
@@ -608,17 +614,26 @@ class Backend(BaseBackend):
                                               encoders = (encoders if encoders else []),
                                               **kwargs)
 
-    def create_instance(self, collection_or_class,attributes, lazy = False):
+    def create_instance(self, collection_or_class,attributes,lazy = False):
 
-        data = attributes.get('data',{})
+        """
+        Problem:
+
+        * Embedded documents expect the normal `create_instance` data format
+          (i.e. with all fields provided in the data)
+        * Top-level documents expect the data format as provided by the query set
+          (i.e. with a JSON data field provided)
+
+        """
 
         if isinstance(collection_or_class,six.string_types):
             collection = collection_or_class
         else:
             collection = self.get_collection_for_cls(collection_or_class)
 
+        data = attributes
         #we create the object first
-        obj = super(Backend,self).create_instance(collection_or_class, {},lazy,call_hook = False)
+        obj = super(Backend,self).create_instance(collection_or_class,{},call_hook = False,lazy = lazy)
 
         #now we update the data dictionary with foreign key fields...
         for field_name,params in self._list_indexes[collection].items():
@@ -626,16 +641,25 @@ class Backend(BaseBackend):
 
         for field_name,params in self._related_fields[collection].items():
             if isinstance(params['field'],ManyToManyField):
+                if params['key'] in data:
+                    queryset = QuerySet(self,
+                                        self._collection_tables[params['collection']],
+                                        self.get_cls_for_collection(params['collection']),
+                                        objects = data[params['key']])
+                else:
+                    queryset = None
                 #check if we have data for this ManyToMany proxy. If yes, pass it along!
-                _set_value(data,params['key'],ManyToManyProxy(obj,field_name,params))
+                _set_value(data,params['key'],ManyToManyProxy(obj,field_name,params,queryset = queryset))
             elif isinstance(params['field'],ForeignKeyField):
                 #check if we have data for this ForeignKey object. If yes, pass it along!
                 try:
-                    foreign_pk = attributes[field_name]
+                    foreign_key_data = data[field_name]
                 except KeyError:
                     continue
-                if foreign_pk:
-                    foreign_obj = self.create_instance(params['class'],{'pk' : foreign_pk},lazy = True)
+                if foreign_key_data:
+                    if not isinstance(foreign_key_data,dict):
+                        foreign_key_data = {'pk' : foreign_key_data}
+                    foreign_obj = self.create_instance(params['class'],foreign_key_data,lazy = True)
                 else:
                     foreign_obj = None
                 _set_value(data,params['key'],foreign_obj)
@@ -643,10 +667,13 @@ class Backend(BaseBackend):
         for field_name,params in self._index_fields[collection].items():
             if not 'key' in params:
                 continue
-            value = attributes.get(params['column'],None)
+            if not lazy and (not params['column'] in data):
+                lazy = True
+            value = data.get(params['column'],None)
             _set_value(data,params['key'],value)
 
         obj.attributes = data
+        obj.lazy = lazy
 
         self.call_hook('after_load',obj)
 
