@@ -41,40 +41,11 @@ from sqlalchemy.types import (Integer,
                               Unicode)
 from sqlalchemy.sql import select,insert,update,func,and_,or_,not_,expression,null,distinct
 from sqlalchemy.ext.compiler import compiles
+from .helpers import get_value, set_value
 
 @compiles(DateTime, "sqlite")
 def compile_binary_sqlite(type_, compiler, **kw):
     return "VARCHAR(64)"
-
-"""
-Base model for SQL backend:
-
-Data storage:
-
-Define a JSON column in th underlying database
-
-Indexes:
-
-Define additional columns in the table with a given type
-
-M2M-Relationships: Let the user define them through helper documents
-"""
-
-def _get_value(obj,key):
-    key_fragments = key.split(".")
-    current_dict = obj
-    for key_fragment in key_fragments:
-        current_dict = current_dict[key_fragment]
-    return current_dict
-
-def _set_value(obj,key,value):
-    key_fragments = key.split('.')
-    current_dict = obj
-    for key_fragment in key_fragments[:-1]:
-        if not key_fragment in current_dict:
-            current_dict[key_fragment] = {}
-        current_dict = current_dict[key_fragment]
-    current_dict[key_fragments[-1]] = value
 
 class ExcludedFieldsEncoder(object):
 
@@ -290,7 +261,7 @@ class Backend(BaseBackend):
                     UniqueConstraint('pk',column_name,name = 'unique_%s_%s' % (collection,column_name))
                 )
             self._list_indexes[collection][key] = index_params
-            self._index_fields[collection][key] = index_params
+#            self._index_fields[collection][key] = index_params
 #            self._table_columns[collection][key] = index_params
 
         def add_field(collection,key,field):
@@ -470,7 +441,7 @@ class Backend(BaseBackend):
         def serialize_and_update_indexes(obj,d):
             for index_field,index_params in self._index_fields[collection].items():
                 try:
-                    value = _get_value(obj,index_field)
+                    value = get_value(obj,index_field)
                     if isinstance(index_params['field'],ListField):
                         #to do: check if this is a RelatedList
                         table = self._index_tables[collection][index_field]
@@ -497,7 +468,7 @@ class Backend(BaseBackend):
         def serialize_and_update_relations(obj,d):
             for related_field,relation_params in self._related_fields[collection].items():
                 try:
-                    value = _get_value(obj,related_field)
+                    value = get_value(obj,related_field)
                     if isinstance(relation_params['field'],ManyToManyField):
                         relationship_table = self._relationship_tables[collection][related_field]
                         deletes.append(relationship_table.delete().where(relationship_table.c['pk_%s' % collection] == expression.cast(obj.pk,pk_type)))
@@ -568,11 +539,15 @@ class Backend(BaseBackend):
     def get_include_joins(self,cls,includes):
         collection = self.get_collection_for_cls(cls)
 
-        include_params = {'joins' : {},'fields' : set()}
+        include_params = {'joins' : {},
+                          'fields' : {},
+                          'collection' : collection,
+                          'table' : self._collection_tables[collection]
+                          }
+
+        include_list = [include_params]
 
         def resolve_include(include,collection,d):
-            d['collection'] = collection
-            d['table'] = self._collection_tables[collection]
             if isinstance(include,(tuple,list)):
                 if len(include) >= 2:
                     main_include,sub_includes = include[0],include[1:]
@@ -582,7 +557,6 @@ class Backend(BaseBackend):
             else:
                 main_include = include
                 sub_includes = None
-            
             for key,params in self._related_fields[collection].items():
                 if main_include == key:
                     if not key in d['joins']:
@@ -590,16 +564,38 @@ class Backend(BaseBackend):
                                            'table' : self._collection_tables[params['collection']],
                                            'collection' : params['collection'],
                                            'joins' : {},
-                                           'fields' : set()}
+                                           'fields' : {}}
+                        include_list.append(d['joins'][key])
                     if sub_includes:
                         for sub_include in sub_includes:
                             resolve_include(sub_include,params['collection'],d['joins'][key])
-                    return
+                    break
             else:
-                d['fields'].add(self.get_column_for_key(collection,include))
+                #if we ask for github_data and github_data.full_name is an index field, we
+                #need to fetch both the `data` field and the github_data_full_name index field.
+                for key,params in self._index_fields[collection].items():
+                    if key == include:
+                        d['fields'][key] = params['column']
+                        break
+                    elif key.startswith(include):
+                        d['fields'][key] = params['column']
+                else:
+                    d['fields']['__data__'] = 'data'
 
         for include in includes:
             resolve_include(include,collection,include_params)
+
+        for include in include_list:
+            if not include['fields']:
+                include['fields']['__data__'] = 'data'
+                for key,params in self._index_fields[include['collection']].items():
+                    include['fields'][key] = params['column']
+                include['lazy'] = False
+            else:
+                if not 'pk' in include['fields']:
+                    include['fields']['pk'] = 'pk'
+                if len(include['fields']) < len(self._index_fields[include['collection']])+1:
+                    include['lazy'] = True
 
         return include_params
 
@@ -614,17 +610,25 @@ class Backend(BaseBackend):
                                               encoders = (encoders if encoders else []),
                                               **kwargs)
 
+    def map_index_fields(self,collection_or_class,attributes):
+
+        incomplete = False
+
+        if isinstance(collection_or_class,six.string_types):
+            collection = collection_or_class
+        else:
+            collection = self.get_collection_for_cls(collection_or_class)
+
+        data = {}
+        for field_name,params in self._index_fields[collection].items():
+            if not params['column'] in attributes:
+                incomplete = True
+            else:
+                set_value(data,params['key'],attributes[params['column']])
+
+        return data,incomplete
+
     def create_instance(self, collection_or_class,attributes,lazy = False):
-
-        """
-        Problem:
-
-        * Embedded documents expect the normal `create_instance` data format
-          (i.e. with all fields provided in the data)
-        * Top-level documents expect the data format as provided by the query set
-          (i.e. with a JSON data field provided)
-
-        """
 
         if isinstance(collection_or_class,six.string_types):
             collection = collection_or_class
@@ -637,7 +641,7 @@ class Backend(BaseBackend):
 
         #now we update the data dictionary with foreign key fields...
         for field_name,params in self._list_indexes[collection].items():
-            _set_value(data,params['key'],ListProxy(obj,field_name,params))
+            set_value(data,params['key'],ListProxy(obj,field_name,params))
 
         for field_name,params in self._related_fields[collection].items():
             if isinstance(params['field'],ManyToManyField):
@@ -649,7 +653,7 @@ class Backend(BaseBackend):
                 else:
                     queryset = None
                 #check if we have data for this ManyToMany proxy. If yes, pass it along!
-                _set_value(data,params['key'],ManyToManyProxy(obj,field_name,params,queryset = queryset))
+                set_value(data,params['key'],ManyToManyProxy(obj,field_name,params,queryset = queryset))
             elif isinstance(params['field'],ForeignKeyField):
                 #check if we have data for this ForeignKey object. If yes, pass it along!
                 try:
@@ -659,22 +663,13 @@ class Backend(BaseBackend):
                 if foreign_key_data:
                     if not isinstance(foreign_key_data,dict):
                         foreign_key_data = {'pk' : foreign_key_data}
+                    #this might be problematic since the mapping has not yet been done...
                     foreign_obj = self.create_instance(params['class'],foreign_key_data,lazy = True)
                 else:
                     foreign_obj = None
-                _set_value(data,params['key'],foreign_obj)
-
-        for field_name,params in self._index_fields[collection].items():
-            if not 'key' in params:
-                continue
-            if not lazy and (not params['column'] in data):
-                lazy = True
-            if params['column'] in data:
-                _set_value(data,params['key'],params['column'])
+                set_value(data,params['key'],foreign_obj)
 
         obj.attributes = data
-        obj.lazy = lazy
-
         self.call_hook('after_load',obj)
 
         return obj

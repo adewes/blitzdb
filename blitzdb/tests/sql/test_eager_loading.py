@@ -1,3 +1,4 @@
+ # -*- coding: utf-8 -*-
 import pytest
 import pprint
 
@@ -18,7 +19,7 @@ def prepare_data(backend):
     andreas_dewes = Actor({'name' : 'Andreas Dewes'})
     brian_de_palma = Director({'name' : 'Brian de Palma'})
 
-    al_pacino = Actor({'name' : 'Al Pacino','movies' : []})
+    al_pacino = Actor({'name' : 'Al Pacino','movies' : [],'salary' : {'amount' : 100000000,'currency' : u'€'}})
 
     scarface = Movie({'title' : 'Scarface','director' : brian_de_palma})
 

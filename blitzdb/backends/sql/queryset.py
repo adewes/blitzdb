@@ -1,12 +1,14 @@
 import time
 import copy
 import sqlalchemy
+import pprint
 
 from blitzdb.queryset import QuerySet as BaseQuerySet
 from functools import wraps
 from sqlalchemy.sql import select,func,expression,delete,distinct,and_,union,intersect
 from sqlalchemy.sql.expression import join,asc,desc,outerjoin
 from ..file.serializers import JsonSerializer
+from .helpers import set_value
 
 class QuerySet(BaseQuerySet):
 
@@ -60,18 +62,30 @@ class QuerySet(BaseQuerySet):
         return self
 
     def deserialize(self, data):
-        if 'data' in data:
-            d = self.backend.deserialize_json(data['data'])
-            lazy = False
+        if '__lazy__' in data:
+            lazy = data['__lazy__']
         else:
-            lazy = True
+            lazy = False
+        if '__data__' in data:
+            d = self.backend.deserialize_json(data['__data__'])
+        else:
             d = {}
         for key,value in data.items():
-            d[key] = value
+            if key in ('__data__','__lazy__'):
+                continue
+            set_value(d,key,value)
+
+        pprint.pprint(d)
+
         if self._raw:
+            #we map the retrieved fields back to their original position in the document...
             return d
+
+
         deserialized_attributes = self.backend.deserialize(d)
-        return self.backend.create_instance(self.cls, deserialized_attributes,lazy = lazy)
+        obj = self.backend.create_instance(self.cls, deserialized_attributes,lazy = lazy)
+
+        return obj
 
     def sort(self, keys,direction = None):
         #we sort by a single argument
@@ -118,6 +132,7 @@ class QuerySet(BaseQuerySet):
         return True
 
     def get_objects(self):
+
         s = self.get_select()
 
         #We create a CTE, which will allow us to join the required includes.
@@ -125,11 +140,6 @@ class QuerySet(BaseQuerySet):
         rows = []
         joins = []
         keymap = {}
-
-        """
-        For each include field, we add an OUTER JOIN and either request the whole table
-        (if not 'fields' variable is present), or only a subset of the fields.
-        """
 
         def join_table(collection,table,key,params,path = None):
             if path is None:
@@ -139,38 +149,14 @@ class QuerySet(BaseQuerySet):
             else:
                 join_foreign_key(collection,table,key,params,path)
 
-        def update_keymap(path,field,label):
-            cd = keymap
-            last_cd = None
-            for path_element in path:
-                if not path_element in cd:
-                    cd[path_element] = {}
-                last_cd = cd
-                cd = cd[path_element]
-            if not isinstance(cd,dict):
-                last_cd[path_element] = {}
-                cd = last_cd[path_element]
-            cd[field] = label
-
         def process_fields_and_subkeys(related_collection,related_table,params,path):
 
-            if 'fields' in params and params['fields']:
-                if not 'pk' in params['fields']:#we always include the primary key
-                    pk_label = "_".join(path)+'_pk'
-                    rows.append(related_table.c['pk'].label(pk_label))
-                    update_keymap(path,'pk',pk_label)
-                for field in params['fields']:
-                    column_name = self.backend.get_column_for_key(related_collection,field)
-                    column_label = '_'.join(path)+'_%s' % column_name
-                    rows.append(related_table.c[field].label(column_label))
-                    update_keymap(path,column_name,column_label)
-            else:
-                index_fields = self.backend.get_table_columns(related_collection)
-                for field,field_params in index_fields.items():
-                    column_name = field_params['column']
-                    column_label = '_'.join(path)+'_%s' % column_name
-                    rows.append(related_table.c[column_name].label(column_label))
-                    update_keymap(path,column_name,column_label)
+            params['table_fields'] = {}
+            for field,column_name in params['fields'].items():
+                column_label = '_'.join(path+[column_name])
+                params['table_fields'][field] = column_label
+                rows.append(related_table.c[column_name].label(column_label))
+
             for subkey,subparams in params['joins'].items():
                 join_table(params['collection'],related_table,subkey,subparams,path = path)
 
@@ -181,7 +167,6 @@ class QuerySet(BaseQuerySet):
             joins.append((related_table,condition))
             process_fields_and_subkeys(related_collection,related_table,params,path+\
                                         [params['relation']['column']])
-            update_keymap(path+[key],'__foreign_key',True)
 
         def join_many_to_many(collection,table,key,params,path):
             relationship_table = params['relation']['relationship_table'].alias()
@@ -192,42 +177,75 @@ class QuerySet(BaseQuerySet):
             joins.append((relationship_table,left_condition))
             joins.append((related_table,right_condition))
             process_fields_and_subkeys(related_collection,related_table,params,path+[key])
-            update_keymap(path+[key],'__many_to_many',True)
+
+        def unpack_many_to_many(objects,params,pk_key,pk_value):
+            """
+            We unpack a many-to-many relation:
+
+            * We unpack a single object from the first row in the result set.
+            * We check if the primary key of the nxt row (if it exists) is the same
+            * If it is, we pop a row from the set and repeat
+            * If not, we return the results 
+              (the unpack_single_object will pop the object in that case)
+            """
+            objs = []
+            while True:
+                try:
+                    objs.append(unpack_single_object(objects,params,nested = True))
+                except TypeError:
+                    #this is an empty object
+                    break
+                if len(objects) > 1 and objects[1][pk_key] == pk_value:
+                    objects.pop(0)
+                else:
+                    break
+            return objs
+
+        def unpack_single_object(objects,params,nested = False):
+            obj = objects[0]
+            d = {'__lazy__' : params['lazy']}
+            print d
+            pk_column = params['table_fields']['pk']
+            if obj[pk_column] is None:
+                raise TypeError
+            pk_value = obj[params['table_fields']['pk']]
+
+            for key,field in params['table_fields'].items():
+                d[key] = obj[field]
+
+            for name,join_params in params['joins'].items():
+                if 'relationship_table' in join_params['relation']:
+                    #this is a many-to-many join
+                    d[name] = unpack_many_to_many(objects,join_params,pk_column,pk_value)
+                else:
+                    try:
+                        d[name] = unpack_single_object(objects,join_params,nested = True)
+                    except TypeError:
+                        d[name] = None
+            if not nested:
+                objects.pop(0)
+            return d
 
         if self.include:
             include = copy.deepcopy(self.include)
 
             if not isinstance(include,(list,tuple)):
                 raise AttributeError("include must be a list/tuple")
-
-            if self.only:
-                if isinstance(self.only,dict):
-                    only = set(self.only.keys())
-                else:
-                    only = set(self.only)
-                include = set(include)
-                for only_key in only:
-                    include.add(only_key)
-            include_joins = self.backend.get_include_joins(self.cls,include)
-
-            if include_joins['fields']:
-                if not 'pk' in include_joins['fields']:#we always include the primary key
-                    rows.append(s_cte.c['pk'])
-                    keymap['pk'] = 'pk'
-                for field in include_joins['fields']:
-                    rows.append(s_cte.c[field])
-                    keymap[field] = field
-            else:
-                rows.append(s_cte)
-                for column in s_cte.columns:
-                    keymap[column.name] = column.name
-
-            for key,params in include_joins['joins'].items():
-                join_table(include_joins['collection'],s_cte,key,params)
         else:
-            rows.append(s_cte)
-            for column in s_cte.columns:
-                keymap[column.name] = column.name
+            include = ()
+
+        if self.only:
+            if isinstance(self.only,dict):
+                only = set(self.only.keys())
+            else:
+                only = set(self.only)
+            include = set(include)
+            for only_key in only:
+                include.add(only_key)
+
+        self.include_joins = self.backend.get_include_joins(self.cls,include)
+
+        process_fields_and_subkeys(self.include_joins['collection'],s_cte,self.include_joins,[])
 
         if joins:
             for i,j in enumerate(joins):
@@ -244,67 +262,16 @@ class QuerySet(BaseQuerySet):
                 objects = None
                 raise
 
-        def unpack_many_to_many(objects,keymap,pk_key,pk_value):
-            """
-            We unpack a many-to-many relation:
-
-            * We unpack a single object from the first row in the result set.
-            * We check if the primary key of the nxt row (if it exists) is the same
-            * If it is, we pop a row from the set and repeat
-            * If not, we return the results 
-              (the unpack_single_object will pop the object in that case)
-            """
-            objs = []
-            while True:
-                try:
-                    objs.append(unpack_single_object(objects,keymap,nested = True))
-                except TypeError:
-                    #this is an empty object
-                    break
-                if len(objects) > 1 and objects[1][pk_key] == pk_value:
-                    objects.pop(0)
-                else:
-                    break
-            return objs
-
-        def unpack_single_object(objects,keymap,nested = False):
-            """
-            We unpack a single object from the result set:
-
-            * We iterate over the key,value pairs in the keymap.
-            * if the given value is a many-to-many relation, we call unpack_amny_to_many
-            * if the given value is a foreign-key relation, we recursively call unpack_single_object
-            * otherwise we just update the result dictionary
-            * if unpack_single_object was called from the top-level, we pop a result from the set
-            * we return the resulting dict
-            """
-            obj = objects[0]
-            d = {}
-            if obj[keymap['pk']] is None:
-                raise TypeError
-            for key,value in keymap.items():
-                if key in ('__foreign_key','__many_to_many'):
-                    continue
-                if isinstance(value,dict):
-                    if '__many_to_many' in value:
-                        d[key] = unpack_many_to_many(objects,value,keymap['pk'],obj[keymap['pk']])
-                    else:
-                        try:
-                            d[key] = unpack_single_object(objects,value,nested = True)
-                        except TypeError:
-                            d[key] = None
-                else:
-                    d[key] = obj[value]
-            if not nested:
-                objects.pop(0)
-            return d
-
         #we "fold" the objects back into one list structure
         self.objects = []
 
-        while objects:
-            self.objects.append(unpack_single_object(objects,keymap))
+        pprint.pprint(self.include_joins)
 
+        while objects:
+            self.objects.append(unpack_single_object(objects,self.include_joins))
+
+        pprint.pprint(self.objects)
+        
         self.pop_objects = self.objects[:]
 
     def as_list(self):

@@ -1,3 +1,4 @@
+ # -*- coding: utf-8 -*-
 import math
 import faker  # https://github.com/joke2k/faker
 import random
@@ -28,6 +29,8 @@ class Actor(Document):
 
     name = CharField(indexed = True)
     gross_income_m = FloatField(indexed = True)
+    salary_amount = FloatField(indexed = True,key = 'salary.amount')
+    salary_currency = CharField(indexed = True,key = 'salary.currency')
     appearances = IntegerField(indexed = True)
     favorite_food = ListField(type = CharField(), indexed = True)
     birth_year = IntegerField(indexed = True)
