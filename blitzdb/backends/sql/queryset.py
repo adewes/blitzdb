@@ -202,7 +202,6 @@ class QuerySet(BaseQuerySet):
             for name,join_params in sorted(params['joins'].items(),key = lambda i : i[0]):
                 if 'relationship_table' in join_params['relation']:
                     #this is a many-to-many join
-                    print name
                     d[name] = unpack_many_to_many(objects,join_params,pk_column,pk_value)
                 else:
                     try:
