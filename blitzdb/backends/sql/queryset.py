@@ -214,7 +214,6 @@ class QuerySet(BaseQuerySet):
 
         if self.include:
             include = copy.deepcopy(self.include)
-
             if not isinstance(include,(list,tuple)):
                 raise AttributeError("include must be a list/tuple")
         else:

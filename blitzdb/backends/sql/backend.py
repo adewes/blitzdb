@@ -584,12 +584,13 @@ class Backend(BaseBackend):
 
         for include in includes:
             resolve_include(include,collection,include_params)
+
         excludes_set = set(excludes)
         for include in include_list:
             if not include['fields']:
                 include['fields']['__data__'] = 'data'
                 include['lazy'] = False
-                for key,params in self._index_fields[include['collection']].items():
+                for key,params in self._table_columns[include['collection']].items():
                     if key in excludes:
                         include['lazy'] = True
                         continue
@@ -685,7 +686,7 @@ class Backend(BaseBackend):
                     continue
                 if foreign_key_data:
                     if not isinstance(foreign_key_data,dict):
-                        foreign_key_data = {'pk' : foreign_key_data}
+                        foreign_key_data = {'pk' : foreign_key_data,'__lazy__' : True}
                     #this might be problematic since the mapping has not yet been done...
                     d,lazy_foreign_obj = self.deserialize_db_data(foreign_key_data)
                     foreign_obj = self.create_instance(params['class'],d,lazy = lazy_foreign_obj)
