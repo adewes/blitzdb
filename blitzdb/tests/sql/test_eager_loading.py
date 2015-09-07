@@ -61,12 +61,15 @@ def test_basics(backend):
 
     actors = backend.filter(Actor,{},include = (('movies',('director',),'title'),('movies','year')))
 
-    assert isinstance(actors[0].movies,ManyToManyProxy)
-    assert actors.objects is not None
-    assert not actors[0].lazy
-    assert actors[0].movies._queryset is not None
-    assert actors[0].movies._queryset.objects is not None
-    assert actors[0].movies[0].lazy
+    for actor in actors:
+        assert isinstance(actor.movies,ManyToManyProxy)
+        assert actors.objects is not None
+        assert not actor.lazy
+        assert actor.movies._queryset is not None
+        assert actor.movies._queryset.objects is not None
+        if actor.movies:
+            print actor.movies,len(actor.movies)
+            assert actor.movies[0].lazy
 
     actor = backend.get(Actor,{'name' : 'Andreas Dewes'},include = (('movies',('director','favorite_actor')),) )
 

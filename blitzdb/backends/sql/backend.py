@@ -536,7 +536,7 @@ class Backend(BaseBackend):
 
             return obj
 
-    def get_include_joins(self,cls,includes):
+    def get_include_joins(self,cls,includes,excludes = None):
         collection = self.get_collection_for_cls(cls)
 
         include_params = {'joins' : {},
@@ -584,20 +584,28 @@ class Backend(BaseBackend):
 
         for include in includes:
             resolve_include(include,collection,include_params)
-
+        excludes_set = set(excludes)
         for include in include_list:
             if not include['fields']:
                 include['fields']['__data__'] = 'data'
-                for key,params in self._index_fields[include['collection']].items():
-                    include['fields'][key] = params['column']
                 include['lazy'] = False
+                for key,params in self._index_fields[include['collection']].items():
+                    if key in excludes:
+                        include['lazy'] = True
+                        continue
+                    include['fields'][key] = params['column']
             else:
                 if not 'pk' in include['fields']:
                     include['fields']['pk'] = 'pk'
                 if len(include['fields']) < len(self._index_fields[include['collection']])+1:
                     include['lazy'] = True
+                else:
+                    include['lazy'] = False
 
         return include_params
+
+    def deserialize(self, obj, encoders=None):
+        return super(Backend, self).deserialize(obj,encoders = encoders)
 
     def serialize(self, obj, convert_keys_to_str=True, embed_level=0, encoders=None,**kwargs):
         """
@@ -627,6 +635,21 @@ class Backend(BaseBackend):
                 set_value(data,params['key'],attributes[params['column']])
 
         return data,incomplete
+
+    def deserialize_db_data(self,data):
+        if '__lazy__' in data:
+            lazy = data['__lazy__']
+        else:
+            lazy = False
+        if '__data__' in data:
+            d = self.deserialize_json(data['__data__'])
+        else:
+            d = {}
+        for key,value in data.items():
+            if key in ('__data__','__lazy__'):
+                continue
+            set_value(d,key,value)
+        return d,lazy
 
     def create_instance(self, collection_or_class,attributes,lazy = False):
 
@@ -664,7 +687,8 @@ class Backend(BaseBackend):
                     if not isinstance(foreign_key_data,dict):
                         foreign_key_data = {'pk' : foreign_key_data}
                     #this might be problematic since the mapping has not yet been done...
-                    foreign_obj = self.create_instance(params['class'],foreign_key_data,lazy = True)
+                    d,lazy_foreign_obj = self.deserialize_db_data(foreign_key_data)
+                    foreign_obj = self.create_instance(params['class'],d,lazy = lazy_foreign_obj)
                 else:
                     foreign_obj = None
                 set_value(data,params['key'],foreign_obj)
@@ -673,9 +697,6 @@ class Backend(BaseBackend):
         self.call_hook('after_load',obj)
 
         return obj
-
-    def deserialize(self, obj, encoders=None):
-        return super(Backend, self).deserialize(obj,encoders = encoders)
 
     def create_index(self, cls_or_collection, *args, **kwargs):
         if not isinstance(cls_or_collection, six.string_types):

@@ -247,10 +247,9 @@ class Document(object):
         try:
             if self._lazy and self._autoload:
                 self.revert()
-            return self.attributes[key]
+            return self._attributes[key]
         except KeyError:
-            pass
-        raise AttributeError(key)
+            raise AttributeError(key)
 
     def __setattr__(self, key, value):
         if key.startswith('_') or key in ('attributes','pk','lazy'):
@@ -403,8 +402,7 @@ class Document(object):
 
     @property
     def eager(self):
-        self.load_if_lazy()
-        return self
+        return self.load_if_lazy()
 
     @pk.setter
     def pk(self, value):
@@ -477,5 +475,6 @@ class Document(object):
     def load_if_lazy(self):
         if self._lazy:
             self.revert()
+        return self
 
 #Document = MetaDocument('Document', (Document,), {})

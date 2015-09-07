@@ -361,7 +361,8 @@ class Backend(object):
             raise AttributeError("Unknown collection or class: %s!" % str(collection_or_class))
 
         if 'constructor' in self.classes[cls]:
-            obj = self.classes[cls]['constructor'](attributes, backend=self,
+            obj = self.classes[cls]['constructor'](attributes,
+                                                   backend=self,
                                                    autoload=self._autoload_embedded,
                                                    lazy=lazy)
         else:

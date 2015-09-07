@@ -1,7 +1,6 @@
 import time
 import copy
 import sqlalchemy
-import pprint
 
 from blitzdb.queryset import QuerySet as BaseQuerySet
 from functools import wraps
@@ -62,25 +61,11 @@ class QuerySet(BaseQuerySet):
         return self
 
     def deserialize(self, data):
-        if '__lazy__' in data:
-            lazy = data['__lazy__']
-        else:
-            lazy = False
-        if '__data__' in data:
-            d = self.backend.deserialize_json(data['__data__'])
-        else:
-            d = {}
-        for key,value in data.items():
-            if key in ('__data__','__lazy__'):
-                continue
-            set_value(d,key,value)
 
-        pprint.pprint(d)
+        d,lazy = self.backend.deserialize_db_data(data)
 
         if self._raw:
-            #we map the retrieved fields back to their original position in the document...
             return d
-
 
         deserialized_attributes = self.backend.deserialize(d)
         obj = self.backend.create_instance(self.cls, deserialized_attributes,lazy = lazy)
@@ -157,7 +142,7 @@ class QuerySet(BaseQuerySet):
                 params['table_fields'][field] = column_label
                 rows.append(related_table.c[column_name].label(column_label))
 
-            for subkey,subparams in params['joins'].items():
+            for subkey,subparams in sorted(params['joins'].items(),key = lambda i : i[0]):
                 join_table(params['collection'],related_table,subkey,subparams,path = path)
 
         def join_foreign_key(collection,table,key,params,path):
@@ -189,13 +174,16 @@ class QuerySet(BaseQuerySet):
               (the unpack_single_object will pop the object in that case)
             """
             objs = []
-            while True:
+            while objects:
+                current_pk_column = params['table_fields']['pk']
+                current_pk_value = objects[0][current_pk_column]
                 try:
                     objs.append(unpack_single_object(objects,params,nested = True))
                 except TypeError:
                     #this is an empty object
                     break
-                if len(objects) > 1 and objects[1][pk_key] == pk_value:
+                if len(objects) > 1 and objects[1][pk_key] == pk_value \
+                  and objects[1][current_pk_column] != current_pk_value:
                     objects.pop(0)
                 else:
                     break
@@ -204,18 +192,17 @@ class QuerySet(BaseQuerySet):
         def unpack_single_object(objects,params,nested = False):
             obj = objects[0]
             d = {'__lazy__' : params['lazy']}
-            print d
             pk_column = params['table_fields']['pk']
             if obj[pk_column] is None:
                 raise TypeError
             pk_value = obj[params['table_fields']['pk']]
-
             for key,field in params['table_fields'].items():
                 d[key] = obj[field]
 
-            for name,join_params in params['joins'].items():
+            for name,join_params in sorted(params['joins'].items(),key = lambda i : i[0]):
                 if 'relationship_table' in join_params['relation']:
                     #this is a many-to-many join
+                    print name
                     d[name] = unpack_many_to_many(objects,join_params,pk_column,pk_value)
                 else:
                     try:
@@ -234,16 +221,22 @@ class QuerySet(BaseQuerySet):
         else:
             include = ()
 
+        exclude = []
         if self.only:
             if isinstance(self.only,dict):
-                only = set(self.only.keys())
+                only = []
+                for key,value in self.only.items():
+                    if value is False:
+                        exclude.append(key)
+                    else:
+                        only.append(key)
             else:
                 only = set(self.only)
             include = set(include)
             for only_key in only:
                 include.add(only_key)
 
-        self.include_joins = self.backend.get_include_joins(self.cls,include)
+        self.include_joins = self.backend.get_include_joins(self.cls,includes = include,excludes = exclude)
 
         process_fields_and_subkeys(self.include_joins['collection'],s_cte,self.include_joins,[])
 
@@ -251,9 +244,14 @@ class QuerySet(BaseQuerySet):
             for i,j in enumerate(joins):
                 s_cte = s_cte.outerjoin(*j)
 
+        if self.order_bys:
+            order_bys = self.order_bys[:]
+        else:
+            order_bys = ['pk']
+
         with self.backend.transaction(use_auto = False):
             try:
-                result = self.backend.connection.execute(select(rows).select_from(s_cte))
+                result = self.backend.connection.execute(select(rows).select_from(s_cte).order_by(*order_bys))
                 if result.returns_rows:
                     objects = list(result.fetchall())
                 else:
@@ -265,13 +263,11 @@ class QuerySet(BaseQuerySet):
         #we "fold" the objects back into one list structure
         self.objects = []
 
-        pprint.pprint(self.include_joins)
+        pks = []
 
         while objects:
             self.objects.append(unpack_single_object(objects,self.include_joins))
 
-        pprint.pprint(self.objects)
-        
         self.pop_objects = self.objects[:]
 
     def as_list(self):
@@ -360,11 +356,14 @@ class QuerySet(BaseQuerySet):
 
     def __len__(self):
         if self.count is None:
-            with self.backend.transaction(use_auto = False):
-                s = select([func.count()]).select_from(self.get_select(fields = [self.table.c.pk]).alias('count_select'))
-                result = self.backend.connection.execute(s)
-                self.count = result.first()[0]
-                result.close()
+            if self.objects is not None:
+                self.count = len(self.objects)
+            else:
+                with self.backend.transaction(use_auto = False):
+                    s = select([func.count()]).select_from(self.get_select(fields = [self.table.c.pk]).alias('count_select'))
+                    result = self.backend.connection.execute(s)
+                    self.count = result.first()[0]
+                    result.close()
         return self.count
 
     def distinct_pks(self):
