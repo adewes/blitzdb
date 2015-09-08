@@ -7,7 +7,7 @@ from functools import wraps
 from sqlalchemy.sql import select,func,expression,delete,distinct,and_,union,intersect
 from sqlalchemy.sql.expression import join,asc,desc,outerjoin
 from ..file.serializers import JsonSerializer
-from .helpers import set_value
+from .helpers import set_value,get_value
 from collections import OrderedDict
 
 class QuerySet(BaseQuerySet):
@@ -87,7 +87,7 @@ class QuerySet(BaseQuerySet):
                 column = self.backend.get_column_for_key(self.cls,key)
             except KeyError:
                 raise AttributeError("Attempting to sort results by a non-indexed field %s" % key)
-            order_bys.append(direction(column))
+            order_bys.append((column,direction))
         self.order_bys = order_bys
         self.objects = None
         return self
@@ -171,15 +171,17 @@ class QuerySet(BaseQuerySet):
 
                 def f(d,obj):
                     pk_value = obj[pk_key]
-                    if not name in d:
-                        d[name] = OrderedDict()
+                    try:
+                        v = get_value(d,name)
+                    except KeyError:
+                        v = set_value(d,name,OrderedDict())
                     if pk_value is None:
                         return None
-                    if not pk_value in d[name]:
-                        d[name][pk_value] = {}
-                    if not '__lazy__' in d[name][pk_value]:
-                        d[name][pk_value]['__lazy__'] = join_params['lazy']
-                    return d[name][pk_value]
+                    if not pk_value in v:
+                        v[pk_value] = {}
+                    if not '__lazy__' in v[pk_value]:
+                        v[pk_value]['__lazy__'] = join_params['lazy']
+                    return v[pk_value]
 
                 return f
 
@@ -189,11 +191,10 @@ class QuerySet(BaseQuerySet):
                     pk_value = obj[join_params['table_fields']['pk']]
                     if pk_value is None:
                         return None
-                    if not key in d or d[key] is None:
-                        d[key] = {}
-                    if not '__lazy__' in d[key]:
-                        d[key]['__lazy__'] = join_params['lazy']
-                    return d[key]
+                    v = get_value(d,key,create = True)
+                    if not '__lazy__' in v:
+                        v['__lazy__'] = join_params['lazy']
+                    return v
 
                 return f
 
@@ -248,14 +249,12 @@ class QuerySet(BaseQuerySet):
 
         process_fields_and_subkeys(self.include_joins['collection'],s_cte,self.include_joins,[])
 
+        order_bys = []
         if self.order_bys:
-            order_bys = self.order_bys[:]
-        else:
-            order_bys = ['pk']
+            order_bys = [direction(s_cte.c[column]) for (column,direction) in self.order_bys]
 
         if joins:
             for i,j in enumerate(joins):
-                order_bys.append(j[0])
                 s_cte = s_cte.outerjoin(*j)
 
         with self.backend.transaction(use_auto = False):
@@ -287,9 +286,9 @@ class QuerySet(BaseQuerySet):
                         if d is None:
                             break
                     else:
-                        d = d[element]
+                        d = get_value(d,element,create = True)
                 else:
-                    d[path[-1]] = obj[key]
+                    set_value(d,path[-1],obj[key])
 
         self.objects = [replace_ordered_dicts(unpacked_obj) for unpacked_obj in unpacked_objects.values()]
         self.pop_objects = self.objects[:]
@@ -371,7 +370,7 @@ class QuerySet(BaseQuerySet):
             for having in self.havings:
                 s = s.having(having)
         if self.order_bys:
-            s = s.order_by(*self.order_bys)
+            s = s.order_by(*[direction(self.table.c[column]) for column,direction in self.order_bys])
         if self._offset:
             s = s.offset(self._offset)
         if self._limit:

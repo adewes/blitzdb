@@ -42,6 +42,10 @@ class ManyToManyProxy(object):
         self.params = params
         self._queryset = queryset
 
+    def __call__(self,*args,**kwargs):
+        self.get_queryset(*args,**kwargs)
+        return self
+
     def __getitem__(self,i):
         if not isinstance(i,(slice,int)):
             raise TypeError("Index must be an integer or slice object")
@@ -60,8 +64,8 @@ class ManyToManyProxy(object):
         obj = self[i]
         self.remove(obj)
 
-    def get_queryset(self):
-        if not self._queryset:
+    def get_queryset(self,*args,**kwargs):
+        if self._queryset is None:
             relationship_table = self.params['relationship_table']
             foreign_table = self.obj.backend.get_collection_table(self.params['collection'])
             condition = relationship_table.c['pk_%s' % self.collection] \
@@ -70,7 +74,9 @@ class ManyToManyProxy(object):
                                       table = foreign_table,
                                       cls = self.params['class'],
                                       joins = [(relationship_table,)],
-                                      condition = condition)
+                                      condition = condition,
+                                      *args,
+                                      **kwargs)
         return self._queryset
 
     def append(self,obj):

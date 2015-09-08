@@ -670,25 +670,24 @@ class Backend(BaseBackend):
 
         for field_name,params in self._related_fields[collection].items():
             if isinstance(params['field'],ManyToManyField):
-                if params['key'] in data:
+                try:
                     queryset = QuerySet(self,
                                         self._collection_tables[params['collection']],
                                         self.get_cls_for_collection(params['collection']),
-                                        objects = data[params['key']])
-                else:
+                                        objects = get_value(data,params['key']))
+                except KeyError:
                     queryset = None
                 #check if we have data for this ManyToMany proxy. If yes, pass it along!
                 set_value(data,params['key'],ManyToManyProxy(obj,field_name,params,queryset = queryset))
             elif isinstance(params['field'],ForeignKeyField):
                 #check if we have data for this ForeignKey object. If yes, pass it along!
                 try:
-                    foreign_key_data = data[field_name]
+                    foreign_key_data = get_value(data,params['key'])
                 except KeyError:
                     continue
                 if foreign_key_data:
                     if not isinstance(foreign_key_data,dict):
                         foreign_key_data = {'pk' : foreign_key_data,'__lazy__' : True}
-                    #this might be problematic since the mapping has not yet been done...
                     d,lazy_foreign_obj = self.deserialize_db_data(foreign_key_data)
                     foreign_obj = self.create_instance(params['class'],d,lazy = lazy_foreign_obj)
                 else:
