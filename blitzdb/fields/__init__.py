@@ -11,3 +11,4 @@ from .integer import IntegerField
 from .list import ListField
 from .manytomany import ManyToManyField
 from .text import TextField
+from .enum import EnumField

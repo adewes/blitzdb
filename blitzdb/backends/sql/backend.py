@@ -4,6 +4,7 @@ import uuid
 import re
 import traceback
 
+from types import LambdaType
 from collections import defaultdict
 
 from ...document import Document
@@ -16,6 +17,7 @@ from .relations import ListProxy,ManyToManyProxy
 from blitzdb.fields import (ForeignKeyField,
                             ManyToManyField,
                             CharField,
+                            EnumField,
                             IntegerField,
                             TextField,
                             FloatField,
@@ -33,6 +35,7 @@ from sqlalchemy.types import (Integer,
                               VARCHAR,
                               String,
                               Float,
+                              Enum,
                               Boolean,
                               Date,
                               DateTime,
@@ -109,6 +112,7 @@ class Backend(BaseBackend):
             IntegerField : Integer,
             FloatField : Float,
             CharField : VARCHAR(60),
+            EnumField : lambda field: Enum(*field.enums),
             TextField : Text,
             BooleanField: Boolean,
             BinaryField: LargeBinary,
@@ -117,6 +121,8 @@ class Backend(BaseBackend):
         }
         for cls,t in m.items():
             if isinstance(field,cls):
+                if isinstance(t,LambdaType):
+                    return t(field)
                 return t
         raise AttributeError("Invalid field type: %s" % field)
 

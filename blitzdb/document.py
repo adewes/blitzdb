@@ -429,6 +429,7 @@ class Document(object):
             if not self._backend:
                 raise AttributeError("No default backend defined!")
             return self._backend.save(self)
+        self._backend = backend
         return backend.save(self)
 
     def delete(self, backend=None):
@@ -467,7 +468,7 @@ class Document(object):
             raise AttributeError("No backend given!")
         if self.pk == None:
             raise self.DoesNotExist("No primary key given!")
-        obj = self._backend.get(self.__class__, {self.get_pk_name(): self.pk})
+        obj = backend.get(self.__class__, {self.get_pk_name(): self.pk})
         self._attributes = obj.attributes
         self.initialize()
         self._lazy = False
