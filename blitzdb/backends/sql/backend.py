@@ -347,13 +347,12 @@ class Backend(BaseBackend):
         if not self._transactions:
             raise AttributeError("Not in a transaction!")
         last_transaction = self._transactions.pop()
-        if transaction is not None and last_transaction is not transaction:
+        if not self._auto_transaction and transaction is not None and last_transaction is not transaction:
             raise AttributeError("Transactions do not match!")
         last_transaction.rollback()
         #we roll back ALL transactions.
         self._transactions = []
-        if not self._transactions:
-            self.begin()
+        self.begin()
 
     def transaction(self,use_auto = True):
         """
@@ -413,7 +412,9 @@ class Backend(BaseBackend):
         return JsonSerializer.serialize(data)
 
     def deserialize_json(self,data):
-        return JsonSerializer.deserialize(data)
+        if data and data != '{}':
+            return JsonSerializer.deserialize(data)
+        return {}
 
     def save(self,obj,autosave_dependent = True):
 
@@ -837,6 +838,8 @@ class Backend(BaseBackend):
                                             table = related_table,
                                             path = path)
 
+                #we add a count
+                #extra_fields.append(func.count(related_table.c.pk))
 
                 where_statement = or_(*queries)
 
@@ -914,8 +917,7 @@ class Backend(BaseBackend):
                     joins[relationship_table][path_str] = relationship_table_alias
                     joins_list.append((relationship_table_alias,
                                        relationship_table_alias.c['pk_%s' % collection] == table.c['pk']))
-                    if not group_bys:
-                        group_bys.append(table.c.pk)
+
                 if path_str in joins[related_table]:
                     related_table_alias = joins[related_table][path_str]
                 else:
@@ -1077,6 +1079,9 @@ class Backend(BaseBackend):
             compiled_query = compiled_query[0]
         else:
             compiled_query = None
+
+        if joins_list:
+            group_bys = [table.c.pk]
 
         return QuerySet(backend = self, table = table,
                         joins = joins_list,

@@ -8,6 +8,7 @@ from sqlalchemy.sql import select,func,expression,delete,distinct,and_,union,int
 from sqlalchemy.sql.expression import join,asc,desc,outerjoin
 from ..file.serializers import JsonSerializer
 from .helpers import set_value
+from collections import OrderedDict
 
 class QuerySet(BaseQuerySet):
 
@@ -163,53 +164,62 @@ class QuerySet(BaseQuerySet):
             joins.append((related_table,right_condition))
             process_fields_and_subkeys(related_collection,related_table,params,path+[key])
 
-        def unpack_many_to_many(objects,params,pk_key,pk_value):
-            """
-            We unpack a many-to-many relation:
 
-            * We unpack a single object from the first row in the result set.
-            * We check if the primary key of the nxt row (if it exists) is the same
-            * If it is, we pop a row from the set and repeat
-            * If not, we return the results 
-              (the unpack_single_object will pop the object in that case)
-            """
-            objs = []
-            while objects:
-                current_pk_column = params['table_fields']['pk']
-                current_pk_value = objects[0][current_pk_column]
-                try:
-                    objs.append(unpack_single_object(objects,params,nested = True))
-                except TypeError:
-                    #this is an empty object
-                    break
-                if len(objects) > 1 and objects[1][pk_key] == pk_value \
-                  and objects[1][current_pk_column] != current_pk_value:
-                    objects.pop(0)
-                else:
-                    break
-            return objs
+        def build_field_map(params,path = None,current_map = None):
 
-        def unpack_single_object(objects,params,nested = False):
-            obj = objects[0]
-            d = {'__lazy__' : params['lazy']}
-            pk_column = params['table_fields']['pk']
-            if obj[pk_column] is None:
-                raise TypeError
-            pk_value = obj[params['table_fields']['pk']]
+            def m2m_getter(join_params,name,pk_key):
+
+                def f(d,obj):
+                    pk_value = obj[pk_key]
+                    if not name in d:
+                        d[name] = OrderedDict()
+                    if pk_value is None:
+                        return None
+                    if not pk_value in d[name]:
+                        d[name][pk_value] = {}
+                    if not '__lazy__' in d[name][pk_value]:
+                        d[name][pk_value]['__lazy__'] = join_params['lazy']
+                    return d[name][pk_value]
+
+                return f
+
+            def fk_getter(join_params,key):
+
+                def f(d,obj):
+                    pk_value = obj[join_params['table_fields']['pk']]
+                    if pk_value is None:
+                        return None
+                    if not key in d or d[key] is None:
+                        d[key] = {}
+                    if not '__lazy__' in d[key]:
+                        d[key]['__lazy__'] = join_params['lazy']
+                    return d[key]
+
+                return f
+
+            if current_map is None:
+                current_map = {}
+            if path is None:
+                path = []
             for key,field in params['table_fields'].items():
-                d[key] = obj[field]
-
-            for name,join_params in sorted(params['joins'].items(),key = lambda i : i[0]):
+                current_map[field] = path+[key]
+            for name,join_params in params['joins'].items():
+                if name in current_map:
+                    del current_map[name]
                 if 'relationship_table' in join_params['relation']:
-                    #this is a many-to-many join
-                    d[name] = unpack_many_to_many(objects,join_params,pk_column,pk_value)
+                    build_field_map(join_params,path+[m2m_getter(join_params,name,
+                                                                 join_params['table_fields']['pk'])],current_map)
                 else:
-                    try:
-                        d[name] = unpack_single_object(objects,join_params,nested = True)
-                    except TypeError:
-                        d[name] = None
-            if not nested:
-                objects.pop(0)
+                    build_field_map(join_params,path+[fk_getter(join_params,name),],current_map)
+            return current_map
+
+        def replace_ordered_dicts(d):
+            for key,value in d.items():
+                if isinstance(value,OrderedDict):
+                    replace_ordered_dicts(value)
+                    d[key] = list(value.values())
+                elif isinstance(value,dict):
+                    d[key] = replace_ordered_dicts(value)
             return d
 
         if self.include:
@@ -238,14 +248,15 @@ class QuerySet(BaseQuerySet):
 
         process_fields_and_subkeys(self.include_joins['collection'],s_cte,self.include_joins,[])
 
-        if joins:
-            for i,j in enumerate(joins):
-                s_cte = s_cte.outerjoin(*j)
-
         if self.order_bys:
             order_bys = self.order_bys[:]
         else:
             order_bys = ['pk']
+
+        if joins:
+            for i,j in enumerate(joins):
+                order_bys.append(j[0])
+                s_cte = s_cte.outerjoin(*j)
 
         with self.backend.transaction(use_auto = False):
             try:
@@ -260,12 +271,28 @@ class QuerySet(BaseQuerySet):
 
         #we "fold" the objects back into one list structure
         self.objects = []
-
         pks = []
+        field_map = build_field_map(self.include_joins)
 
-        while objects:
-            self.objects.append(unpack_single_object(objects,self.include_joins))
+        unpacked_objects = OrderedDict()
+        for obj in objects:
+            if not obj['pk'] in unpacked_objects:
+                print self.include_joins['lazy']
+                unpacked_objects[obj['pk']] = {'__lazy__' : self.include_joins['lazy']}
+            unpacked_obj = unpacked_objects[obj['pk']]
+            for key,path in field_map.items():
+                d = unpacked_obj
+                for element in path[:-1]:
+                    if callable(element):
+                        d = element(d,obj)
+                        if d is None:
+                            break
+                    else:
+                        d = d[element]
+                else:
+                    d[path[-1]] = obj[key]
 
+        self.objects = [replace_ordered_dicts(unpacked_obj) for unpacked_obj in unpacked_objects.values()]
         self.pop_objects = self.objects[:]
 
     def as_list(self):
