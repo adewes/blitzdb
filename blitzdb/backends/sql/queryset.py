@@ -277,7 +277,6 @@ class QuerySet(BaseQuerySet):
         unpacked_objects = OrderedDict()
         for obj in objects:
             if not obj['pk'] in unpacked_objects:
-                print self.include_joins['lazy']
                 unpacked_objects[obj['pk']] = {'__lazy__' : self.include_joins['lazy']}
             unpacked_obj = unpacked_objects[obj['pk']]
             for key,path in field_map.items():
