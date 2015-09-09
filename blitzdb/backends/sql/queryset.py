@@ -42,12 +42,14 @@ class QuerySet(BaseQuerySet):
         self._limit = limit
         self._offset = offset
         self.table = table
-        self._raw = raw
+        self.raw = raw
         self.intersects = intersects
         self.objects = objects
         if self.objects:
             self.pop_objects = self.objects[:]
 
+        self.deserialized_objects = None
+        self.deserialized_pop_objects = None
         self._it = None
         self.order_bys = None
         self.count = None
@@ -65,7 +67,7 @@ class QuerySet(BaseQuerySet):
 
         d,lazy = self.backend.deserialize_db_data(data)
 
-        if self._raw:
+        if self.raw:
             return d
 
         obj = self.backend.create_instance(self.cls, d,lazy = lazy)
@@ -100,10 +102,10 @@ class QuerySet(BaseQuerySet):
     __next__ = next
 
     def __iter__(self):
-        if self.objects is None:
-            self.get_objects()
-        for obj in self.objects:
-            yield self.deserialize(obj)
+        if self.deserialized_objects is None:
+            self.get_deserialized_objects()
+        for obj in self.deserialized_objects:
+            yield obj
         raise StopIteration
 
     def __contains__(self, obj):
@@ -116,6 +118,13 @@ class QuerySet(BaseQuerySet):
             if obj.pk not in pks:
                 return False
         return True
+
+    def get_deserialized_objects(self):
+        if self.objects is None:
+            self.get_objects()
+
+        self.deserialized_objects = [self.deserialize(obj) for obj in self.objects]
+        self.deserialized_pop_objects = self.deserialized_objects[:]
 
     def get_objects(self):
 
@@ -299,9 +308,9 @@ class QuerySet(BaseQuerySet):
         self.pop_objects = self.objects[:]
 
     def as_list(self):
-        if self.objects is None:
-            self.get_objects()
-        return [self.deserialize(obj) for obj in self.objects]
+        if self.deserialized_objects is None:
+            self.get_deserialized_objects()
+        return [obj for obj in self.deserialized_objects]
 
     def __getitem__(self,key):
         if isinstance(key, slice):
@@ -323,15 +332,15 @@ class QuerySet(BaseQuerySet):
             qs.objects = None
             qs.count = None
             return qs
-        if self.objects is None:
-            self.get_objects()
-        return self.deserialize(self.objects[key])
+        if self.deserialized_objects is None:
+            self.get_deserialized_objects()
+        return self.deserialized_objects[key]
 
     def pop(self,i = 0):
-        if self.objects is None:
-            self.get_objects()
-        if self.pop_objects:
-            return self.deserialize(self.pop_objects.pop())
+        if self.deserialized_objects is None:
+            self.get_deserialized_objects()
+        if self.deserialized_pop_objects:
+            return self.deserialized_pop_objects.pop()
         raise IndexError("pop from empty list")
 
     def filter(self,*args,**kwargs):
@@ -339,7 +348,16 @@ class QuerySet(BaseQuerySet):
         return self.intersect(qs)
 
     def intersect(self,qs):
-        new_qs = QuerySet(self.backend,self.table,self.cls,select = intersect(self.get_select(),qs.get_select()))
+        new_condition = and_(self.condition,qs.condition)
+        new_qs = QuerySet(self.backend,
+                          self.table,
+                          self.cls,
+                          condition = new_condition,
+                          raw = self.raw,
+                          include = self.include,
+                          only = self.only,
+                          joins = self.joins+qs.joins,
+                          extra_fields = self.extra_fields)
         return new_qs
 
     def delete(self):

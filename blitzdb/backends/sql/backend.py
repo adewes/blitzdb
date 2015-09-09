@@ -416,7 +416,10 @@ class Backend(BaseBackend):
         if isinstance(set_fields,(list,tuple)):
             set_fields_dict = {}
             for key in set_fields:
-                set_fields_dict[key] = get_value(obj,key)
+                try:
+                    set_fields_dict[key] = get_value(obj,key)
+                except KeyError:
+                    set_fields_dict[key] = None
             set_fields = set_fields_dict
 
         if not isinstance(set_fields,dict):
@@ -707,6 +710,7 @@ class Backend(BaseBackend):
         for field_name,params in self._related_fields[collection].items():
             if isinstance(params['field'],ManyToManyField):
                 try:
+                    #to do: add proper select condition
                     queryset = QuerySet(self,
                                         self._collection_tables[params['collection']],
                                         self.get_cls_for_collection(params['collection']),
