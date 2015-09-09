@@ -5,6 +5,7 @@ from .fixtures import *
 
 from blitzdb import Document
 
+import datetime
 
 class MyDocument(Document):
 
@@ -13,14 +14,24 @@ class MyDocument(Document):
     """
 
     def before_save(self):
+        print "Before save called"
         self.foo = "bar"
 
     def before_delete(self):
+        print "Before delete called"
         self.foo = "bar"
 
     def after_load(self):
         print "Adding bar!"
         self.bar = "baz"
+
+    def before_update(self,set_fields,unset_fields):
+        print "Before update called!"
+        set_fields['updated_at'] = datetime.datetime.now()
+        print set_fields
+
+class MyDerivedDocument(MyDocument):
+    pass
 
 
 def test_after_load_hook(backend, small_test_data):
@@ -41,6 +52,21 @@ def test_before_save_hook(backend, small_test_data):
 
     assert hasattr(my_document, 'foo')
     assert my_document.foo == "bar"
+
+def test_before_update_hook(backend, small_test_data):
+
+    my_document = MyDerivedDocument({'test': 123})
+    backend.save(my_document)
+
+    assert hasattr(my_document, 'foo')
+    assert my_document.foo == "bar"
+
+    backend.update(my_document,{'foo' : 'baz'})
+    backend.commit()
+
+    assert my_document.foo == 'baz'
+    assert 'updated_at' in my_document
+    assert isinstance(my_document.updated_at,datetime.datetime)
 
 
 def test_before_delete_hook(backend, small_test_data):

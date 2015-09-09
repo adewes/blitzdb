@@ -3,6 +3,9 @@ import six
 import uuid
 import re
 import traceback
+import logging
+
+logger = logging.getLogger(__name__)
 
 from types import LambdaType
 from collections import defaultdict
@@ -44,7 +47,7 @@ from sqlalchemy.types import (Integer,
                               Unicode)
 from sqlalchemy.sql import select,insert,update,func,and_,or_,not_,expression,null,distinct
 from sqlalchemy.ext.compiler import compiles
-from .helpers import get_value, set_value
+from .helpers import get_value, set_value, delete_value
 
 @compiles(DateTime, "sqlite")
 def compile_binary_sqlite(type_, compiler, **kw):
@@ -404,14 +407,33 @@ class Backend(BaseBackend):
 
     def update(self,obj,set_fields=None, unset_fields=None, update_obj=True):
 
-        if set_fields is not None:
-            if isinstance(set_fields,dict):
-                for key,value in set_fields.items():
-                    obj[key] = value
-        if unset_fields is not None:
-            for key in unset_fields:
-                del obj[key]
-        self.save(obj)
+        if set_fields is None:
+            set_fields = {}
+
+        if unset_fields is None:
+            unset_fields = ()
+
+        if isinstance(set_fields,(list,tuple)):
+            set_fields_dict = {}
+            for key in set_fields:
+                set_fields_dict[key] = get_value(obj,key)
+            set_fields = set_fields_dict
+
+        if not isinstance(set_fields,dict):
+            raise TypeError("set_fields must be a dictionary")
+
+        if not isinstance(unset_fields,(tuple,list)):
+            raise TypeError("unset_fields must be a tuple or a list")
+
+        self.call_hook('before_update',obj,set_fields,unset_fields)
+
+        for key in unset_fields:
+            set_value(obj,key,None)
+
+        for key,value in set_fields.items():
+            obj[key] = value
+
+        self.save(obj,call_hook = False)
         return obj
 
     def serialize_json(self,data):
@@ -422,9 +444,10 @@ class Backend(BaseBackend):
             return JsonSerializer.deserialize(data)
         return {}
 
-    def save(self,obj,autosave_dependent = True):
+    def save(self,obj,autosave_dependent = True,call_hook = True):
 
-        self.call_hook('before_save',obj)
+        if call_hook:
+            self.call_hook('before_save',obj)
 
         collection = self.get_collection_for_cls(obj.__class__)
         table = self._collection_tables[collection]
@@ -612,8 +635,8 @@ class Backend(BaseBackend):
 
         return include_params
 
-    def deserialize(self, obj, encoders=None):
-        return super(Backend, self).deserialize(obj,encoders = encoders)
+    def deserialize(self, obj, encoders=None,create_instance = True):
+        return super(Backend, self).deserialize(obj,encoders = encoders,create_instance = create_instance)
 
     def serialize(self, obj, convert_keys_to_str=True, embed_level=0, encoders=None,**kwargs):
         """
@@ -645,12 +668,16 @@ class Backend(BaseBackend):
         return data,incomplete
 
     def deserialize_db_data(self,data):
-        if '__lazy__' in data:
-            lazy = data['__lazy__']
-        else:
-            lazy = False
+        if not isinstance(data,dict):
+            raise TypeError
+        if not '__lazy__' in data:
+            raise AttributeError("__lazy__ attribute not specified!")
+        lazy = data['__lazy__']
         if '__data__' in data:
             d = self.deserialize_json(data['__data__'])
+            #We delete excluded key values from the data, so that no poisoning can take place...
+            for key in self._excluded_keys:
+                delete_value(d,key)
         else:
             d = {}
         for key,value in data.items():
@@ -954,7 +981,7 @@ class Backend(BaseBackend):
                 elif '$in' in query:
                     return [table.c[column_name].in_(query['$in'])]
                 elif '$nin' in query:
-                    return [~table.c[column_name].in_(query['$in'])]
+                    return [~table.c[column_name].in_(query['$nin'])]
                 elif '$eq' in query:
                     return [table.c[column_name] == query['$eq']]
                 elif '$ne' in query:

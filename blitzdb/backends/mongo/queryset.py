@@ -22,7 +22,7 @@ class QuerySet(BaseQuerySet):
     def _create_object_for(self, json_attributes):
         if self._raw:
             return json_attributes
-        deserialized_attributes = self.backend.deserialize(json_attributes)
+        deserialized_attributes = self.backend.deserialize(json_attributes,create_instance = False)
         if '_id' in deserialized_attributes:
             del deserialized_attributes['_id']
         return self.backend.create_instance(self.cls, deserialized_attributes)

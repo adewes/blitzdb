@@ -300,7 +300,7 @@ class Backend(object):
             output_obj = obj
         return output_obj
 
-    def deserialize(self, obj, encoders=None,embedded = False):
+    def deserialize(self, obj, encoders=None,embedded = False,create_instance = True):
         """
         Deserializes a given object, i.e. converts references to other (known) `Document` objects by lazy instances of the
         corresponding class. This allows the automatic fetching of related documents from the database as required.
@@ -323,7 +323,7 @@ class Backend(object):
                 pk_field = 'pk'
             else:
                 pk_field = None
-            if '__collection__' in obj and obj['__collection__'] in self.collections and pk_field:
+            if create_instance and '__collection__' in obj and obj['__collection__'] in self.collections and pk_field:
                 #for backwards compatibility
                 attributes = copy.deepcopy(obj)
                 del attributes[pk_field]
@@ -425,10 +425,10 @@ class Backend(object):
                 return cls
         raise AttributeError("Unknown collection: %s" % collection)
 
-    def call_hook(self,name,obj):
+    def call_hook(self,name,obj,*args,**kwargs):
         try:
             hook = obj.get_lazy_attribute(name)
-            hook()
+            return hook(*args,**kwargs)
         except AttributeError:
             pass
 

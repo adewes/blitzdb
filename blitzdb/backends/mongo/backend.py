@@ -150,8 +150,6 @@ class Backend(BaseBackend):
 
     def update(self, obj, set_fields=None, unset_fields=None, update_obj=True):
 
-        self.call_hook('before_save',obj)
-
         collection = self.get_collection_for_cls(obj.__class__)
 
         if obj.pk == None:
@@ -223,11 +221,14 @@ class Backend(BaseBackend):
             set_attributes = {}
 
         if unset_fields:
-            unset_attributes = unset_fields
+            unset_attributes = list(unset_fields)
         else:
             unset_attributes = []
 
+        self.call_hook('before_update',obj,set_attributes,unset_attributes)
+
         update_dict = {}
+
         if set_attributes:
             update_dict['$set'] = set_attributes
         if unset_attributes:
@@ -271,8 +272,8 @@ class Backend(BaseBackend):
                                               path=path,
                                               for_query=for_query)
 
-    def deserialize(self, obj, encoders=None):
-        return super(Backend, self).deserialize(obj, encoders = encoders)
+    def deserialize(self, obj, encoders=None,create_instance = True):
+        return super(Backend, self).deserialize(obj, encoders = encoders,create_instance = create_instance)
 
     def create_indexes(self, cls_or_collection, params_list):
         for params in params_list:
