@@ -181,6 +181,8 @@ class QuerySet(BaseQuerySet):
                         v[pk_value] = {}
                     if not '__lazy__' in v[pk_value]:
                         v[pk_value]['__lazy__'] = join_params['lazy']
+                    if not '__collection__' in v[pk_value]:
+                        v[pk_value]['__collection__'] = join_params['collection']
                     return v[pk_value]
 
                 return f
@@ -194,6 +196,8 @@ class QuerySet(BaseQuerySet):
                     v = get_value(d,key,create = True)
                     if not '__lazy__' in v:
                         v['__lazy__'] = join_params['lazy']
+                    if not '__collection__' in v:
+                        v['__collection__'] = join_params['collection']
                     return v
 
                 return f
@@ -276,7 +280,8 @@ class QuerySet(BaseQuerySet):
         unpacked_objects = OrderedDict()
         for obj in objects:
             if not obj['pk'] in unpacked_objects:
-                unpacked_objects[obj['pk']] = {'__lazy__' : self.include_joins['lazy']}
+                unpacked_objects[obj['pk']] = {'__lazy__' : self.include_joins['lazy'],
+                                               '__collection__' : self.include_joins['collection']}
             unpacked_obj = unpacked_objects[obj['pk']]
             for key,path in field_map.items():
                 d = unpacked_obj

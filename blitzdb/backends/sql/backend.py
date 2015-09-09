@@ -672,16 +672,19 @@ class Backend(BaseBackend):
             raise TypeError
         if not '__lazy__' in data:
             raise AttributeError("__lazy__ attribute not specified!")
+        if not '__collection__' in data:
+            raise AttributeError("__collection__ attribute not specified!")
         lazy = data['__lazy__']
+        collection = data['__collection__']
         if '__data__' in data:
             d = self.deserialize_json(data['__data__'])
             #We delete excluded key values from the data, so that no poisoning can take place...
-            for key in self._excluded_keys:
+            for key in self._excluded_keys[collection]:
                 delete_value(d,key)
         else:
             d = {}
         for key,value in data.items():
-            if key in ('__data__','__lazy__'):
+            if key in ('__data__','__lazy__','__collection__'):
                 continue
             set_value(d,key,value)
         return d,lazy
@@ -720,7 +723,10 @@ class Backend(BaseBackend):
                     continue
                 if foreign_key_data:
                     if not isinstance(foreign_key_data,dict):
-                        foreign_key_data = {'pk' : foreign_key_data,'__lazy__' : True}
+                        foreign_key_data = {'pk' : foreign_key_data,
+                                            '__lazy__' : True,
+                                            '__collection__' : collection
+                                            }
                     d,lazy_foreign_obj = self.deserialize_db_data(foreign_key_data)
                     foreign_obj = self.create_instance(params['class'],d,lazy = lazy_foreign_obj)
                 else:
