@@ -8,7 +8,6 @@ from blitzdb import Document
 from blitzdb.fields import (ForeignKeyField,
                             ManyToManyField,
                             CharField,
-                            ListField,
                             FloatField,
                             IntegerField,
                             BooleanField)
@@ -16,14 +15,14 @@ from blitzdb.fields import (ForeignKeyField,
 class Movie(Document):
 
     title = CharField(nullable = True,indexed = True)
-    tags = ListField(type = CharField(), indexed = True)
     director = ForeignKeyField(related = 'Director',nullable = True,backref = 'movies')
     cast = ManyToManyField(related = 'Actor')
     year = IntegerField(indexed = True)
+    best_actor = ForeignKeyField('Actor',backref = 'best_movies')
 
     class Meta(Document.Meta):
 
-        dbref_includes = ['title']
+        dbref_includes = ['title','year']
 
 class Actor(Document):
 
@@ -32,11 +31,10 @@ class Actor(Document):
     salary_amount = FloatField(indexed = True,key = 'salary.amount')
     salary_currency = CharField(indexed = True,key = 'salary.currency')
     appearances = IntegerField(indexed = True)
-    favorite_food = ListField(type = CharField(), indexed = True)
     birth_year = IntegerField(indexed = True)
     is_funny = BooleanField(indexed = True)
     movies = ManyToManyField('Movie',backref = 'actors')
-    
+
 
 class Director(Document):
 

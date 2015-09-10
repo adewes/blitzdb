@@ -3,7 +3,7 @@ import pprint
 
 from ..helpers.movie_data import Movie,Actor,Director
 
-from .fixtures import backend,MyMovie
+from .fixtures import backend,Movie
 
 def test_multiple_joins(backend):
 
@@ -11,20 +11,20 @@ def test_multiple_joins(backend):
     backend.save(francis_coppola)
 
     al_pacino = Actor({'name': 'Al Pacino'})
-    the_godfather = MyMovie({'title' : 'The Godfather','director' : francis_coppola,'best_actor' : al_pacino})
+    the_godfather = Movie({'title' : 'The Godfather','director' : francis_coppola,'best_actor' : al_pacino})
     al_pacino['movies'] = [the_godfather]
 
     backend.save(the_godfather)
 
-    result = backend.filter(MyMovie,{'director.name' : francis_coppola.name,'best_actor.name' : 'Al Pacino'})
+    result = backend.filter(Movie,{'director.name' : francis_coppola.name,'best_actor.name' : 'Al Pacino'})
     assert len(result) == 1
     assert the_godfather in result
 
-    result = backend.filter(MyMovie,{'director.name' : {'$in' : [francis_coppola.name,'Al Pacino']}})
+    result = backend.filter(Movie,{'director.name' : {'$in' : [francis_coppola.name,'Al Pacino']}})
     assert len(result) == 1
     assert the_godfather in result
 
-    result = backend.filter(MyMovie,{'director.name' : {'$in' : []}})
+    result = backend.filter(Movie,{'director.name' : {'$in' : []}})
     assert len(result) == 0
 
 

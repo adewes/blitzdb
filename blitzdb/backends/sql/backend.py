@@ -15,16 +15,16 @@ from ..base import Backend as BaseBackend
 from ..base import NotInTransaction,DoNotSerialize
 from ..file.serializers import JsonSerializer
 from .queryset import QuerySet
-from .relations import ListProxy,ManyToManyProxy
+from .relations import ManyToManyProxy
 
 from blitzdb.fields import (ForeignKeyField,
                             ManyToManyField,
+                            OneToManyField,
                             CharField,
                             EnumField,
                             IntegerField,
                             TextField,
                             FloatField,
-                            ListField,
                             BooleanField,
                             BinaryField,
                             DateField,
@@ -139,6 +139,13 @@ class Backend(BaseBackend):
         except KeyError:
             raise KeyError("Invalid key %s for collection %s" % (key,collection))
     
+    def get_table(self,cls_or_collection):
+        if isinstance(cls_or_collection,six.string_types):
+            collection = cls_or_collection
+        else:
+            collection = self.get_collection_for_cls(cls_or_collection)
+        return self._collection_tables[collection]
+
     def get_table_columns(self,cls_or_collection):
         if isinstance(cls_or_collection,six.string_types):
             collection = cls_or_collection
@@ -166,33 +173,47 @@ class Backend(BaseBackend):
         self._index_tables = defaultdict(dict)
         self._relationship_tables = defaultdict(dict)
         self._index_fields = defaultdict(dict)
-        self._list_indexes = defaultdict(dict)
         self._related_fields = defaultdict(dict)
         self._table_columns = defaultdict(dict)
         self._excluded_keys = defaultdict(dict)
         self._foreign_key_backrefs = defaultdict(dict)
         self._many_to_many_backrefs = defaultdict(dict)
 
-        def add_backref(collection,related_collection,column_name,field,many_to_many = False):
-            if field.backref:
-                backref_name = field.backref
+        def add_one_to_many_field(collection,cls,key,field,backref = None):
+
+            if key in self._related_fields[collection]:
+                raise AttributeError("Related one-to-many field %s of class %s already defined in collection %s by class %s (this might be a problem with a backreference)" % (key,cls.__name__,collection,self._related_fields[collection][key]['class'].__name__))
+
+            if isinstance(field.related,six.string_types):
+                related_collection = self.get_collection_for_cls_name(field.related)
             else:
-                backref_name = 'related_%s' % (collection)
+                related_collection = self.get_collection_for_cls(field.related)
+            related_class = self.get_cls_for_collection(related_collection)
+            field_name = key
+            column_name = key.replace('.','_')
 
-            if many_to_many:
-                backref_dict = self._many_to_many_backrefs
-            else:
-                backref_dict = self._foreign_key_backrefs
+            params = {
+                'field' : field,
+                'key' : key,
+                'collection' : related_collection,
+                'class' : related_class,
+                'type' : self.get_field_type(cls.Meta.PkType),
+                'backref' : backref
+            }
 
-            if backref_name in backref_dict[related_collection]:
-                raise AttributeError("Backref %s for collection %s clashes with existing backref for collection %s!" % (backref_name,related_collection,backref_dict[related_collection][backref_name]['collection']))
+            if backref is None:
+                backref_key = field.backref or 'related_%s_%s' % (collection,column_name)
+                params['backref'] = add_foreign_key_field(related_collection,related_class,backref_key,
+                    ForeignKeyField(cls,key = backref_key))
 
-            backref_dict[related_collection][backref_name] = {'collection' : collection,
-                                                              'field' : field,
-                                                              'column' : column_name
-                                                             }
+            self._related_fields[collection][field_name] = params
 
-        def add_foreign_key_field(collection,cls,key,field):
+
+        def add_foreign_key_field(collection,cls,key,field,backref = None):
+
+            if key in self._related_fields[collection]:
+                raise AttributeError("Related foreign key field %s already defined in collection %s (this might be a problem with a backreference)" % (key,collection))
+
             field_name = key
             column_name = key.replace('.','_')
             self._excluded_keys[collection][key] = True
@@ -201,17 +222,18 @@ class Backend(BaseBackend):
             else:
                 related_collection = self.get_collection_for_cls(field.related)
             related_class = self.get_cls_for_collection(related_collection)
-
-            add_backref(collection,related_collection,column_name,field)
-
-            column = Column(column_name,self.get_field_type(related_class.Meta.PkType),ForeignKey('%s%s.pk' % (related_collection,self.table_postfix)),index=True,nullable = True if field.nullable else False)
+            column = Column(column_name,self.get_field_type(related_class.Meta.PkType),
+                            ForeignKey('%s%s.pk' % (related_collection,self.table_postfix)),
+                            index=True,nullable = True if field.nullable else False)
             params = {'field' : field,
                       'key' : key,
                       'column' : column_name,
                       'collection' : related_collection,
                       'class' : related_class,
-                      'type' : self.get_field_type(related_class.Meta.PkType)
+                      'type' : self.get_field_type(related_class.Meta.PkType),
+                      'backref' : backref
                       }
+
             self._related_fields[collection][field_name] = params
             self._table_columns[collection][field_name] = params
             extra_columns.append(column)
@@ -220,58 +242,70 @@ class Backend(BaseBackend):
                 name = 'unique_%s_%s' % (collection,column_name)
                 extra_columns.append(UniqueConstraint(column_name,name = name))
 
-        def add_many_to_many_field(collection,cls,key,field):
+            if backref is None:
+                backref_key = field.backref or 'related_%s_%s' % (collection,column_name)
+                params['backref'] = add_one_to_many_field(related_collection,related_class,backref_key,
+                                      OneToManyField(related = cls,
+                                                     key = backref_key),
+                                                     backref = params)
+
+            return params
+
+
+        def add_many_to_many_field(collection,cls,key,field,backref = None):
 
             if isinstance(field.related,(list,tuple)):
                 raise AttributeError("Currently not supported!")
 
+            if key in self._related_fields[collection]:
+                raise AttributeError("Related many-to-many field %s already defined in collection %s (this might be a problem with a backreference)" % (key,collection))
+
             field_name = key
             column_name = key.replace('.','_')
             self._excluded_keys[collection][key] = True
+
             if isinstance(field.related,six.string_types):
                 related_collection = self.get_collection_for_cls_name(field.related)
             else:
                 related_collection = self.get_collection_for_cls(field.related)
             related_class = self.get_cls_for_collection(related_collection)
-            relationship_name = "%s_%s" % (collection,related_collection)
-
-            add_backref(collection,related_collection,column_name,field,many_to_many = True)
 
             params = {'field' : field,
                       'key' : key,
                       'collection' : related_collection,
                       'class' : related_class,
-                      'type' : self.get_field_type(related_class.Meta.PkType)
+                      'type' : self.get_field_type(related_class.Meta.PkType),
+                      'backref' : backref
                      }
-            extra_columns = [
-                UniqueConstraint('pk_%s' % related_collection,'pk_%s' % collection)
-                ]
-            relationship_table = Table('%s%s' % (relationship_name,self.table_postfix),self._metadata,
-                    Column('pk_%s' % related_collection,self.get_field_type(related_class.Meta.PkType),ForeignKey('%s%s.pk' % (related_collection,self.table_postfix)),index = True),
-                    Column('pk_%s' % collection,self.get_field_type(cls.Meta.PkType),ForeignKey('%s%s.pk' % (collection,self.table_postfix)),index = True),
-                    *extra_columns
-                )
-            params['relationship_table'] = relationship_table
+
+            if backref:
+                relationship_table = backref['relationship_table']
+            else:
+                relationship_name = "%s_%s" % (collection,related_collection)
+
+                extra_columns = [
+                    UniqueConstraint('pk_%s' % related_collection,'pk_%s' % collection)
+                    ]
+                relationship_table = Table('%s%s' % (relationship_name,self.table_postfix),self._metadata,
+                        Column('pk_%s' % related_collection,self.get_field_type(related_class.Meta.PkType),ForeignKey('%s%s.pk' % (related_collection,self.table_postfix)),index = True),
+                        Column('pk_%s' % collection,self.get_field_type(cls.Meta.PkType),ForeignKey('%s%s.pk' % (collection,self.table_postfix)),index = True),
+                        *extra_columns
+                    )
+                params['relationship_table'] = relationship_table
+
+
             self._relationship_tables[collection][field_name] = relationship_table
             self._related_fields[collection][field_name] = params
 
-        def add_list_field(collection,cls,key,field):
-            self._excluded_keys[collection][key] = True
-            column_name = key.replace('.','_')
-            index_name = "%s_%s" % (collection,column_name)
+            if backref is None:
+                backref_key = field.backref or 'related_%s_%s' % (collection,column_name)
+                params['backref'] = add_many_to_many_field(related_collection,
+                                       related_class,
+                                       key = backref_key,
+                                       field = ManyToManyField(cls,key = backref_key),
+                                       backref = params)
 
-            index_params = {'field' : field,
-                            'key' : key,
-                            'type' : self.get_field_type(field.type),
-                            'column' : column_name}
-            self._index_tables[collection][key] = Table('%s%s' % (index_name,self.table_postfix),self._metadata,
-                    Column('pk',self.get_field_type(cls.Meta.PkType),ForeignKey('%s%s.pk' % (collection,self.table_postfix)),index = True),
-                    Column(column_name,index_params['type'],index = True),
-                    UniqueConstraint('pk',column_name,name = 'unique_%s_%s' % (collection,column_name))
-                )
-            self._list_indexes[collection][key] = index_params
-#            self._index_fields[collection][key] = index_params
-#            self._table_columns[collection][key] = index_params
+            return params
 
         def add_field(collection,key,field):
             self._excluded_keys[collection][key] = True
@@ -308,14 +342,15 @@ class Backend(BaseBackend):
             for key,field in cls._fields.items():
                 if field.key:
                     key = field.key
+
                 if not isinstance(field,BaseField):
                     raise AttributeError("Not a valid field: %s = %s" % (key,field))
                 if isinstance(field,ForeignKeyField):
                     add_foreign_key_field(collection,cls,key,field)
                 elif isinstance(field,ManyToManyField):
                     add_many_to_many_field(collection,cls,key,field)
-                elif isinstance(field,ListField):
-                    add_list_field(collection,cls,key,field)
+                elif isinstance(field,OneToManyField):
+                    add_one_to_many_field(collection,cls,key,field)
                 else:
                     add_field(collection,key,field)
 
@@ -475,28 +510,16 @@ class Backend(BaseBackend):
             for index_field,index_params in self._index_fields[collection].items():
                 try:
                     value = get_value(obj,index_field)
-                    if isinstance(index_params['field'],ListField):
-                        #to do: check if this is a RelatedList
-                        table = self._index_tables[collection][index_field]
-                        deletes.append(table.delete().where(table.c['pk'] == expression.cast(obj.pk,pk_type)))
-                        for element in value:
-                            ed = {
-                                'pk' : expression.cast(obj.pk,pk_type),
-                                index_params['column'] : expression.cast(element,index_params['type']),
-                            }
-                            inserts.append(table.insert().values(**ed))
-                    else:
-                        if value is None:
-                            if not index_params['field'].nullable:
-                                raise ValueError("No value for %s given, but this is a mandatory field!" % index_field['key'])
-                            d[index_params['column']] = null()
-                        else:
-                            d[index_params['column']] = expression.cast(value,index_params['type'])
-                except KeyError:
-                    if not isinstance(index_params['field'],ListField):
+                    if value is None:
                         if not index_params['field'].nullable:
                             raise ValueError("No value for %s given, but this is a mandatory field!" % index_field['key'])
                         d[index_params['column']] = null()
+                    else:
+                        d[index_params['column']] = expression.cast(value,index_params['type'])
+                except KeyError:
+                    if not index_params['field'].nullable:
+                        raise ValueError("No value for %s given, but this is a mandatory field!" % index_field['key'])
+                    d[index_params['column']] = null()
 
         def serialize_and_update_relations(obj,d):
             for related_field,relation_params in self._related_fields[collection].items():
@@ -679,7 +702,7 @@ class Backend(BaseBackend):
             raise AttributeError("__collection__ attribute not specified!")
         lazy = data['__lazy__']
         collection = data['__collection__']
-        if '__data__' in data:
+        if '__data__' in data and data['__data__']:
             d = self.deserialize_json(data['__data__'])
             #We delete excluded key values from the data, so that no poisoning can take place...
             for key in self._excluded_keys[collection]:
@@ -703,22 +726,16 @@ class Backend(BaseBackend):
         #we create the object first
         obj = super(Backend,self).create_instance(collection_or_class,{},call_hook = False,lazy = lazy)
 
-        #now we update the data dictionary with foreign key fields...
-        for field_name,params in self._list_indexes[collection].items():
-            set_value(data,params['key'],ListProxy(obj,field_name,params))
 
         for field_name,params in self._related_fields[collection].items():
             if isinstance(params['field'],ManyToManyField):
                 try:
                     #to do: add proper select condition
-                    queryset = QuerySet(self,
-                                        self._collection_tables[params['collection']],
-                                        self.get_cls_for_collection(params['collection']),
-                                        objects = get_value(data,params['key']))
+                    objects = get_value(data,params['key'])
                 except KeyError:
-                    queryset = None
+                    objects = None
                 #check if we have data for this ManyToMany proxy. If yes, pass it along!
-                set_value(data,params['key'],ManyToManyProxy(obj,field_name,params,queryset = queryset))
+                set_value(data,params['key'],ManyToManyProxy(obj,field_name,params,objects = objects))
             elif isinstance(params['field'],ForeignKeyField):
                 #check if we have data for this ForeignKey object. If yes, pass it along!
                 try:
@@ -736,6 +753,23 @@ class Backend(BaseBackend):
                 else:
                     foreign_obj = None
                 set_value(data,params['key'],foreign_obj)
+            elif isinstance(params['field'],OneToManyField):
+                try:
+                    #to do: add proper select condition
+                    objects = get_value(data,params['key'])
+                except KeyError:
+                    objects = None
+
+                table = self._collection_tables[params['collection']]
+                related_table = self._collection_tables[params['backref']['collection']]
+                qs = QuerySet(backend = self,
+                        table = table,
+                        cls = params['class'],
+                        condition = table.c[params['backref']['column']] == expression.cast(data['pk'],params['type']),
+                        objects = objects,
+                        raw = False,
+                        )
+                set_value(data,params['key'],qs)
 
         obj.attributes = data
         self.call_hook('after_load',obj)
@@ -776,22 +810,6 @@ class Backend(BaseBackend):
             This function supports all query operators that are available in SQLAlchemy and returns a query set
             that is based on a SQLAlchemy cursor.
 
-        Strategy:
-
-        - Detect all index fields in the query.
-        - For each index field, determine the type of the index.
-            - If it is a ForeignKey index, use the pk element of the 
-
-        SELECT query generation:
-
-          - Non-indexed fields -> Raise an exception
-          - Normal (in-table) index -> Make a query over the indexed field
-          - List index -> Make a PK query over the index table
-          - ForeignKey relation with related collection:
-            - If `related.pk` or `related` used in query, directly query PK value in table
-            - If deep field (e.g. `related.name`), make select over PK values of index field
-              with result on query on the related table.
-
         """
 
         if not isinstance(cls_or_collection, six.string_types):
@@ -830,7 +848,8 @@ class Backend(BaseBackend):
                 if not operator in ('and','or','not'):
                     raise AttributeError("Non-supported logical operator: $%s" % operator)
                 if operator in ('and','or'):
-                    where_statements = [sq for expr in query['$%s' % operator] for sq in compile_query(collection,expr,path = path)]
+                    where_statements = [sq for expr in query['$%s' % operator] 
+                                        for sq in compile_query(collection,expr,path = path)]
                     if operator == 'and':
                         return [and_(*where_statements)]
                     else:
@@ -839,6 +858,21 @@ class Backend(BaseBackend):
                     return [not_(*compile_query(collection,query['$not'],table = table,path = path))]
 
             def compile_one_to_many_query(key,query,field_name,related_table,count_column,path):
+
+                def prepare_subquery(tail,query_dict):
+                    d = {}
+                    if not tail:
+                        if isinstance(query_dict,dict):
+                            return query_dict.copy()
+                        if not isinstance(query_dict,Document):
+                            raise AttributeError("Must be a document!")
+                        if not query_dict.pk:
+                            raise AttributeError("Performing a query without a primary key!")
+                        return {'pk' : query_dict.pk}
+                    if isinstance(query_dict,dict):
+                        return {'.'.join([tail,k]) : v for k,v in query_dict.items()}
+                    else:
+                        return {tail : query_dict}
 
                 tail = key[len(field_name)+1:]
                 if isinstance(query,Document) and not tail:
@@ -880,9 +914,6 @@ class Backend(BaseBackend):
                                             table = related_table,
                                             path = path)
 
-                #we add a count
-                #extra_fields.append(func.count(related_table.c.pk))
-
                 where_statement = or_(*queries)
 
                 if query_type == 'nin':
@@ -896,58 +927,7 @@ class Backend(BaseBackend):
 
             def compile_many_to_many_query(key,value,field_name,related_collection,relationship_table):
 
-                """
-                1) {'movies.title' : {'$all' : ['The Godfather','Apocalypse Now']}}
-                2) {'movies.title' : {'$in' : ['The Godfather','Apocalypse Now']}}
-                3) {'movies' : {'$in' : [the_godfather,apocalypse_now]}}
-                4) {'movies' : the_godfather}
-                5) {'movies' : {'$all' : [{'$elemMatch' : {'title' : 'The Godfather','language' : 'English'}},{'$elemMatch' : {'title' : 'Apocalypse Now'}}]}}
-
-                SELECT 
-                    [...],
-                    COUNT(*) as movie_cnt -- 1)
-                FROM 
-                    actor
-                LEFT JOIN --we join the relationship table
-                    actor_movie ON actor.pk = actor_movie.actor_pk
-                LEFT JOIN --we join the related table
-                    movie ON actor_movie.actor_pk = movie.pk
-
-                WHERE --we preform an IN query
-                    ---
-                    movie.title in ('The Godfather','Apocalypse Now') --1
-                    ---
-                    movie.pk in ([the_godfather.pk],[apocalypse_now.pk]) -- 3
-                    ---
-                    movie.pk = [the-godfather.pk] --4
-                    ---
-                    (movie.title = 'The Godfather' AND movie.language = 'English')
-                    OR
-                    movie.title = 'Apocalypse Now'
-                GROUP BY 
-                    actor.pk --we group by actor
-                -- only in 1.)
-                HAVING 
-                    movie_cnt = 2 --only select elements where all conditions matched
-               """
                 related_table = self._collection_tables[related_collection]
-
-                #this is a query for a document
-                """
-                Possible values:
-
-                -A document, e.g. the_godfather (replace by pk matching)
-                -A list of values, e.g. ('The Godfather','Apocalypse Now') (only valid if a tail is given)
-                -A $elemMatch query, e.g. {'title' : 'Apocalypse Now'}
-                -A list of $elemMatch queries
-
-                Currently NOT valid:
-                -A list of documents, e.g. [the_godfather,apocalypse_now] (NOT valid)
-
-                """
-
-                #to do: allow modifiers when using special queries (e.g. for regex)
-                #Currently we only support $elemMatch, $all and $in operators
 
                 new_path = path+[field_name]
                 path_str = ".".join(new_path)
@@ -968,21 +948,6 @@ class Backend(BaseBackend):
                     joins_list.append((related_table_alias,relationship_table_alias.c['pk_%s' % related_collection] == related_table_alias.c['pk']))
 
                 return compile_one_to_many_query(key,value,field_name,related_table_alias,relationship_table_alias.c['pk_%s' % collection],new_path)
-
-            def prepare_subquery(tail,query_dict):
-                d = {}
-                if not tail:
-                    if isinstance(query_dict,dict):
-                        return query_dict.copy()
-                    if not isinstance(query_dict,Document):
-                        raise AttributeError("Must be a document!")
-                    if not query_dict.pk:
-                        raise AttributeError("Performing a query without a primary key!")
-                    return {'pk' : query_dict.pk}
-                if isinstance(query_dict,dict):
-                    return {'.'.join([tail,k]) : v for k,v in query_dict.items()}
-                else:
-                    return {tail : query_dict}
 
             def prepare_special_query(field_name,params,query):
                 column_name = params['column']
@@ -1024,93 +989,56 @@ class Backend(BaseBackend):
             for key,value in query.items():
                 for field_name,params in self._index_fields[collection].items():
                     if key == field_name:
-                        #this is a list-indexed field
-                        if isinstance(params['field'],ListField):
-                            index_table = self._index_tables[collection][field_name]
-                            if isinstance(value,dict):
-                                related_query = lambda op: index_table.c[params['column']].in_([expression.cast(v,params['type']) for v in value[op]])
-                                if '$in' in value:
-                                    #do type-cast here?
-                                    where_statements.append(related_query('$in'))
-                                elif '$nin' in value:
-                                    where_statements.append(~related_query('$nin'))
-                                elif '$all' in value:
-                                    pk_label = 'pk_%s' % field_name
-                                    pk_column = index_table.c['pk'].label(pk_label)
-                                    cnt = func.count(pk_column).label('cnt')
-                                    subselect = select([cnt,pk_column],use_labels = True).where(related_query('$all')).group_by(pk_column)
-                                    where_statements.append(table.c.pk.in_(select([subselect.columns[pk_label]]).where(subselect.columns['cnt'] == len(value['$all']))))
-                                elif '$size' in value:
-                                    raise NotImplementedError("$size operator is not yet implemented!")
-                                else:
-                                    raise AttributeError("Invalid query!")
-                            else:
-                                where_statements.append(index_table.c[params['column']] == expression.cast(value,params['type']))
+                        if isinstance(value,re._pattern_type):
+                            value = {'$regex' : value.pattern}
+                        if isinstance(value,dict):
+                            #this is a special query
+                            where_statements.extend(prepare_special_query(field_name,params,value))
                         else:
-                            #this is a normal column index
-                            if isinstance(value,re._pattern_type):
-                                value = {'$regex' : value.pattern}
-                            if isinstance(value,dict):
-                                #this is a special query
-                                where_statements.extend(prepare_special_query(field_name,params,value))
-                            else:
-                                #this is a normal value query
-                                where_statements.append(table.c[params['column']] == expression.cast(value,params['type']))
+                            #this is a normal value query
+                            where_statements.append(table.c[params['column']] == expression.cast(value,params['type']))
                         break
                 else:
-                    #this is a non-indexed field! We try to find a relation...
-                    for field_name,params in foreign_key_backrefs.items():
+                    #we check the normal relationships
+                    for field_name,params in self._related_fields[collection].items():
                         if key.startswith(field_name):
-                            related_table = self._collection_tables[params['collection']]
-                            relationship_params = self._related_fields[params['collection']][params['column']]
-                            #join the table and
-                            new_path = path + [field_name]
-                            path_str = '.'.join(new_path)
-                            if path_str in joins[related_table]:
-                                related_table_alias = joins[related_table][path_str]
-                            else:
-                                related_table_alias = related_table.alias()
-                                joins[related_table][path_str] = related_table_alias
-                                joins_list.append((related_table_alias,related_table_alias.c[params['column']] == table.c['pk']))
-                            #this is a one-to-many query
-                            where_statements.extend(compile_one_to_many_query(key,value,field_name,related_table_alias,table.c.pk,new_path))
+                            #ManyToManyField
+                            if isinstance(params['field'],ManyToManyField):
+                                relationship_table = self._relationship_tables[collection][field_name]
+                                where_statements.extend(compile_many_to_many_query(key,value,field_name,params['collection'],relationship_table))
+                            elif isinstance(params['field'],ForeignKeyField):#this is a normal ForeignKey relation
+                                if key == field_name:
+                                    if not isinstance(value,(Document,QuerySet,ManyToManyProxy)):
+                                        raise AttributeError("ForeignKey query with non-document of type %s" % str(type(value)))
+                                    where_statements.append(table.c[params['column']] == value.pk)
+                                else:
+                                    #we query a sub-field of the relation
+                                    head,tail = key[:len(field_name)],key[len(field_name)+1:]
+                                    related_table = self._collection_tables[params['collection']]
+                                    new_path = path + [field_name]
+                                    path_str = ".".join(new_path)
+                                    if path_str in joins[related_table]:
+                                        related_table_alias = joins[related_table][path_str]
+                                    else:
+                                        related_table_alias = related_table.alias()
+                                        joins[related_table][path_str] = related_table_alias
+                                        joins_list.append((related_table_alias,table.c[params['column']] == related_table_alias.c['pk']))
+                                    where_statements.extend(compile_query(params['collection'],{tail : value},table = related_table_alias))
+                            elif isinstance(params['field'],OneToManyField):
+                                related_table = self._collection_tables[params['collection']]
+                                new_path = path + [field_name]
+                                path_str = '.'.join(new_path)
+                                if path_str in joins[related_table]:
+                                    related_table_alias = joins[related_table][path_str]
+                                else:
+                                    related_table_alias = related_table.alias()
+                                    joins[related_table][path_str] = related_table_alias
+                                    joins_list.append((related_table_alias,related_table_alias.c[params['backref']['column']] == table.c['pk']))
+
+                                where_statements.extend(compile_one_to_many_query(key,value,field_name,related_table_alias,table.c.pk,new_path))
                             break
                     else:
-                        #we check the many-to-many backreferences...
-                        for field_name,params in many_to_many_backrefs.items():
-                            if key.startswith(field_name):
-                                relationship_table = self._relationship_tables[params['collection']][params['column']]
-                                where_statements.extend(compile_many_to_many_query(key,value,field_name,params['collection'],relationship_table))
-                                break
-                        else:
-                            #we check the normal relationships
-                            for field_name,params in self._related_fields[collection].items():
-                                if key.startswith(field_name):
-                                    #ManyToManyField
-                                    if isinstance(params['field'],ManyToManyField):
-                                        relationship_table = self._relationship_tables[collection][field_name]
-                                        where_statements.extend(compile_many_to_many_query(key,value,field_name,params['collection'],relationship_table))
-                                    else:#this is a normal ForeignKey relation
-                                        if key == field_name:
-                                            if not isinstance(value,Document):
-                                                raise AttributeError("ForeignKey query with non-document!")
-                                            where_statements.append(table.c[params['column']] == value.pk)
-                                        else:
-                                            #we query a sub-field of the relation
-                                            head,tail = key[:len(field_name)],key[len(field_name)+1:]
-                                            related_table = self._collection_tables[params['collection']]
-                                            new_path = path + [field_name]
-                                            path_str = ".".join(new_path)
-                                            if path_str in joins[related_table]:
-                                                related_table_alias = joins[related_table][path_str]
-                                            else:
-                                                related_table_alias = related_table.alias()
-                                                joins[related_table][path_str] = related_table_alias
-                                                joins_list.append((related_table_alias,table.c[params['column']] == related_table_alias.c['pk']))
-                                            where_statements.extend(compile_query(params['collection'],{tail : value},table = related_table_alias))
-                                    break
-                            else:
-                                raise AttributeError("Query over non-indexed field %s in collection %s!" % (key,collection))
+                        raise AttributeError("Query over non-indexed field %s in collection %s!" % (key,collection))
             return where_statements
 
         compiled_query = compile_query(collection,query)

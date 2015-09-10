@@ -8,7 +8,7 @@ from .email import EmailField
 from .float import FloatField
 from .foreignkey import ForeignKeyField
 from .integer import IntegerField
-from .list import ListField
 from .manytomany import ManyToManyField
+from .onetomany import OneToManyField
 from .text import TextField
 from .enum import EnumField

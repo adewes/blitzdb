@@ -9,6 +9,7 @@ from sqlalchemy.sql.expression import join,asc,desc,outerjoin
 from ..file.serializers import JsonSerializer
 from .helpers import set_value,get_value
 from collections import OrderedDict
+from blitzdb.fields import ManyToManyField,ForeignKeyField,OneToManyField
 
 class QuerySet(BaseQuerySet):
 
@@ -126,7 +127,7 @@ class QuerySet(BaseQuerySet):
         self.deserialized_objects = [self.deserialize(obj) for obj in self.objects]
         self.deserialized_pop_objects = self.deserialized_objects[:]
 
-    def get_objects(self):
+    def get_select_table_and_rows(self):
 
         s = self.get_select()
 
@@ -134,15 +135,18 @@ class QuerySet(BaseQuerySet):
         s_cte = s.cte("results")
         rows = []
         joins = []
-        keymap = {}
 
         def join_table(collection,table,key,params,path = None):
             if path is None:
                 path = []
-            if 'relationship_table' in params['relation']:
+            if isinstance(params['relation']['field'],ManyToManyField):
                 join_many_to_many(collection,table,key,params,path)
-            else:
+            elif isinstance(params['relation']['field'],ForeignKeyField):
                 join_foreign_key(collection,table,key,params,path)
+            elif isinstance(params['relation']['field'],OneToManyField):
+                join_one_to_many(collection,table,key,params,path)
+            else:
+                raise AttributeError
 
         def process_fields_and_subkeys(related_collection,related_table,params,path):
 
@@ -154,6 +158,14 @@ class QuerySet(BaseQuerySet):
 
             for subkey,subparams in sorted(params['joins'].items(),key = lambda i : i[0]):
                 join_table(params['collection'],related_table,subkey,subparams,path = path)
+
+        def join_one_to_many(collection,table,key,params,path):
+            related_table = params['table'].alias()
+            related_collection = params['relation']['collection']
+            condition = table.c['pk'] == related_table.c[params['relation']['backref']['column']]
+            joins.append((related_table,condition))
+            process_fields_and_subkeys(related_collection,related_table,params,path+\
+                                        [params['relation']['backref']['column']])
 
         def join_foreign_key(collection,table,key,params,path):
             related_table = params['table'].alias()
@@ -173,10 +185,49 @@ class QuerySet(BaseQuerySet):
             joins.append((related_table,right_condition))
             process_fields_and_subkeys(related_collection,related_table,params,path+[key])
 
+        if self.include:
+            include = copy.deepcopy(self.include)
+            if not isinstance(include,(list,tuple)):
+                raise AttributeError("include must be a list/tuple")
+        else:
+            include = ()
+
+        exclude = []
+        if self.only:
+            if isinstance(self.only,dict):
+                only = []
+                for key,value in self.only.items():
+                    if value is False:
+                        exclude.append(key)
+                    else:
+                        only.append(key)
+            else:
+                only = set(self.only)
+            include = set(include)
+            for only_key in only:
+                include.add(only_key)
+
+        self.include_joins = self.backend.get_include_joins(self.cls,includes = include,excludes = exclude)
+        process_fields_and_subkeys(self.include_joins['collection'],s_cte,self.include_joins,[])
+
+        order_bys = []
+        if self.order_bys:
+            order_bys = [direction(s_cte.c[column]) for (column,direction) in self.order_bys]
+
+        if joins:
+            for i,j in enumerate(joins):
+                s_cte = s_cte.outerjoin(*j)
+
+        return s_cte,order_bys,rows
+
+    def as_table(self):
+        return self.get_select_table_and_rows()[0]
+
+    def get_objects(self):
 
         def build_field_map(params,path = None,current_map = None):
 
-            def m2m_getter(join_params,name,pk_key):
+            def m2m_o2m_getter(join_params,name,pk_key):
 
                 def f(d,obj):
                     pk_value = obj[pk_key]
@@ -220,8 +271,8 @@ class QuerySet(BaseQuerySet):
             for name,join_params in params['joins'].items():
                 if name in current_map:
                     del current_map[name]
-                if 'relationship_table' in join_params['relation']:
-                    build_field_map(join_params,path+[m2m_getter(join_params,name,
+                if isinstance(join_params['relation']['field'],(ManyToManyField,OneToManyField)):
+                    build_field_map(join_params,path+[m2m_o2m_getter(join_params,name,
                                                                  join_params['table_fields']['pk'])],current_map)
                 else:
                     build_field_map(join_params,path+[fk_getter(join_params,name),],current_map)
@@ -236,39 +287,7 @@ class QuerySet(BaseQuerySet):
                     d[key] = replace_ordered_dicts(value)
             return d
 
-        if self.include:
-            include = copy.deepcopy(self.include)
-            if not isinstance(include,(list,tuple)):
-                raise AttributeError("include must be a list/tuple")
-        else:
-            include = ()
-
-        exclude = []
-        if self.only:
-            if isinstance(self.only,dict):
-                only = []
-                for key,value in self.only.items():
-                    if value is False:
-                        exclude.append(key)
-                    else:
-                        only.append(key)
-            else:
-                only = set(self.only)
-            include = set(include)
-            for only_key in only:
-                include.add(only_key)
-
-        self.include_joins = self.backend.get_include_joins(self.cls,includes = include,excludes = exclude)
-
-        process_fields_and_subkeys(self.include_joins['collection'],s_cte,self.include_joins,[])
-
-        order_bys = []
-        if self.order_bys:
-            order_bys = [direction(s_cte.c[column]) for (column,direction) in self.order_bys]
-
-        if joins:
-            for i,j in enumerate(joins):
-                s_cte = s_cte.outerjoin(*j)
+        s_cte,order_bys,rows = self.get_select_table_and_rows()
 
         with self.backend.transaction(use_auto = False):
             try:

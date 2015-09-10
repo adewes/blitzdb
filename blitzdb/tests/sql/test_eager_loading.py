@@ -21,10 +21,11 @@ def prepare_data(backend):
 
     al_pacino = Actor({'name' : 'Al Pacino','movies' : [],'salary' : {'amount' : 100000000,'currency' : u'€'}})
 
-    scarface = Movie({'title' : 'Scarface','director' : brian_de_palma})
+    scarface = Movie({'title' : 'Scarface','director' : brian_de_palma,'best_actor' : al_pacino})
 
     the_godfather = Movie({'title' : 'The Godfather',
-                           'director' : francis_coppola})
+                           'director' : francis_coppola,
+                           'best_actor' : al_pacino})
 
     space_odyssey = Movie({'title' : '2001 - A space odyssey',
                            'director' : stanley_kubrick})
@@ -55,6 +56,36 @@ def prepare_data(backend):
     backend.save(harrison_ford)
     backend.commit()
 
+def test_one_to_many_include(backend):
+
+    prepare_data(backend)
+
+    al_pacino = backend.get(Actor,{'name' : 'Al Pacino'},include = ('best_movies',))
+    scarface = backend.get(Movie,{'title' : 'Scarface'})
+    the_godfather = backend.get(Movie,{'title' : 'The Godfather'})
+
+    assert len(backend.filter(Movie,{'best_actor' : al_pacino})) == 2
+
+    assert al_pacino.best_movies.objects
+    assert len(al_pacino.best_movies) == 2
+    assert the_godfather in al_pacino.best_movies
+    assert scarface in al_pacino.best_movies
+
+def test_one_to_many_lazy(backend):
+
+    prepare_data(backend)
+
+    al_pacino = backend.get(Actor,{'name' : 'Al Pacino'})
+    scarface = backend.get(Movie,{'title' : 'Scarface'})
+    the_godfather = backend.get(Movie,{'title' : 'The Godfather'})
+
+    assert len(backend.filter(Movie,{'best_actor' : al_pacino})) == 2
+
+    assert al_pacino.best_movies.objects is None
+    assert len(al_pacino.best_movies) == 2
+    assert the_godfather in al_pacino.best_movies
+    assert scarface in al_pacino.best_movies
+
 def test_basics(backend):
 
     prepare_data(backend)
@@ -65,8 +96,7 @@ def test_basics(backend):
         assert isinstance(actor.movies,ManyToManyProxy)
         assert actors.objects is not None
         assert not actor.lazy
-        assert actor.movies._queryset is not None
-        assert actor.movies._queryset.objects is not None
+        assert actor.movies._objects is not None
         if actor.movies:
             print actor.movies,len(actor.movies)
             assert actor.movies[0].lazy
@@ -76,8 +106,8 @@ def test_basics(backend):
     assert isinstance(actor,Actor)
     assert not actor.lazy
     assert isinstance(actor.movies,ManyToManyProxy)
-    assert actor.movies._queryset is not None
-    assert actor.movies._queryset.objects == [] #no movies yet :(
+    assert actor.movies._objects is not None
+    assert actor.movies._objects == [] #no movies yet :(
 
 def test_raw(backend):
 
@@ -107,10 +137,9 @@ def test_include_with_only(backend):
     assert isinstance(actors[0],Actor)
     assert actors[0].lazy
     print actors[0].lazy_attributes.keys()
-    assert set(actors[0].lazy_attributes.keys()) == set(('movies','gross_income_m','pk','favorite_food'))
+    assert set(actors[0].lazy_attributes.keys()) == set(('best_movies','related_director_favorite_actor','movies','gross_income_m','pk','related_movie_cast'))
     assert isinstance(actors[0]['movies'],ManyToManyProxy)
-    assert actors[0]['movies']._queryset is not None
-    assert actors[0]['movies']._queryset.objects is not None
+    assert actors[0]['movies']._objects
 
 
 def test_only(backend):
@@ -122,6 +151,6 @@ def test_only(backend):
     assert isinstance(actors[0],Actor)
     assert actors[0].lazy
     print actors[0].lazy_attributes.keys()
-    assert set(actors[0].lazy_attributes.keys()) == set(('movies','gross_income_m','pk','favorite_food'))
+    assert set(actors[0].lazy_attributes.keys()) == set(('related_director_favorite_actor','best_movies','movies','gross_income_m','pk','related_movie_cast'))
     assert isinstance(actors[0]['movies'],ManyToManyProxy)
-    assert actors[0]['movies']._queryset is None
+    assert actors[0]['movies']._objects is None

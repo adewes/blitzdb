@@ -27,7 +27,7 @@ class ManyToManyProxy(object):
 
     """
 
-    def __init__(self,obj,field_name,params,queryset = None):
+    def __init__(self,obj,field_name,params,objects = None):
         """
         - Get the related class
         - Create a query that will retrieve related objects according to our criteria
@@ -40,7 +40,8 @@ class ManyToManyProxy(object):
         self.collection = self.obj.backend.get_collection_for_obj(self.obj)
         self.field_name = field_name
         self.params = params
-        self._queryset = queryset
+        self._objects = objects
+        self._queryset = None
 
     def __call__(self,*args,**kwargs):
         self.get_queryset(*args,**kwargs)
@@ -75,6 +76,7 @@ class ManyToManyProxy(object):
                                       cls = self.params['class'],
                                       joins = [(relationship_table,)],
                                       condition = condition,
+                                      objects = self._objects,
                                       *args,
                                       **kwargs)
         return self._queryset
@@ -122,67 +124,3 @@ class ManyToManyProxy(object):
     def __len__(self):
         queryset = self.get_queryset()
         return len(queryset)
-
-class ListProxy(object):
-
-    """
-    Manages a related list of (non-document) objects of uniform type, such as tags.
-
-    .. admonition:: Registering classes
-        
-        The SQL backend ensures that there are no duplicate elements in the related list.
-
-        Operations sensitive 
-
-    """
-
-    def __init__(self,obj,field_name,params):
-        self.obj = obj
-        self.field_name = field_name
-        self.params = params
-
-    def sort(self,direction):
-        pass
-
-    def __getitem__(self,item):
-        raise NotImplementedError
-
-    def __setitem__(self,item,value):
-        """
-
-        .. admonition::
-
-            Using __setitem__ makes only sense if the elements of the related list are ordered.
-            Hence, when calling __setitem__, __getitem__ or __delitem__ without
-        """
-        raise NotImplementedError
-
-    def __delitem__(self,item):
-        raise NotImplementedError
-
-    def append(self,obj):
-        raise NotImplementedError
-
-    def extend(self,objs):
-        """
-        Extend the list with the given objects.
-        """
-        raise NotImplementedError
-
-    def remove(self,obj):
-        """
-        Remove an object from the relation
-        """
-        raise NotImplementedError
-
-    def pop(self):
-        """
-        Pop an object from the related list.
-
-        .. admonition:: 
-
-            Related lists of objects will be retrieved unordered by default. The result of the pop
-            operation might thus depend on the state of the database system and might not be
-            reproducible for identical lists.
-        """
-        raise NotImplementedError

@@ -3,7 +3,7 @@ import pprint
 
 from ..helpers.movie_data import Movie,Actor,Director,Document
 
-from .fixtures import backend,MyMovie
+from .fixtures import backend
 from sqlalchemy.exc import IntegrityError
 from blitzdb.fields import EnumField
 
