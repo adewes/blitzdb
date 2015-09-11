@@ -69,11 +69,31 @@ def test_queryset(backend):
     actors = backend.filter(Actor,{'movies' : {'$in' : al_pacino.movies} })
 
     assert actors
+    assert len(actors) == 2
     assert robert_de_niro in actors
     #the queryset should not have been loaded from the DB
     assert al_pacino.movies._queryset
     assert al_pacino.movies._queryset.objects is None
 
+def test_queryset_all(backend):
+
+    prepare_data(backend)
+
+    al_pacino = backend.get(Actor,{'name' : 'Al Pacino'})
+    robert_de_niro = backend.get(Actor,{'name' : 'Robert de Niro'})
+
+    assert al_pacino.movies._queryset is None
+
+    actors = backend.filter(Actor,{'movies' : {'$all' : al_pacino.movies} })
+
+    print actors.get_select()
+
+    assert actors
+    assert len(actors) == 1
+    assert robert_de_niro not in actors
+    #the queryset should not have been loaded from the DB
+    assert al_pacino.movies._queryset
+    assert al_pacino.movies._queryset.objects is None
 
 def test_one_to_many(backend):
 

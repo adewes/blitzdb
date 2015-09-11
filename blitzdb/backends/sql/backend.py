@@ -868,19 +868,18 @@ class Backend(BaseBackend):
                         if not query_dict.pk:
                             raise AttributeError("Performing a query without a primary key!")
                         return {'pk' : query_dict.pk}
-                    if isinstance(query_dict,dict):
-                        return {'.'.join([tail,k]) : v for k,v in query_dict.items()}
-                    else:
-                        return {tail : query_dict}
+                    return {tail : query_dict}
 
                 tail = key[len(field_name)+1:]
+
                 if isinstance(query,Document) and not tail:
                     query = {'pk' : query.pk}
 
-                if isinstance(query,dict) and len(query) == 1 and query.keys()[0].startswith('$'):
+                if isinstance(query,dict) and len(query) == 1 and query.keys()[0] in ('$all','$in','$elemMatch','$nin'):
                     #this is an $in/$all/$nin query
                     query_type = query.keys()[0][1:]
                     subquery = query.values()[0]
+
 
                     if query_type == 'elemMatch':
                         queries = compile_query(params['collection'],
@@ -890,6 +889,13 @@ class Backend(BaseBackend):
                         return queries
                     else:
                         if isinstance(subquery,(ManyToManyProxy,QuerySet)):
+                            if tail:
+                                #this query has a tail
+                                query = {tail : query}
+                                queries = compile_query(params['collection'],query,
+                                                table = related_table,
+                                                path = path)
+                                return queries
                             #this is a query with a ManyToManyProxy/QuerySet
                             if isinstance(subquery,ManyToManyProxy):
                                 qs = subquery.get_queryset()
@@ -897,21 +903,17 @@ class Backend(BaseBackend):
                                 qs = subquery
                             if not query_type in ('in','nin','all'):
                                 raise AttributeError
-                            if tail:
-                                raise AttributeError("Invalid query")
                             #how to implement $all query with a QuerySet?
                             if query_type == 'all':
                                 op = 'in'
                             else:
                                 op = query_type
 
-
                             if query_type == 'all':
                                 cnt = func.count(count_column)
                                 condition = cnt == qs.get_select([func.count(qs.table.c['pk'])])
                                 havings.append(condition)
                             return [getattr(related_table.c['pk'],op+'_')(qs.get_select([qs.table.c['pk']]))]
-
                         elif isinstance(subquery,(list,tuple)):
                             if subquery and isinstance(subquery[0],dict) and len(subquery[0]) == 1 and \
                             subquery[0].keys()[0] == '$elemMatch':
@@ -937,14 +939,9 @@ class Backend(BaseBackend):
                         else:
                             raise AttributeError("$in/$nin/$all query requires a list/tuple/QuerySet/ManyToManyProxy")
                 else:
-                    #this is an exact query
-                    if tail:
-                        query = {tail : query}
-                    queries = compile_query(params['collection'],query,
-                                        table = related_table,
-                                        path = path)
-                return [or_(*queries)]
-
+                    return compile_query(params['collection'],prepare_subquery(tail,query),
+                                    table = related_table,
+                                    path = path)
 
             def compile_many_to_many_query(key,value,field_name,related_collection,relationship_table):
 
