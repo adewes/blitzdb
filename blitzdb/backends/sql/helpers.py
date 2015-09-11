@@ -11,10 +11,12 @@ def get_value(obj,key,create = False):
 def set_value(obj,key,value,overwrite = True):
     key_fragments = key.split('.')
     current_dict = obj
+
     for key_fragment in key_fragments[:-1]:
         if not key_fragment in current_dict:
             current_dict[key_fragment] = {}
         current_dict = current_dict[key_fragment]
+
     if (not overwrite) and key_fragments[-1] in current_dict:
         return current_dict[key_fragments[-1]]
     current_dict[key_fragments[-1]] = value

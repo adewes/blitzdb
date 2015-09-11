@@ -7,7 +7,7 @@ from functools import wraps
 from sqlalchemy.sql import select,func,expression,delete,distinct,and_,union,intersect
 from sqlalchemy.sql.expression import join,asc,desc,outerjoin
 from ..file.serializers import JsonSerializer
-from .helpers import set_value,get_value
+from .helpers import get_value
 from collections import OrderedDict
 from blitzdb.fields import ManyToManyField,ForeignKeyField,OneToManyField
 
@@ -232,9 +232,9 @@ class QuerySet(BaseQuerySet):
                 def f(d,obj):
                     pk_value = obj[pk_key]
                     try:
-                        v = get_value(d,name)
+                        v = d[name]
                     except KeyError:
-                        v = set_value(d,name,OrderedDict())
+                        v = d[name] = OrderedDict()
                     if pk_value is None:
                         return None
                     if not pk_value in v:
@@ -253,7 +253,9 @@ class QuerySet(BaseQuerySet):
                     pk_value = obj[join_params['table_fields']['pk']]
                     if pk_value is None:
                         return None
-                    v = get_value(d,key,create = True)
+                    if not key in d:
+                        d[key] = {}
+                    v = d[key]
                     if not '__lazy__' in v:
                         v['__lazy__'] = join_params['lazy']
                     if not '__collection__' in v:
@@ -272,7 +274,6 @@ class QuerySet(BaseQuerySet):
                 current_map[field] = path+[key]
             for name,join_params in params['joins'].items():
                 if name in current_map:
-                    print "Deleting %s" % name 
                     del current_map[name]
                 if isinstance(join_params['relation']['field'],(ManyToManyField,OneToManyField)):
                     build_field_map(join_params,path+[m2m_o2m_getter(join_params,name,
@@ -324,7 +325,7 @@ class QuerySet(BaseQuerySet):
                     else:
                         d = get_value(d,element,create = True)
                 else:
-                    set_value(d,path[-1],obj[key])
+                    d[path[-1]] = obj[key]
 
         self.objects = [replace_ordered_dicts(unpacked_obj) for unpacked_obj in unpacked_objects.values()]
         self.pop_objects = self.objects[:]

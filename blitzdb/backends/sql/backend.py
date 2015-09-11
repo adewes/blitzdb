@@ -206,6 +206,7 @@ class Backend(BaseBackend):
                 params['backref'] = add_foreign_key_field(related_collection,related_class,backref_key,
                     ForeignKeyField(cls,key = backref_key))
 
+            self._excluded_keys[collection][field_name] = True
             self._related_fields[collection][field_name] = params
 
 
@@ -700,8 +701,10 @@ class Backend(BaseBackend):
             raise AttributeError("__lazy__ attribute not specified!")
         if not '__collection__' in data:
             raise AttributeError("__collection__ attribute not specified!")
+
         lazy = data['__lazy__']
         collection = data['__collection__']
+
         if '__data__' in data and data['__data__']:
             d = self.deserialize_json(data['__data__'])
             #We delete excluded key values from the data, so that no poisoning can take place...
