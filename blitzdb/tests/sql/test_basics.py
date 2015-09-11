@@ -68,9 +68,9 @@ def test_basics(backend):
     assert al_pacino in result
     assert len(result) == 2
 
-    result = backend.filter(Actor,{'movies.title' : {'$all' : ['The Godfather','Apocalypse Now']}})
+    result = backend.filter(Actor,{'movies.title' : 'The Godfather'})
 
-    assert len(result) == 1
+    assert len(result) == 2
     assert marlon_brando in result
 
     result = backend.filter(Actor,{'movies' : {'$elemMatch' : {'title' : 'The Godfather'}}})
@@ -107,7 +107,7 @@ def test_basics(backend):
     assert marlon_brando in result
     assert al_pacino in result
 
-    result = backend.filter(Actor,{'movies.title' : {'$in' : ['The Godfather','Apocalypse Now']}})
+    result = backend.filter(Actor,{'movies.title' : 'The Godfather'})
 
     assert len(result) == 2
     assert marlon_brando in result
@@ -137,6 +137,9 @@ def test_basics(backend):
 
 
     result = backend.filter(Movie,{'director' : francis_coppola})
+
+    for movie in result:
+        print movie.title,"<<<"
 
     assert len(result) == 1
     assert the_godfather in result

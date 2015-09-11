@@ -70,7 +70,7 @@ def test_basics(backend):
     assert len(result) == 1
     assert result[0] == the_godfather
 
-    result = backend.filter(Director,{'movies.title' : {'$all' : ['The Godfather']}}) 
+    result = backend.filter(Director,{'movies.title' : 'The Godfather'}) 
 
     al_pacino_movies = backend.filter(Movie,{'actors' : al_pacino})
     assert len(al_pacino_movies) == 2

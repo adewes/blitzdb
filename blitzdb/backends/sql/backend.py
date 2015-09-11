@@ -726,7 +726,6 @@ class Backend(BaseBackend):
         #we create the object first
         obj = super(Backend,self).create_instance(collection_or_class,{},call_hook = False,lazy = lazy)
 
-
         for field_name,params in self._related_fields[collection].items():
             if isinstance(params['field'],ManyToManyField):
                 try:
@@ -877,53 +876,75 @@ class Backend(BaseBackend):
                 tail = key[len(field_name)+1:]
                 if isinstance(query,Document) and not tail:
                     query = {'pk' : query.pk}
-                elif not isinstance(query,dict):
-                    if tail:
-                        query = {tail : query}
-                    else:
-                        raise AttributeError
-                        query = {'$all' : query}
 
-                if len(query) == 1 and query.keys()[0].startswith('$'):
+                if isinstance(query,dict) and len(query) == 1 and query.keys()[0].startswith('$'):
+                    #this is an $in/$all/$nin query
                     query_type = query.keys()[0][1:]
                     subquery = query.values()[0]
 
-                    if query_type not in ('nin','in','all','elemMatch'):
-                        raise AttributeError("Unsupported operator: %s" % query_type)
                     if query_type == 'elemMatch':
                         queries = compile_query(params['collection'],
                                                 prepare_subquery(tail,query['$elemMatch']),
                                                 table = related_table,
                                                 path = path)
-                        query_type = 'all'
+                        return queries
                     else:
-                        if len(subquery) and isinstance(subquery[0],dict) and len(subquery[0]) == 1 and \
-                        subquery[0].keys()[0] == '$elemMatch':
-                            queries = [sq for v in subquery for sq in compile_query(params['collection'],
-                                                                                    prepare_subquery(tail,v['$elemMatch']),
-                                                                                    table = related_table,
-                                                                                    path = path)]
+                        if isinstance(subquery,(ManyToManyProxy,QuerySet)):
+                            #this is a query with a ManyToManyProxy/QuerySet
+                            if isinstance(subquery,ManyToManyProxy):
+                                qs = subquery.get_queryset()
+                            else:
+                                qs = subquery
+                            if not query_type in ('in','nin','all'):
+                                raise AttributeError
+                            if tail:
+                                raise AttributeError("Invalid query")
+                            #how to implement $all query with a QuerySet?
+                            if query_type == 'all':
+                                op = 'in'
+                            else:
+                                op = query_type
+
+
+                            if query_type == 'all':
+                                cnt = func.count(count_column)
+                                condition = cnt == qs.get_select([func.count(qs.table.c['pk'])])
+                                havings.append(condition)
+                            return [getattr(related_table.c['pk'],op+'_')(qs.get_select([qs.table.c['pk']]))]
+
+                        elif isinstance(subquery,(list,tuple)):
+                            if subquery and isinstance(subquery[0],dict) and len(subquery[0]) == 1 and \
+                            subquery[0].keys()[0] == '$elemMatch':
+                                queries = [sq for v in subquery for sq in compile_query(params['collection'],
+                                                                                        prepare_subquery(tail,v['$elemMatch']),
+                                                                                        table = related_table,
+                                                                                        path = path)]
+                            else:
+                                queries = [sq for v in subquery for sq in compile_query(params['collection'],
+                                                                                        prepare_subquery(tail,v),
+                                                                                        table = related_table,
+                                                                                        path = path)]
+                            where_statement = or_(*queries)
+
+                            if query_type == 'nin':
+                                where_statement = not_(where_statement)
+
+                            if query_type == 'all' and len(queries) > 1:
+                                cnt = func.count(count_column)
+                                havings.append(cnt == len(queries))
+
+                            return [where_statement]
                         else:
-                            queries = [sq for v in subquery for sq in compile_query(params['collection'],
-                                                                                    prepare_subquery(tail,v),
-                                                                                    table = related_table,
-                                                                                    path = path)]
+                            raise AttributeError("$in/$nin/$all query requires a list/tuple/QuerySet/ManyToManyProxy")
                 else:
-                    query_type = 'all'
+                    #this is an exact query
+                    if tail:
+                        query = {tail : query}
                     queries = compile_query(params['collection'],query,
-                                            table = related_table,
-                                            path = path)
+                                        table = related_table,
+                                        path = path)
+                return [or_(*queries)]
 
-                where_statement = or_(*queries)
-
-                if query_type == 'nin':
-                    where_statement = not_(where_statement)
-
-                if query_type == 'all' and len(queries) > 1:
-                    cnt = func.count(count_column)
-                    havings.append(cnt == len(queries))
-
-                return [where_statement]
 
             def compile_many_to_many_query(key,value,field_name,related_collection,relationship_table):
 
@@ -950,25 +971,29 @@ class Backend(BaseBackend):
                 return compile_one_to_many_query(key,value,field_name,related_table_alias,relationship_table_alias.c['pk_%s' % collection],new_path)
 
             def prepare_special_query(field_name,params,query):
+                def sanitize(value):
+                    if isinstance(value,(list,tuple)):
+                        return [v.pk if isinstance(v,Document) else v for v in value]
+                    return value
                 column_name = params['column']
                 if '$not' in query:
-                    return [not_(*prepare_special_query(column_name,params,query['$not']))]
+                    return [not_(*prepare_special_query(column_name,params,sanitize(query['$not'])))]
                 elif '$in' in query:
-                    return [table.c[column_name].in_(query['$in'])]
+                    return [table.c[column_name].in_(sanitize(query['$in']))]
                 elif '$nin' in query:
-                    return [~table.c[column_name].in_(query['$nin'])]
+                    return [~table.c[column_name].in_(sanitize(query['$nin']))]
                 elif '$eq' in query:
-                    return [table.c[column_name] == query['$eq']]
+                    return [table.c[column_name] == sanitize(query['$eq'])]
                 elif '$ne' in query:
-                    return [table.c[column_name] != query['$ne']]
+                    return [table.c[column_name] != sanitize(query['$ne'])]
                 elif '$gt' in query:
-                    return [table.c[column_name] > query['$gt']]
+                    return [table.c[column_name] > sanitize(query['$gt'])]
                 elif '$gte' in query:
-                    return [table.c[column_name] >= query['$gte']]
+                    return [table.c[column_name] >= sanitize(query['$gte'])]
                 elif '$lt' in query:
-                    return [table.c[column_name] < query['$lt']]
+                    return [table.c[column_name] < sanitize(query['$lt'])]
                 elif '$lte' in query:
-                    return [table.c[column_name] <= query['$lte']]
+                    return [table.c[column_name] <= sanitize(query['$lte'])]
                 elif '$exists' in query:
                     if query['$exists']:
                         return [table.c[column_name] != None]
@@ -982,9 +1007,7 @@ class Backend(BaseBackend):
                     return [table.c[column_name].op('REGEXP')(expression.cast(query['$regex'],String))]
                 else:
                     raise AttributeError("Invalid query!")
-
-            foreign_key_backrefs = self._foreign_key_backrefs[collection]
-            many_to_many_backrefs = self._many_to_many_backrefs[collection]
+            
             #this is a normal, field-base query
             for key,value in query.items():
                 for field_name,params in self._index_fields[collection].items():
@@ -1008,9 +1031,49 @@ class Backend(BaseBackend):
                                 where_statements.extend(compile_many_to_many_query(key,value,field_name,params['collection'],relationship_table))
                             elif isinstance(params['field'],ForeignKeyField):#this is a normal ForeignKey relation
                                 if key == field_name:
-                                    if not isinstance(value,(Document,QuerySet,ManyToManyProxy)):
-                                        raise AttributeError("ForeignKey query with non-document of type %s" % str(type(value)))
-                                    where_statements.append(table.c[params['column']] == value.pk)
+                                    #this is a ForeignKey query
+                                    if isinstance(value,dict):
+                                        if len(value) == 1:
+                                            key,query = value.items()[0]
+                                            if not key in ('$in','$nin'):
+                                                raise AttributeError("Invalid query!")
+                                            query_type = key[1:]
+                                        else:
+                                            raise AttributeError("Invalid query!")
+                                    else:
+                                        query_type = 'exact'
+                                        query = value
+                                    if isinstance(query,(QuerySet,ManyToManyProxy)):
+                                        if not query_type in ('in','nin'):
+                                            raise AttributeError("QuerySet/ManyToManyProxy objects must be used in conjunction with $in/$nin when querying a ForeignKey relationship")
+                                        if isinstance(query,ManyToManyProxy):
+                                            qs = query.get_queryset()
+                                        else:
+                                            qs = query
+                                        if qs.count is not None and qs.count == 0:
+                                            raise AttributeError("$in/$nin query with empty QuerySet/ManyToManyProxy!")
+                                        if qs.cls is not params['class']:
+                                            raise AttributeError("Invalid QuerySet class!")
+                                        condition = getattr(table.c[params['column']],query_type+'_')(qs.get_select([qs.table.c['pk']]))
+                                        where_statements.append(condition)
+                                    elif isinstance(query,(list,tuple)):
+                                        if not query_type in ('in','nin'):
+                                            raise AttributeError("Lists/tuples must be used in conjunction with $in/$nin when querying a ForeignKey relationship")
+                                        if not query:
+                                            raise AttributeError("in/nin query with empty list!")
+                                        if query[0].__class__ is params['class']:
+                                            if any((element.__class__ is not params['class'] for element in query)):
+                                                raise AttributeError("Invalid document type in ForeignKey query")
+                                            where_statements.append(getattr(table.c[params['column']],query_type+'_')([expression.cast(doc.pk,params['type']) for doc in query]))
+                                        else:
+                                            where_statements.append(getattr(table.c[params['column']],query_type+'_')([expression.cast(element,params['type']) for element in query]))
+                                    elif isinstance(query,Document):
+                                        #we need an exact clas match here...
+                                        if query.__class__ is not params['class']:
+                                            raise AttributeError("Invalid Document class!")
+                                        where_statements.append(table.c[params['column']] == query.pk)
+                                    else:
+                                        where_statements.append(table.c[params['column']] == expression.cast(query,params['class'].Meta.PkType))
                                 else:
                                     #we query a sub-field of the relation
                                     head,tail = key[:len(field_name)],key[len(field_name)+1:]

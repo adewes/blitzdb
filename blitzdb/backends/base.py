@@ -317,21 +317,13 @@ class Backend(object):
             obj = encoder.decode(obj)
 
         if isinstance(obj, dict):
-            if '__pk__' in obj:
-                pk_field = '__pk__'
-            elif 'pk' in obj:
-                pk_field = 'pk'
-            else:
-                pk_field = None
-            if create_instance and '__collection__' in obj and obj['__collection__'] in self.collections and pk_field:
+            if create_instance and '__collection__' in obj and obj['__collection__'] in self.collections and 'pk' in obj:
                 #for backwards compatibility
                 attributes = copy.deepcopy(obj)
-                del attributes[pk_field]
                 del attributes['__collection__']
                 if '__ref__' in attributes:
                     del attributes['__ref__']
                 output_obj = self.create_instance(obj['__collection__'], attributes, lazy=True)
-                output_obj.pk = obj[pk_field]
             else:
                 output_obj = {}
                 for key, value in obj.items():

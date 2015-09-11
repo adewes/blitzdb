@@ -267,9 +267,12 @@ class QuerySet(BaseQuerySet):
             if path is None:
                 path = []
             for key,field in params['table_fields'].items():
+                if key in params['joins']:
+                    continue
                 current_map[field] = path+[key]
             for name,join_params in params['joins'].items():
                 if name in current_map:
+                    print "Deleting %s" % name 
                     del current_map[name]
                 if isinstance(join_params['relation']['field'],(ManyToManyField,OneToManyField)):
                     build_field_map(join_params,path+[m2m_o2m_getter(join_params,name,
