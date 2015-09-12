@@ -139,6 +139,13 @@ class Backend(BaseBackend):
         except KeyError:
             raise KeyError("Invalid key %s for collection %s" % (key,collection))
     
+    def get_relationship_table(self,cls_or_collection,field):
+        if isinstance(cls_or_collection,six.string_types):
+            collection = cls_or_collection
+        else:
+            collection = self.get_collection_for_cls(cls_or_collection)
+        return self._relationship_tables[collection][field]
+
     def get_table(self,cls_or_collection):
         if isinstance(cls_or_collection,six.string_types):
             collection = cls_or_collection
@@ -224,7 +231,7 @@ class Backend(BaseBackend):
                 related_collection = self.get_collection_for_cls(field.related)
             related_class = self.get_cls_for_collection(related_collection)
             column = Column(column_name,self.get_field_type(related_class.Meta.PkType),
-                            ForeignKey('%s%s.pk' % (related_collection,self.table_postfix)),
+                            ForeignKey('%s%s.pk' % (related_collection,self.table_postfix),ondelete = field.ondelete),
                             index=True,nullable = True if field.nullable else False)
             params = {'field' : field,
                       'key' : key,
@@ -288,8 +295,8 @@ class Backend(BaseBackend):
                     UniqueConstraint('pk_%s' % related_collection,'pk_%s' % collection)
                     ]
                 relationship_table = Table('%s%s' % (relationship_name,self.table_postfix),self._metadata,
-                        Column('pk_%s' % related_collection,self.get_field_type(related_class.Meta.PkType),ForeignKey('%s%s.pk' % (related_collection,self.table_postfix)),index = True),
-                        Column('pk_%s' % collection,self.get_field_type(cls.Meta.PkType),ForeignKey('%s%s.pk' % (collection,self.table_postfix)),index = True),
+                        Column('pk_%s' % related_collection,self.get_field_type(related_class.Meta.PkType),ForeignKey('%s%s.pk' % (related_collection,self.table_postfix),ondelete = field.ondelete),index = True),
+                        Column('pk_%s' % collection,self.get_field_type(cls.Meta.PkType),ForeignKey('%s%s.pk' % (collection,self.table_postfix),ondelete = field.ondelete),index = True),
                         *extra_columns
                     )
                 params['relationship_table'] = relationship_table
@@ -878,6 +885,7 @@ class Backend(BaseBackend):
                 if isinstance(query,Document) and not tail:
                     query = {'pk' : query.pk}
 
+                #to do: implement $size and $not: {$size} operators...
                 if isinstance(query,dict) and len(query) == 1 and query.keys()[0] in ('$all','$in','$elemMatch','$nin'):
                     #this is an $in/$all/$nin query
                     query_type = query.keys()[0][1:]
@@ -1035,6 +1043,13 @@ class Backend(BaseBackend):
                                     if isinstance(value,dict):
                                         if len(value) == 1:
                                             key,query = value.items()[0]
+                                            if key == '$exists':
+                                                if not isinstance(query,bool):
+                                                    raise AttributeError("$exists operator requires a Boolean operator")
+                                                if query:
+                                                    where_statements.append(table.c[params['column']] != None)
+                                                else:
+                                                    where_statements.append(table.c[params['column']] == None)
                                             if not key in ('$in','$nin'):
                                                 raise AttributeError("Invalid query!")
                                             query_type = key[1:]

@@ -129,11 +129,7 @@ class QuerySet(BaseQuerySet):
 
     def get_select_table_and_rows(self):
 
-        s = self.get_select()
-
-        #We create a CTE, which will allow us to join the required includes.
-        s_cte = s.cte("results")
-        rows = []
+        columns = []
         joins = []
 
         def join_table(collection,table,key,params,path = None):
@@ -154,7 +150,7 @@ class QuerySet(BaseQuerySet):
             for field,column_name in params['fields'].items():
                 column_label = '_'.join(path+[column_name])
                 params['table_fields'][field] = column_label
-                rows.append(related_table.c[column_name].label(column_label))
+                columns.append(related_table.c[column_name].label(column_label))
 
             for subkey,subparams in sorted(params['joins'].items(),key = lambda i : i[0]):
                 join_table(params['collection'],related_table,subkey,subparams,path = path)
@@ -208,6 +204,13 @@ class QuerySet(BaseQuerySet):
                 include.add(only_key)
 
         self.include_joins = self.backend.get_include_joins(self.cls,includes = include,excludes = exclude)
+
+        my_columns = self.include_joins['fields'].values()+\
+                     [params['relation']['column'] for params in self.include_joins['joins'].values()
+                      if isinstance(params['relation']['field'],ForeignKeyField)]
+        s = self.get_select(fields = [self.table.c[column] for column in my_columns])
+        s_cte = s.cte()
+
         process_fields_and_subkeys(self.include_joins['collection'],s_cte,self.include_joins,[])
 
         order_bys = []
@@ -218,7 +221,7 @@ class QuerySet(BaseQuerySet):
             for i,j in enumerate(joins):
                 s_cte = s_cte.outerjoin(*j)
 
-        return s_cte,order_bys,rows
+        return s_cte,order_bys,columns
 
     def as_table(self):
         return self.get_select_table_and_rows()[0]

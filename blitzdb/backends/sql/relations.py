@@ -106,6 +106,11 @@ class ManyToManyProxy(object):
     def insert(self,i,obj):
         raise NotImplementedError
 
+    def delete(self):
+        with self.obj.backend.transaction():
+            condition = relationship_table.c['pk_%s' % self.collection] == self.obj.pk
+            self.obj.bckend.connection.execute(delete(relationship_table).where(condition))
+
     def remove(self,obj):
         """
         Remove an object from the relation
