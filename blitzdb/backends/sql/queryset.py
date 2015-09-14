@@ -53,6 +53,7 @@ class QuerySet(BaseQuerySet):
         self.deserialized_pop_objects = None
         self._it = None
         self.order_bys = None
+        self.order_bys_keys = None
         self.count = None
         self.result = None
 
@@ -92,6 +93,7 @@ class QuerySet(BaseQuerySet):
                 raise AttributeError("Attempting to sort results by a non-indexed field %s" % key)
             order_bys.append((column,direction))
         self.order_bys = order_bys
+        self.order_bys_keys = keys
         self.objects = None
         return self
 
@@ -183,10 +185,12 @@ class QuerySet(BaseQuerySet):
 
         if self.include:
             include = copy.deepcopy(self.include)
-            if not isinstance(include,(list,tuple)):
+            if isinstance(include,tuple):
+                include = list(include)
+            if not isinstance(include,list):
                 raise AttributeError("include must be a list/tuple")
         else:
-            include = ()
+            include = []
 
         exclude = []
         if self.only:
@@ -199,12 +203,18 @@ class QuerySet(BaseQuerySet):
                         only.append(key)
             else:
                 only = set(self.only)
-            include = set(include)
             for only_key in only:
-                include.add(only_key)
+                if not only_key in include:
+                    include.append(only_key)
+
+        if self.order_bys_keys:
+            for key,direction in self.order_bys_keys:
+                if not key in include:
+                    include.append(key)
 
         self.include_joins = self.backend.get_include_joins(self.cls,includes = include,excludes = exclude)
 
+        #we only select the columns that we actually need
         my_columns = self.include_joins['fields'].values()+\
                      [params['relation']['column'] for params in self.include_joins['joins'].values()
                       if isinstance(params['relation']['field'],ForeignKeyField)]
