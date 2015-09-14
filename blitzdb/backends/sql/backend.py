@@ -205,7 +205,8 @@ class Backend(BaseBackend):
                 'collection' : related_collection,
                 'class' : related_class,
                 'type' : self.get_field_type(cls.Meta.PkType),
-                'backref' : backref
+                'is_backref' : True if backref is not None else False,
+                'backref' : backref,
             }
 
             if backref is None:
@@ -239,7 +240,8 @@ class Backend(BaseBackend):
                       'collection' : related_collection,
                       'class' : related_class,
                       'type' : self.get_field_type(related_class.Meta.PkType),
-                      'backref' : backref
+                      'is_backref' : True if backref is not None else False,
+                      'backref' : backref,
                       }
 
             self._related_fields[collection][field_name] = params
@@ -283,6 +285,7 @@ class Backend(BaseBackend):
                       'collection' : related_collection,
                       'class' : related_class,
                       'type' : self.get_field_type(related_class.Meta.PkType),
+                      'is_backref' : True if backref is not None else False,
                       'backref' : backref
                      }
 
@@ -531,9 +534,16 @@ class Backend(BaseBackend):
 
         def serialize_and_update_relations(obj,d):
             for related_field,relation_params in self._related_fields[collection].items():
+
+                #we skip back-references...
+                if relation_params.get('is_backref',None):
+                    continue
+
                 try:
                     value = get_value(obj,related_field)
                     if isinstance(relation_params['field'],ManyToManyField):
+                        if isinstance(value,ManyToManyProxy):
+                            continue
                         relationship_table = self._relationship_tables[collection][related_field]
                         deletes.append(relationship_table.delete().where(relationship_table.c['pk_%s' % collection] == expression.cast(obj.pk,pk_type)))
                         for element in value:
