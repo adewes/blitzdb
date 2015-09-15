@@ -135,7 +135,7 @@ class Backend(BaseBackend):
         else:
             collection = self.get_collection_for_cls(cls_or_collection)
         try:
-            return self._index_fields[collection][key]['column']
+            return self._table_columns[collection][key]['column']
         except KeyError:
             raise KeyError("Invalid key %s for collection %s" % (key,collection))
     
@@ -454,8 +454,8 @@ class Backend(BaseBackend):
 
     def update(self,obj,set_fields=None, unset_fields=None, update_obj=True):
 
-        if obj.lazy:
-            raise AttributeError("Updating lazy objects is currently not supported!")
+        if obj.pk is None:
+            raise obj.DoesNotExist("Trying to update a document without a primary key!")
 
         if set_fields is None:
             set_fields = {}
@@ -472,22 +472,82 @@ class Backend(BaseBackend):
                     set_fields_dict[key] = None
             set_fields = set_fields_dict
 
+        self.call_hook('before_update',obj,set_fields,unset_fields)
+
+        if update_obj:
+            for key,value in set_fields.items():
+                set_value(obj,key,value)
+
         if not isinstance(set_fields,dict):
             raise TypeError("set_fields must be a dictionary")
 
         if not isinstance(unset_fields,(tuple,list)):
             raise TypeError("unset_fields must be a tuple or a list")
 
-        self.call_hook('before_update',obj,set_fields,unset_fields)
+        collection = self.get_collection_for_cls(obj.__class__)
+        table = self._collection_tables[collection]
 
-        for key in unset_fields:
-            set_value(obj,key,None)
+        index_fields = self._index_fields[collection]
+        related_fields = self._related_fields[collection]
+        pk_type = self._index_fields[collection]['pk']['type']
 
-        for key,value in set_fields.items():
-            obj[key] = value
+        deletes = []
+        inserts = []
 
-        self.save(obj,call_hook = False)
-        return obj
+        with self.transaction(use_auto = False):
+
+            data_set_keys = {}
+            data_unset_keys = set()
+            update_dict = {}
+            delete_keys = set()
+
+            for key,value in set_fields.items():
+                if not key in index_fields and not key in related_fields:
+                    data_set_keys[key] = value
+                    continue
+                update_dict[key] = value
+
+            for key in unset_fields:
+                if not key in index_fields and not key in related_fields:
+                    data_unset_keys.add(key)
+                    continue
+                #we set the value to None to "delete" it from the document.
+                update_dict[key] = None
+
+            d = {}
+
+            self._serialize_and_update_indexes(update_dict,collection,d,for_update = True)
+            self._serialize_and_update_relations(update_dict,collection,d,deletes,
+                                                 inserts,autosave_dependent = False,
+                                                 for_update = True)
+
+            #if we have to update the JSON data
+            if data_set_keys or data_unset_keys:
+                result = self.connection.execute(select([table.c.data]).where(table.c.pk == obj.pk))
+                data_str = result.fetchone()[0]
+                if data_str is None:
+                    raise obj.DoesNotExist("Object does not exist!")
+                data = self.deserialize_json(data_str)
+                for key,value in data_set_keys.items():
+                    set_value(data,key,value)
+                for key in data_unset_keys:
+                    delete_value(data,key)
+                self.connection.execute(table.update().values({'data' : self.serialize_json(data)}))
+
+            for delete in deletes:
+                self.connection.execute(delete)
+
+            for insert in inserts:
+                self.connection.execute(insert)
+
+            if d:
+                update = table.update().values(**d).where(table.c.pk == obj.pk)
+                result = self.connection.execute(update)
+                if not result.rowcount:
+                    raise obj.DoesNotExist("Object does not exist!")
+
+            return obj
+
 
     def serialize_json(self,data):
         return JsonSerializer.serialize(data)
@@ -496,6 +556,86 @@ class Backend(BaseBackend):
         if data and data != '{}':
             return JsonSerializer.deserialize(data)
         return {}
+
+    def _serialize_and_update_indexes(self,obj,collection,d,for_update = False):
+
+        pk_type = self._index_fields[collection]['pk']['type']
+
+        for index_field,index_params in self._index_fields[collection].items():
+            try:
+                if for_update:
+                    value = obj[index_field]
+                else:
+                    value = get_value(obj,index_field)
+                if value is None:
+                    if not index_params['field'].nullable:
+                        raise ValueError("No value for %s given, but this is a mandatory field!" % index_field['key'])
+                    d[index_params['column']] = null()
+                else:
+                    d[index_params['column']] = expression.cast(value,index_params['type'])
+            except KeyError:
+                if for_update:
+                    continue
+                if not index_params['field'].nullable:
+                    raise ValueError("No value for %s given, but this is a mandatory field!" % index_field['key'])
+                d[index_params['column']] = null()
+
+    def _serialize_and_update_relations(self,obj,collection,d,deletes,inserts,autosave_dependent = True,for_update = False):
+
+        pk_type = self._index_fields[collection]['pk']['type']
+
+        for related_field,relation_params in self._related_fields[collection].items():
+
+            #we skip back-references...
+            if relation_params.get('is_backref',None):
+                continue
+
+            try:
+                if for_update:
+                    value = obj[related_field]
+                else:
+                    value = get_value(obj,related_field)
+                if isinstance(relation_params['field'],ManyToManyField):
+                    if isinstance(value,ManyToManyProxy):
+                        continue
+                    relationship_table = self._relationship_tables[collection][related_field]
+                    deletes.append(relationship_table.delete().where(relationship_table.c['pk_%s' % collection] == expression.cast(obj.pk,pk_type)))
+                    for element in value:
+                        if not isinstance(element,Document):
+                            raise AttributeError("ManyToMany field %s contains an invalid value!" % related_field)
+                        if element.pk is None:
+                            if autosave_dependent:
+                                self.save(element)
+                            else:
+                                raise AttributeError("Related document in field %s has no primary key!" % related_field)
+                        ed = {
+                            'pk_%s' % collection : obj.pk,
+                            'pk_%s' % relation_params['collection'] : element.pk,
+                        }
+                        inserts.append(relationship_table.insert().values(**ed))
+                elif isinstance(relation_params['field'],ForeignKeyField):
+                    if value is None:
+                        if not relation_params['field'].nullable:
+                            raise AttributeError("Field %s cannot be None!" % related_field)
+                        d[relation_params['column']] = null()
+                    elif not isinstance(value,Document):
+                        raise AttributeError("Field %s must be a document!" % related_field)
+                    else:
+                        if value.pk is None:
+                            if autosave_dependent:
+                                self.save(value)
+                            else:
+                                raise AttributeError("Related document in field %s has no primary key!" % related_field)
+                        d[relation_params['column']] = expression.cast(value.pk,relation_params['type'])
+
+            except KeyError:
+                if for_update:
+                    continue
+                if isinstance(relation_params['field'],ForeignKeyField):
+                    if not relation_params['field'].nullable:
+                        raise ValueError("No value for %s given, but this is a mandatory field!" % relation_params['key'])
+                    d[relation_params['column']] = null()
+
 
     def save(self,obj,autosave_dependent = True,call_hook = True):
 
@@ -521,67 +661,6 @@ class Backend(BaseBackend):
         deletes = []
         inserts = []
 
-        def serialize_and_update_indexes(obj,d):
-            for index_field,index_params in self._index_fields[collection].items():
-                try:
-                    value = get_value(obj,index_field)
-                    if value is None:
-                        if not index_params['field'].nullable:
-                            raise ValueError("No value for %s given, but this is a mandatory field!" % index_field['key'])
-                        d[index_params['column']] = null()
-                    else:
-                        d[index_params['column']] = expression.cast(value,index_params['type'])
-                except KeyError:
-                    if not index_params['field'].nullable:
-                        raise ValueError("No value for %s given, but this is a mandatory field!" % index_field['key'])
-                    d[index_params['column']] = null()
-
-        def serialize_and_update_relations(obj,d):
-            for related_field,relation_params in self._related_fields[collection].items():
-
-                #we skip back-references...
-                if relation_params.get('is_backref',None):
-                    continue
-
-                try:
-                    value = get_value(obj,related_field)
-                    if isinstance(relation_params['field'],ManyToManyField):
-                        if isinstance(value,ManyToManyProxy):
-                            continue
-                        relationship_table = self._relationship_tables[collection][related_field]
-                        deletes.append(relationship_table.delete().where(relationship_table.c['pk_%s' % collection] == expression.cast(obj.pk,pk_type)))
-                        for element in value:
-                            if not isinstance(element,Document):
-                                raise AttributeError("ManyToMany field %s contains an invalid value!" % related_field)
-                            if element.pk is None:
-                                if autosave_dependent:
-                                    self.save(element)
-                                else:
-                                    raise AttributeError("Related document in field %s has no primary key!" % related_field)
-                            ed = {
-                                'pk_%s' % collection : obj.pk,
-                                'pk_%s' % relation_params['collection'] : element.pk,
-                            }
-                            inserts.append(relationship_table.insert().values(**ed))
-                    elif isinstance(relation_params['field'],ForeignKeyField):
-                        if value is None:
-                            if not relation_params['field'].nullable:
-                                raise AttributeError("Field %s cannot be None!" % related_field)
-                            d[relation_params['column']] = None
-                        elif not isinstance(value,Document):
-                            raise AttributeError("Field %s must be a document!" % related_field)
-                        else:
-                            if value.pk is None:
-                                if autosave_dependent:
-                                    self.save(value)
-                                else:
-                                    raise AttributeError("Related document in field %s has no primary key!" % related_field)
-                            d[relation_params['column']] = expression.cast(value.pk,relation_params['type'])
-
-                except KeyError:
-                    #this index value does not exist in the object
-                    pass
-
         with self.transaction(use_auto = False):
 
             insert = False
@@ -593,8 +672,8 @@ class Backend(BaseBackend):
                     encoders = [ExcludedFieldsEncoder(self,collection)])),
                  'pk' : expression.cast(obj.pk,pk_type)}
 
-            serialize_and_update_indexes(obj,d)
-            serialize_and_update_relations(obj,d)
+            self._serialize_and_update_indexes(obj,collection,d)
+            self._serialize_and_update_relations(obj,collection,d,deletes,inserts,autosave_dependent = autosave_dependent)
 
             #if we got an object with a PK, we try to perform an UPDATE operation
             if not insert:
