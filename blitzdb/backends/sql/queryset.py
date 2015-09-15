@@ -203,14 +203,16 @@ class QuerySet(BaseQuerySet):
                         only.append(key)
             else:
                 only = set(self.only)
+
             for only_key in only:
                 if not only_key in include:
                     include.append(only_key)
 
-        if self.order_bys_keys:
-            for key,direction in self.order_bys_keys:
-                if not key in include:
-                    include.append(key)
+        if include:
+            if self.order_bys_keys:
+                for key,direction in self.order_bys_keys:
+                    if not key in include:
+                        include.append(key)
 
         self.include_joins = self.backend.get_include_joins(self.cls,includes = include,excludes = exclude)
 
