@@ -454,6 +454,9 @@ class Backend(BaseBackend):
 
     def update(self,obj,set_fields=None, unset_fields=None, update_obj=True):
 
+        if obj.lazy:
+            raise AttributeError("Updating lazy objects is currently not supported!")
+
         if set_fields is None:
             set_fields = {}
 
