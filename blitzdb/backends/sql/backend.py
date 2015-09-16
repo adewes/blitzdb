@@ -514,12 +514,16 @@ class Backend(BaseBackend):
                 #we set the value to None to "delete" it from the document.
                 update_dict[key] = None
 
+            update_dict['pk'] = obj.pk
             d = {}
 
             self._serialize_and_update_indexes(update_dict,collection,d,for_update = True)
             self._serialize_and_update_relations(update_dict,collection,d,deletes,
                                                  inserts,autosave_dependent = False,
                                                  for_update = True)
+
+            if not 'pk' in set_fields or set_fields['pk'] is None:
+                del d['pk']
 
             #if we have to update the JSON data
             if data_set_keys or data_unset_keys:
@@ -599,7 +603,7 @@ class Backend(BaseBackend):
                     if isinstance(value,ManyToManyProxy):
                         continue
                     relationship_table = self._relationship_tables[collection][related_field]
-                    deletes.append(relationship_table.delete().where(relationship_table.c['pk_%s' % collection] == expression.cast(obj.pk,pk_type)))
+                    deletes.append(relationship_table.delete().where(relationship_table.c['pk_%s' % collection] == expression.cast(obj['pk'],pk_type)))
                     for element in value:
                         if not isinstance(element,Document):
                             raise AttributeError("ManyToMany field %s contains an invalid value!" % related_field)
@@ -609,7 +613,7 @@ class Backend(BaseBackend):
                             else:
                                 raise AttributeError("Related document in field %s has no primary key!" % related_field)
                         ed = {
-                            'pk_%s' % collection : obj.pk,
+                            'pk_%s' % collection : obj['pk'],
                             'pk_%s' % relation_params['collection'] : element.pk,
                         }
                         inserts.append(relationship_table.insert().values(**ed))
