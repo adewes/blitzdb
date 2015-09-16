@@ -191,7 +191,7 @@ class Index(object):
         elif order == QuerySet.DESCENDING:
             return sorted_keys + missing_keys
         else:
-            raise ValueError('Unexpected order value: %d' % order)
+            raise ValueError('Unexpected order value: {0:d}'.format(order))
 
     def save_to_data(self, in_place=False):
         """Save index to data structure.
@@ -293,7 +293,7 @@ class Index(object):
 
         """
         if self._unique and hash_value in self._index:
-            raise NonUnique('Hash value %s already in index' % hash_value)
+            raise NonUnique('Hash value {0} already in index'.format(hash_value))
         if store_key not in self._index[hash_value]:
             self._index[hash_value].append(store_key)
         if hash_value not in self._reverse_index[store_key]:
@@ -313,8 +313,8 @@ class Index(object):
             value = self.get_value(attributes)
             if value == self.undefined_magic_value:
                 raise IndexError(
-                    'index value corresponds to undefined_magic_value: %s'
-                    % self.undefined_magic_value)
+                    'index value corresponds to undefined_magic_value: {0}'\
+                    .format(self.undefined_magic_value))
         except (KeyError, IndexError):
             undefined = True
 

@@ -21,12 +21,12 @@ class MetaDocument(type):
         class DoesNotExist(BaseException):
 
             def __str__(self):
-                return "DoesNotExist(%s)" % name
+                return "DoesNotExist({0})".format(name)
 
         class MultipleDocumentsReturned(BaseException):
 
             def __str__(self):
-                return "MultipleDocumentsReturned(%s)" % name
+                return "MultipleDocumentsReturned({0})".format(name)
 
         dct['DoesNotExist'] = DoesNotExist
         dct['MultipleDocumentsReturned'] = MultipleDocumentsReturned
@@ -54,7 +54,7 @@ class BaseDocument(object):
     :param attributes: the attributes of the document instance. Expects a Python dictionary.
     :param lazy: if set to `True`, will lazily load the document from the backend when
                  an attribute is requested. This requires that `default_backend` has been
-                 specified and that the `pk` attribute is set. 
+                 specified and that the `pk` attribute is set.
 
     :param default_backend: the default backend to be used for saving and loading the document.
 
@@ -248,7 +248,7 @@ class BaseDocument(object):
 
     def __ne__(self, other):
         return not self.__eq__(other)
-    
+
     def __eq__(self, other):
         """
         Compares the document instance to another object. The comparison rules are as follows:
@@ -271,7 +271,7 @@ class BaseDocument(object):
         return False
 
     def __unicode__(self):
-        return self.__class__.__name__ + "({%s : '%s'},lazy = %s)" % (self.get_pk_name(), self.pk, self._lazy)
+        return self.__class__.__name__ + "({{0} : '{1}'},lazy = {2})".format(self.get_pk_name(), self.pk, self._lazy)
 
     if six.PY3:
         __str__ = __unicode__
@@ -302,17 +302,17 @@ class BaseDocument(object):
 
     def initialize(self):
         """
-        Gets called when **after** the object attributes get loaded from the database. 
+        Gets called when **after** the object attributes get loaded from the database.
         Redefine it in your document class to perform object initialization tasks.
 
         .. admonition:: Keep in Mind
 
-            The function also get called after invoking the `revert` function, which 
+            The function also get called after invoking the `revert` function, which
             resets the object attributes to those in the database, so do not assume that
             the function will get called only once during the lifetime of the object.
 
-            Likewise, you should **not** perform any initialization in the `__init__` 
-            function to initialize your object, since this can possibly break lazy loading 
+            Likewise, you should **not** perform any initialization in the `__init__`
+            function to initialize your object, since this can possibly break lazy loading
             and `revert` operations.
         """
         pass
@@ -321,11 +321,11 @@ class BaseDocument(object):
         """
         Autogenerates a primary key for this document. This function gets called by the backend
         if you save a document without a primary key field. By default, it uses `uuid.uuid4().hex`
-        to generate a (statistically) unique primary key for the object (`more about UUIDs <http://docs.python.org/2/library/uuid.html/>`_). 
+        to generate a (statistically) unique primary key for the object (`more about UUIDs <http://docs.python.org/2/library/uuid.html/>`_).
         If you want to define your own primary key generation mechanism, just redefine this function
         in your document class.
         """
-        self.pk = uuid.uuid4().hex 
+        self.pk = uuid.uuid4().hex
 
     @classmethod
     def get_pk_name(cls):
@@ -335,9 +335,9 @@ class BaseDocument(object):
     def pk(self):
         """
         Returns (or sets) the primary key of the document, which is stored in the `attributes` dict
-        along with all other attributes. The name of the primary key defaults to `pk` and 
+        along with all other attributes. The name of the primary key defaults to `pk` and
         can be redefine in the `Meta` class. This function provides a standardized way to
-        retrieve and set the primary key of a document and is used by the backend and a 
+        retrieve and set the primary key of a document and is used by the backend and a
         few other classes. If possible, always use this function to access the
         primary key of a document.
 
@@ -403,9 +403,9 @@ class BaseDocument(object):
 
     def revert(self, backend=None):
         """
-        Reverts the state of the document to that contained in the database. 
-        If the `backend` argument is not specified, the function resorts to the *default backend* 
-        as defined during object instantiation. If no such backend is defined, an `AttributeError` 
+        Reverts the state of the document to that contained in the database.
+        If the `backend` argument is not specified, the function resorts to the *default backend*
+        as defined during object instantiation. If no such backend is defined, an `AttributeError`
         exception will be thrown.
 
         :param backend: the backend from which to delete the document.
@@ -416,7 +416,7 @@ class BaseDocument(object):
             allows you to perform document-specific initialization tasks if needed.
 
         """
-        logger.debug("Reverting to database state (%s, %s)" % (self.__class__.__name__, self.pk))
+        logger.debug("Reverting to database state ({0}, {1})".format(self.__class__.__name__, self.pk))
         backend = backend or self._default_backend
         if not backend:
             raise AttributeError("No backend given!")
