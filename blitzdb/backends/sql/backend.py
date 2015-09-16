@@ -110,12 +110,12 @@ class Backend(BaseBackend):
     def connection(self):
         return self._conn
 
-    def get_field_type(self,field):
+    def get_field_type(self,field,name = None):
         m = {
             IntegerField : Integer,
             FloatField : Float,
             CharField : VARCHAR(60),
-            EnumField : lambda field: Enum(*field.enums),
+            EnumField : lambda field: Enum(*field.enums,name = name),
             TextField : Text,
             BooleanField: Boolean,
             BinaryField: LargeBinary,
@@ -324,7 +324,7 @@ class Backend(BaseBackend):
             column_name = key.replace('.','_')
             index_params = {'field' : field,
                             'key' : key,
-                            'type' : self.get_field_type(field),
+                            'type' : self.get_field_type(field,name = '%s_%s' % (collection,column_name)),
                             'column' : column_name}
             self._index_fields[collection][key] = index_params
             self._table_columns[collection][key] = index_params
@@ -528,10 +528,10 @@ class Backend(BaseBackend):
             #if we have to update the JSON data
             if data_set_keys or data_unset_keys:
                 result = self.connection.execute(select([table.c.data]).where(table.c.pk == obj.pk))
-                data_str = result.fetchone()[0]
-                if data_str is None:
+                data_row = result.fetchone()
+                if data_row is None:
                     raise obj.DoesNotExist("Object does not exist!")
-                data = self.deserialize_json(data_str)
+                data = self.deserialize_json(data_row[0])
                 for key,value in data_set_keys.items():
                     set_value(data,key,value)
                 for key in data_unset_keys:
