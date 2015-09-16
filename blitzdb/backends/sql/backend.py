@@ -536,7 +536,9 @@ class Backend(BaseBackend):
                     set_value(data,key,value)
                 for key in data_unset_keys:
                     delete_value(data,key)
-                self.connection.execute(table.update().values({'data' : self.serialize_json(data)}).where(table.c.pk == obj.pk))
+                self.connection.execute(table.update()\
+                                        .values({'data' : self.serialize_json(self.serialize(data))})\
+                                        .where(table.c.pk == obj.pk))
 
             for delete in deletes:
                 self.connection.execute(delete)
