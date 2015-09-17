@@ -1020,7 +1020,6 @@ class Backend(BaseBackend):
                     query_type = query.keys()[0][1:]
                     subquery = query.values()[0]
 
-
                     if query_type == 'elemMatch':
                         queries = compile_query(params['collection'],
                                                 prepare_subquery(tail,query['$elemMatch']),
@@ -1083,12 +1082,11 @@ class Backend(BaseBackend):
                                     table = related_table,
                                     path = path)
 
-            def compile_many_to_many_query(key,value,field_name,related_collection,relationship_table):
+            def compile_many_to_many_query(key,value,field_name,related_collection,relationship_table,path):
 
                 related_table = self._collection_tables[related_collection]
 
-                new_path = path+[field_name]
-                path_str = ".".join(new_path)
+                path_str = ".".join(path)
 
                 if path_str in joins[relationship_table]:
                     relationship_table_alias = joins[relationship_table][path_str]
@@ -1162,10 +1160,14 @@ class Backend(BaseBackend):
                     #we check the normal relationships
                     for field_name,params in self._related_fields[collection].items():
                         if key.startswith(field_name):
+
+                            head,tail = key[:len(field_name)],key[len(field_name)+1:]
+                            new_path = path + [head]
+                            path_str = ".".join(new_path)
                             #ManyToManyField
                             if isinstance(params['field'],ManyToManyField):
                                 relationship_table = self._relationship_tables[collection][field_name]
-                                where_statements.extend(compile_many_to_many_query(key,value,field_name,params['collection'],relationship_table))
+                                where_statements.extend(compile_many_to_many_query(key,value,field_name,params['collection'],relationship_table,path = new_path))
                             elif isinstance(params['field'],ForeignKeyField):#this is a normal ForeignKey relation
                                 if key == field_name:
                                     #this is a ForeignKey query
@@ -1220,21 +1222,19 @@ class Backend(BaseBackend):
                                         where_statements.append(table.c[params['column']] == expression.cast(query,params['class'].Meta.PkType))
                                 else:
                                     #we query a sub-field of the relation
-                                    head,tail = key[:len(field_name)],key[len(field_name)+1:]
                                     related_table = self._collection_tables[params['collection']]
-                                    new_path = path + [field_name]
-                                    path_str = ".".join(new_path)
+
                                     if path_str in joins[related_table]:
                                         related_table_alias = joins[related_table][path_str]
                                     else:
                                         related_table_alias = related_table.alias()
                                         joins[related_table][path_str] = related_table_alias
                                         joins_list.append((related_table_alias,table.c[params['column']] == related_table_alias.c['pk']))
-                                    where_statements.extend(compile_query(params['collection'],{tail : value},table = related_table_alias))
+
+                                    where_statements.extend(compile_query(params['collection'],{tail : value},table = related_table_alias,path = new_path))
                             elif isinstance(params['field'],OneToManyField):
                                 related_table = self._collection_tables[params['collection']]
-                                new_path = path + [field_name]
-                                path_str = '.'.join(new_path)
+
                                 if path_str in joins[related_table]:
                                     related_table_alias = joins[related_table][path_str]
                                 else:
