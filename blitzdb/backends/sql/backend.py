@@ -94,20 +94,32 @@ class Backend(BaseBackend):
     def __init__(self, engine, table_postfix = '',create_schema = False,**kwargs):
         super(Backend, self).__init__(**kwargs)
 
-        self._engine = engine
+        self._engine_getter = engine
+        self._engine = None
         self._transactions = []
-
         self.table_postfix = table_postfix
 
         if create_schema:
             self.create_schema()
 
-        self._conn = self._engine.connect()
+        self.init_schema()
+
+        self._conn = None
         self._auto_transaction = False
-        self.begin()
+
+    @property
+    def engine(self):
+        if self._engine is None:
+            if callable(self._engine_getter):
+                self._engine = self._engine_getter()
+            else:
+                self._engine = self._engine_getter
+        return self._engine
 
     @property
     def connection(self):
+        if self._conn is None:
+            self._conn = self.engine.connect()
         return self._conn
 
     def get_field_type(self,field,name = None):
@@ -232,7 +244,7 @@ class Backend(BaseBackend):
                 related_collection = self.get_collection_for_cls(field.related)
             related_class = self.get_cls_for_collection(related_collection)
             column = Column(column_name,self.get_field_type(related_class.Meta.PkType),
-                            ForeignKey('%s%s.pk' % (related_collection,self.table_postfix),name = '%s_%s_%s' % (collection,related_collection,column_name), ondelete = field.ondelete),
+                            ForeignKey('%s%s.pk' % (related_collection,self.table_postfix),name = '%s_%s_%s' % (collection,related_collection,column_name), ondelete = field.ondelete,use_alter = True),
                             index=True,nullable = True if field.nullable else False)
             params = {'field' : field,
                       'key' : key,
@@ -299,8 +311,8 @@ class Backend(BaseBackend):
                     UniqueConstraint('pk_%s' % related_collection,'pk_%s' % collection,name = '%s_%s_unique' % (relationship_name,column_name))
                     ]
                 relationship_table = Table('%s%s' % (relationship_name,self.table_postfix),self._metadata,
-                        Column(related_pk_field_name,self.get_field_type(related_class.Meta.PkType),ForeignKey('%s%s.pk' % (related_collection,self.table_postfix),name = "%s_%s" % (relationship_name,related_pk_field_name), ondelete = field.ondelete),index = True),
-                        Column(pk_field_name,self.get_field_type(cls.Meta.PkType),ForeignKey('%s%s.pk' % (collection,self.table_postfix),name = "%s_%s" % (relationship_name,pk_field_name),ondelete = field.ondelete),index = True),
+                        Column(related_pk_field_name,self.get_field_type(related_class.Meta.PkType),ForeignKey('%s%s.pk' % (related_collection,self.table_postfix),name = "%s_%s" % (relationship_name,related_pk_field_name), ondelete = field.ondelete,use_alter = True),index = True),
+                        Column(pk_field_name,self.get_field_type(cls.Meta.PkType),ForeignKey('%s%s.pk' % (collection,self.table_postfix),name = "%s_%s" % (relationship_name,pk_field_name),ondelete = field.ondelete,use_alter = True),index = True),
                         *extra_columns
                     )
                 params['relationship_table'] = relationship_table
@@ -435,13 +447,18 @@ class Backend(BaseBackend):
     def close_connection(self):
         return self.connection.close()
 
+    def replace_engine(self,engine):
+        self._engine = engine
+        self._conn = None
+        self._transactions = []
+
     def create_schema(self,indexes = None):
         self.init_schema()
-        self._metadata.create_all(self._engine,checkfirst = True)
+        self._metadata.create_all(self.engine,checkfirst = True)
 
     def drop_schema(self):
         self.init_schema()
-        self._metadata.drop_all(self._engine,checkfirst = True)
+        self._metadata.drop_all(self.engine,checkfirst = True)
 
     def delete(self, obj):
 
@@ -1109,8 +1126,8 @@ class Backend(BaseBackend):
                 elif '$like' in query:
                     return [table.c[column_name].like(expression.cast(query['$like'],String))]
                 elif '$regex' in query:
-                    if not self._engine.url.drivername in ('postgres','mysql','sqlite'):
-                        raise AttributeError("Regex queries not supported with %s engine!" % self._engine.url.drivername)
+                    if not self.engine.url.drivername in ('postgres','mysql','sqlite'):
+                        raise AttributeError("Regex queries not supported with %s engine!" % self.engine.url.drivername)
                     return [table.c[column_name].op('REGEXP')(expression.cast(query['$regex'],String))]
                 else:
                     raise AttributeError("Invalid query!")
