@@ -61,11 +61,11 @@ class Backend(BaseBackend):
     def rollback(self):
         if not self.in_transaction:
             raise NotInTransaction("Not in a transaction!")
-        
+
         self._save_cache = defaultdict(lambda: {})
         self._delete_cache = defaultdict(lambda: {})
         self._update_cache = defaultdict(lambda: {})
-        
+
         self.in_transaction = False
 
     def commit(self):
@@ -75,7 +75,7 @@ class Backend(BaseBackend):
                     try:
                         self.db[collection].save(attributes)
                     except:
-                        logger.error("Error when saving the document with pk %s in collection %s" % (attributes['pk'], collection))
+                        logger.error("Error when saving the document with pk {0} in collection {1}".format(attributes['pk'], collection))
                         logger.error("Attributes (excerpt):" + str(dict(attributes.items()[:100])))
                         raise
 
@@ -206,7 +206,7 @@ class Backend(BaseBackend):
 
 
             if isinstance(fields, list) or isinstance(fields, tuple):
-                update_dict = {key : _get(obj.attributes,key) for key in fields 
+                update_dict = {key : _get(obj.attributes,key) for key in fields
                                 if _exists(obj.attributes,key)}
                 serialized_attributes = {key : self.serialize(value) for key,value in update_dict.items()}
             elif isinstance(fields, dict):
@@ -289,11 +289,11 @@ class Backend(BaseBackend):
 
         standard_encoders.append((lambda obj:True if isinstance(obj,complex) else False,encode_complex))
 
-        return super(Backend, self).serialize(obj, 
-                                              convert_keys_to_str=convert_keys_to_str, 
-                                              embed_level=embed_level, 
-                                              encoders=encoders + standard_encoders if encoders else standard_encoders, 
-                                              autosave=autosave, 
+        return super(Backend, self).serialize(obj,
+                                              convert_keys_to_str=convert_keys_to_str,
+                                              embed_level=embed_level,
+                                              encoders=encoders + standard_encoders if encoders else standard_encoders,
+                                              autosave=autosave,
                                               for_query=for_query)
 
     def deserialize(self, obj, decoders=None):
@@ -310,10 +310,10 @@ class Backend(BaseBackend):
             """
             return 1j*obj['i']+obj['r']
 
-        standard_decoders = [(lambda obj:True if isinstance(obj, dict) 
-                                                and '_type' in obj 
-                                                and obj['_type'] == 'dict' 
-                                                and 'items' in obj 
+        standard_decoders = [(lambda obj:True if isinstance(obj, dict)
+                                                and '_type' in obj
+                                                and obj['_type'] == 'dict'
+                                                and 'items' in obj
                                                 else False,
                               decode_dict),
                              (lambda obj:True if isinstance(obj,dict)
@@ -358,7 +358,7 @@ class Backend(BaseBackend):
 
     def compile_query(self, query):
         if isinstance(query, dict):
-            return dict([(self.compile_query(key), self.compile_query(value)) 
+            return dict([(self.compile_query(key), self.compile_query(value))
                          for key, value in query.items()])
         elif isinstance(query, list) or isinstance(query, QuerySet) or isinstance(query, tuple):
             return [self.compile_query(x) for x in query]
@@ -386,7 +386,7 @@ class Backend(BaseBackend):
 
         .. note::
 
-            This function supports all query operators that are available in MongoDB and returns 
+            This function supports all query operators that are available in MongoDB and returns
             a query set that is based on a MongoDB cursor.
 
         """
