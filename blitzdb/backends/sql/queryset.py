@@ -394,7 +394,7 @@ class QuerySet(BaseQuerySet):
                           raw = self.raw,
                           include = self.include,
                           only = self.only,
-                          joins = self.joins+qs.joins,
+                          joins = (self.joins if self.joins else [])+(qs.joins if qs.joins else []),
                           extra_fields = self.extra_fields)
         return new_qs
 

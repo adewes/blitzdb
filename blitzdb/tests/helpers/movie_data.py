@@ -40,6 +40,7 @@ class Director(Document):
 
     name = CharField(indexed = True)
     favorite_actor = ForeignKeyField('Actor')
+    best_movie = ForeignKeyField('Movie',unique = True,backref = 'best_of_director')
 
 class Role(Document):
 

@@ -134,7 +134,7 @@ class Document(object):
         primary_key = "pk"
         indexes = {}
 
-    def __init__(self, attributes=None, lazy=False, backend=None, autoload=True):
+    def __init__(self, attributes=None, lazy=False, backend=None, autoload=True, db_loader = None):
         """
         Initializes a document instance with the given attributes. If `lazy = True`, a *lazy* 
         document will be created, which means that the attributes of the document will be loaded 
@@ -155,6 +155,7 @@ class Document(object):
         self._autoload = autoload
         self._backend = backend
         self._properties = {}
+        self._db_loader = db_loader
 
         if not lazy:
             self._lazy = False
@@ -288,7 +289,12 @@ class Document(object):
 
     def __ne__(self, other):
         return not self.__eq__(other)
-    
+
+    def __nonzero__(self):
+        if self.pk:
+            return True
+        return False
+
     def __eq__(self, other):
         """
         Compares the document instance to another object. The comparison rules are as follows:
@@ -394,6 +400,12 @@ class Document(object):
         primary_key = self.get_pk_name()
         if primary_key in self._attributes:
             return self._attributes[primary_key]
+
+        #if there is no pk value but a _db_loader, we load the object lazily to retrieve the pk
+        if self._lazy and self._db_loader:
+            self.revert()
+            return self.pk
+
         return None
 
     @property
@@ -462,16 +474,19 @@ class Document(object):
             allows you to perform document-specific initialization tasks if needed.
 
         """
-        logger.debug("Reverting to database state (%s, %s)" % (self.__class__.__name__, self.pk))
-        backend = backend or self._backend
-        if not backend:
-            raise AttributeError("No backend given!")
-        if self.pk == None:
-            raise self.DoesNotExist("No primary key given!")
-        obj = backend.get(self.__class__, {self.get_pk_name(): self.pk})
+        self._lazy = False
+        logger.debug("Reverting to database state (%s, %s)" % (self.__class__.__name__, str(self.pk)))
+        if self._db_loader:
+            obj = self._db_loader()
+        else:
+            backend = backend or self._backend
+            if not backend:
+                raise AttributeError("No backend given!")
+            if self.pk == None:
+                raise self.DoesNotExist("No primary key given!")
+            obj = backend.get(self.__class__, {self.get_pk_name(): self.pk})
         self._attributes = obj.attributes
         self.initialize()
-        self._lazy = False
 
     def load_if_lazy(self):
         if self._lazy:

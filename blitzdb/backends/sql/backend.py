@@ -268,6 +268,7 @@ class Backend(BaseBackend):
                 backref_key = field.backref or 'related_%s_%s' % (collection,column_name)
                 params['backref'] = add_one_to_many_field(related_collection,related_class,backref_key,
                                       OneToManyField(related = cls,
+                                                     unique = field.unique,
                                                      key = backref_key),
                                                      backref = params)
 
@@ -880,11 +881,9 @@ class Backend(BaseBackend):
                 set_value(data,params['key'],foreign_obj)
             elif isinstance(params['field'],OneToManyField):
                 try:
-                    #to do: add proper select condition
                     objects = get_value(data,params['key'])
                 except KeyError:
                     objects = None
-
                 table = self._collection_tables[params['collection']]
                 related_table = self._collection_tables[params['backref']['collection']]
                 qs = QuerySet(backend = self,
@@ -894,7 +893,18 @@ class Backend(BaseBackend):
                         objects = objects,
                         raw = False,
                         )
-                set_value(data,params['key'],qs)
+                if params['field'].unique:
+                    def db_loader():
+                        try:
+                            obj = qs[0]
+                        except IndexError:
+                            raise params['class'].DoesNotExist
+                        if len(qs) > 1:
+                            raise params['class'].MultipleDocumentsReturned
+                        return obj
+                    set_value(data,params['key'],params['class']({},lazy = True,db_loader = db_loader))
+                else:
+                    set_value(data,params['key'],qs)
 
         obj.attributes = data
         self.call_hook('after_load',obj)
@@ -919,7 +929,10 @@ class Backend(BaseBackend):
 
         result = self.filter(cls_or_collection,query,raw = raw,only = only,include = include)
         try:
-            return result[0]
+            obj = result[0]
+            if len(result) > 1:
+                raise cls.MultipleDocumentsReturned
+            return obj
         except IndexError:
             raise cls.DoesNotExist
 
