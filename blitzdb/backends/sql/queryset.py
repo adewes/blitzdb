@@ -87,11 +87,7 @@ class QuerySet(BaseQuerySet):
                 direction = asc
             else:
                 direction = desc
-            try:
-                column = self.backend.get_column_for_key(self.cls,key)
-            except KeyError:
-                raise AttributeError("Attempting to sort results by a non-indexed field %s" % key)
-            order_bys.append((column,direction))
+            order_bys.append((key,direction))
         self.order_bys = order_bys
         self.order_bys_keys = keys
         self.objects = None
@@ -132,48 +128,54 @@ class QuerySet(BaseQuerySet):
     def get_select_table_and_rows(self):
 
         columns = []
+        column_map = {}
         joins = []
 
-        def join_table(collection,table,key,params,path = None):
+        def join_table(collection,table,key,params,path = None,key_path = None):
             if path is None:
                 path = []
+            if key_path is None:
+                key_path = []
             if isinstance(params['relation']['field'],ManyToManyField):
-                join_many_to_many(collection,table,key,params,path)
+                join_many_to_many(collection,table,key,params,path,key_path)
             elif isinstance(params['relation']['field'],ForeignKeyField):
-                join_foreign_key(collection,table,key,params,path)
+                join_foreign_key(collection,table,key,params,path,key_path)
             elif isinstance(params['relation']['field'],OneToManyField):
-                join_one_to_many(collection,table,key,params,path)
+                join_one_to_many(collection,table,key,params,path,key_path)
             else:
                 raise AttributeError
 
-        def process_fields_and_subkeys(related_collection,related_table,params,path):
+        def process_fields_and_subkeys(related_collection,related_table,params,path,key_path):
 
             params['table_fields'] = {}
             for field,column_name in params['fields'].items():
                 column_label = '_'.join(path+[column_name])
                 params['table_fields'][field] = column_label
-                columns.append(related_table.c[column_name].label(column_label))
+                column = related_table.c[column_name].label(column_label)
+                columns.append(column)
+                if field != '__data__':
+                    column_map[".".join(key_path+[field])] = column
 
             for subkey,subparams in sorted(params['joins'].items(),key = lambda i : i[0]):
-                join_table(params['collection'],related_table,subkey,subparams,path = path)
+                join_table(params['collection'],related_table,subkey,subparams,path = path,key_path = key_path+[subkey])
 
-        def join_one_to_many(collection,table,key,params,path):
+        def join_one_to_many(collection,table,key,params,path,key_path):
             related_table = params['table'].alias()
             related_collection = params['relation']['collection']
             condition = table.c['pk'] == related_table.c[params['relation']['backref']['column']]
             joins.append((related_table,condition))
             process_fields_and_subkeys(related_collection,related_table,params,path+\
-                                        [params['relation']['backref']['column']])
+                                        [params['relation']['backref']['column']],key_path)
 
-        def join_foreign_key(collection,table,key,params,path):
+        def join_foreign_key(collection,table,key,params,path,key_path):
             related_table = params['table'].alias()
             related_collection = params['relation']['collection']
             condition = table.c[params['relation']['column']] == related_table.c.pk
             joins.append((related_table,condition))
             process_fields_and_subkeys(related_collection,related_table,params,path+\
-                                        [params['relation']['column']])
+                                        [params['relation']['column']],key_path)
 
-        def join_many_to_many(collection,table,key,params,path):
+        def join_many_to_many(collection,table,key,params,path,key_path):
             relationship_table = params['relation']['relationship_table'].alias()
             related_collection = params['relation']['collection']
             related_table = self.backend.get_collection_table(related_collection).alias()
@@ -181,7 +183,7 @@ class QuerySet(BaseQuerySet):
             right_condition = relationship_table.c['pk_%s' % related_collection] == related_table.c.pk
             joins.append((relationship_table,left_condition))
             joins.append((related_table,right_condition))
-            process_fields_and_subkeys(related_collection,related_table,params,path+[key])
+            process_fields_and_subkeys(related_collection,related_table,params,path+[key],key_path)
 
         if self.include:
             include = copy.deepcopy(self.include)
@@ -222,18 +224,18 @@ class QuerySet(BaseQuerySet):
         my_columns = self.include_joins['fields'].values()+\
                      [params['relation']['column'] for params in self.include_joins['joins'].values()
                       if isinstance(params['relation']['field'],ForeignKeyField)]
-        s = self.get_select(fields = [self.table.c[column] for column in my_columns])
+        s = self.get_select(fields = [self.table.c[column] for column in my_columns],strict_order_by = False)
         s_cte = s.cte()
 
-        process_fields_and_subkeys(self.include_joins['collection'],s_cte,self.include_joins,[])
-
-        order_bys = []
-        if self.order_bys:
-            order_bys = [direction(s_cte.c[column]) for (column,direction) in self.order_bys]
+        process_fields_and_subkeys(self.include_joins['collection'],s_cte,self.include_joins,[],[])
 
         if joins:
             for i,j in enumerate(joins):
                 s_cte = s_cte.outerjoin(*j)
+
+        order_bys = []
+        if self.order_bys:
+            order_bys = [direction(column_map[key]) for (key,direction) in self.order_bys]
 
         return s_cte,order_bys,columns
 
@@ -309,6 +311,7 @@ class QuerySet(BaseQuerySet):
             return d
 
         s_cte,order_bys,rows = self.get_select_table_and_rows()
+        field_map = build_field_map(self.include_joins)
 
         with self.backend.transaction(use_auto = False):
             try:
@@ -324,7 +327,6 @@ class QuerySet(BaseQuerySet):
         #we "fold" the objects back into one list structure
         self.objects = []
         pks = []
-        field_map = build_field_map(self.include_joins)
 
         unpacked_objects = OrderedDict()
         for obj in objects:
@@ -408,7 +410,7 @@ class QuerySet(BaseQuerySet):
     def get_fields(self):
         return [self.table]
 
-    def get_select(self,fields = None):
+    def get_select(self,fields = None,strict_order_by = True):
         if self.select is not None:
             return self.select
         if fields is None:
@@ -433,7 +435,14 @@ class QuerySet(BaseQuerySet):
             for having in self.havings:
                 s = s.having(having)
         if self.order_bys:
-            s = s.order_by(*[direction(self.table.c[column]) for column,direction in self.order_bys])
+            order_by_list = []
+            for key,direction in self.order_bys:
+                try:
+                    order_by_list.append(direction(self.backend.get_column_for_key(self.cls,key)))
+                except KeyError:
+                    if strict_order_by:
+                        raise
+            s = s.order_by(*order_by_list)
         if self._offset:
             s = s.offset(self._offset)
         if self._limit:
@@ -446,7 +455,7 @@ class QuerySet(BaseQuerySet):
                 self.count = len(self.objects)
             else:
                 with self.backend.transaction(use_auto = False):
-                    s = select([func.count()]).select_from(self.get_select(fields = [self.table.c.pk]).alias('count_select'))
+                    s = select([func.count()]).select_from(self.get_select(fields = [self.table.c.pk],strict_order_by = False).alias('count_select'))
                     result = self.backend.connection.execute(s)
                     self.count = result.first()[0]
                     result.close()

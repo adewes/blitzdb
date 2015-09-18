@@ -128,6 +128,8 @@ class Document(object):
     define e.g. some helper variables that you don't want to store in the database.
     """
 
+    abstract = True
+
     class Meta:
 
         PkType = CharField()
@@ -159,11 +161,11 @@ class Document(object):
 
         if not lazy:
             self._lazy = False
-            self.initialize()
         else:
             self._lazy = True
 
         self._embed = False
+        self.initialize()
 
     def __getitem__(self,key):
         try:
@@ -242,12 +244,11 @@ class Document(object):
             return super(Document,self).__getattr__(key)
         except AttributeError:
             pass
-
-        if key in self._properties:
-            return self._properties[key]
         try:
             if self._lazy and self._autoload:
                 self.revert()
+            if key in self._properties:
+                return self._properties[key]
             return self._attributes[key]
         except KeyError:
             raise AttributeError(key)
@@ -492,5 +493,3 @@ class Document(object):
         if self._lazy:
             self.revert()
         return self
-
-#Document = MetaDocument('Document', (Document,), {})
