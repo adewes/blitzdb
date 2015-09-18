@@ -438,7 +438,7 @@ class QuerySet(BaseQuerySet):
             order_by_list = []
             for key,direction in self.order_bys:
                 try:
-                    order_by_list.append(direction(self.backend.get_column_for_key(self.cls,key)))
+                    order_by_list.append(direction(self.table.c[self.backend.get_column_for_key(self.cls,key)]))
                 except KeyError:
                     if strict_order_by:
                         raise
