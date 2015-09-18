@@ -214,7 +214,9 @@ class QuerySet(BaseQuerySet):
                     if not key in include:
                         include.append(key)
 
-        self.include_joins = self.backend.get_include_joins(self.cls,includes = include,excludes = exclude)
+        self.include_joins = self.backend.get_include_joins(self.cls,
+                                                            includes = include,
+                                                            excludes = exclude)
 
         #we only select the columns that we actually need
         my_columns = self.include_joins['fields'].values()+\
