@@ -127,7 +127,7 @@ class Backend(BaseBackend):
             IntegerField : Integer,
             FloatField : Float,
             CharField : VARCHAR(60),
-            EnumField : lambda field: Enum(*field.enums,name = name),
+            EnumField : lambda field: Enum(*field.enums,name = name,native_enum = field.native_enum),
             TextField : Text,
             BooleanField: Boolean,
             BinaryField: LargeBinary,
@@ -244,7 +244,7 @@ class Backend(BaseBackend):
                 related_collection = self.get_collection_for_cls(field.related)
             related_class = self.get_cls_for_collection(related_collection)
             column = Column(column_name,self.get_field_type(related_class.Meta.PkType),
-                            ForeignKey('%s%s.pk' % (related_collection,self.table_postfix),name = '%s_%s_%s' % (collection,related_collection,column_name), ondelete = field.ondelete,use_alter = True),
+                            ForeignKey('%s%s.pk' % (related_collection,self.table_postfix),name = '%s_%s_%s' % (collection,related_collection,column_name), ondelete = field.ondelete,use_alter = False),
                             index=True,nullable = True if field.nullable else False)
             params = {'field' : field,
                       'key' : key,
@@ -312,8 +312,8 @@ class Backend(BaseBackend):
                     UniqueConstraint('pk_%s' % related_collection,'pk_%s' % collection,name = '%s_%s_unique' % (relationship_name,column_name))
                     ]
                 relationship_table = Table('%s%s' % (relationship_name,self.table_postfix),self._metadata,
-                        Column(related_pk_field_name,self.get_field_type(related_class.Meta.PkType),ForeignKey('%s%s.pk' % (related_collection,self.table_postfix),name = "%s_%s" % (relationship_name,related_pk_field_name), ondelete = field.ondelete,use_alter = True),index = True),
-                        Column(pk_field_name,self.get_field_type(cls.Meta.PkType),ForeignKey('%s%s.pk' % (collection,self.table_postfix),name = "%s_%s" % (relationship_name,pk_field_name),ondelete = field.ondelete,use_alter = True),index = True),
+                        Column(related_pk_field_name,self.get_field_type(related_class.Meta.PkType),ForeignKey('%s%s.pk' % (related_collection,self.table_postfix),name = "%s_%s" % (relationship_name,related_pk_field_name), ondelete = field.ondelete,use_alter = False),index = True),
+                        Column(pk_field_name,self.get_field_type(cls.Meta.PkType),ForeignKey('%s%s.pk' % (collection,self.table_postfix),name = "%s_%s" % (relationship_name,pk_field_name),ondelete = field.ondelete,use_alter = False),index = True),
                         *extra_columns
                     )
                 params['relationship_table'] = relationship_table
