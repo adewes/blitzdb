@@ -53,7 +53,6 @@ class QuerySet(BaseQuerySet):
         self.deserialized_pop_objects = None
         self._it = None
         self.order_bys = None
-        self.order_bys_keys = None
         self.count = None
         self.result = None
 
@@ -89,7 +88,6 @@ class QuerySet(BaseQuerySet):
                 direction = desc
             order_bys.append((key,direction))
         self.order_bys = order_bys
-        self.order_bys_keys = keys
         self.objects = None
         return self
 
@@ -210,15 +208,16 @@ class QuerySet(BaseQuerySet):
                 if not only_key in include:
                     include.append(only_key)
 
-        if include:
-            if self.order_bys_keys:
-                for key,direction in self.order_bys_keys:
-                    if not key in include:
-                        include.append(key)
+        #problem: if we include a foreign object, we will trigger 
+        order_by_keys = []
+        if self.order_bys:
+            for key,direction in self.order_bys:
+                order_by_keys.append(key)
 
         self.include_joins = self.backend.get_include_joins(self.cls,
                                                             includes = include,
-                                                            excludes = exclude)
+                                                            excludes = exclude,
+                                                            order_by_keys = order_by_keys)
 
         #we only select the columns that we actually need
         my_columns = self.include_joins['fields'].values()+\

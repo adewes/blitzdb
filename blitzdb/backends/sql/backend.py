@@ -381,8 +381,9 @@ class Backend(BaseBackend):
 
             if 'unique_together' in meta_attributes:
                 for keys in meta_attributes['unique_together']:
-                    name = 'unique_together_%s_%s' % (collection,'_'.join(keys))
-                    extra_columns.append(UniqueConstraint(*keys,name = name))
+                    columns = [self.get_column_for_key(collection,key) for key in keys]
+                    name = 'unique_together_%s_%s' % (collection,'_'.join(columns))
+                    extra_columns.append(UniqueConstraint(*columns,name = name))
 
             self._collection_tables[collection] = Table('%s%s' % (collection,self.table_postfix),self._metadata,
                     Column('data',LargeBinary),
@@ -404,9 +405,10 @@ class Backend(BaseBackend):
     def commit(self,transaction = None):
         if not self._transactions:#should never happen
             raise AttributeError("Not in a transaction!")
+        if transaction is not None and self._transactions[-1] is not transaction:
+            #this is the wrong transaction object...
+            return
         last_transaction = self._transactions.pop()
-        if transaction is not None and last_transaction is not transaction:
-            raise AttributeError("Transactions do not match!")
         last_transaction.commit()
         #if we have committed the last transaction, we open a new one
         if not self._transactions:
@@ -415,9 +417,9 @@ class Backend(BaseBackend):
     def rollback(self,transaction = None):
         if not self._transactions:
             raise AttributeError("Not in a transaction!")
+        if transaction is not None and self._transactions[-1] is not transaction:
+            return
         last_transaction = self._transactions.pop()
-        if not self._auto_transaction and transaction is not None and last_transaction is not transaction:
-            raise AttributeError("Transactions do not match!")
         last_transaction.rollback()
         #we roll back ALL transactions.
         self._transactions = []
@@ -537,7 +539,7 @@ class Backend(BaseBackend):
 
             self._serialize_and_update_indexes(update_dict,collection,d,for_update = True)
             self._serialize_and_update_relations(update_dict,collection,d,deletes,
-                                                 inserts,autosave_dependent = False,
+                                                 inserts,autosave_dependent = True,
                                                  for_update = True)
 
             if not 'pk' in set_fields or set_fields['pk'] is None:
@@ -663,6 +665,9 @@ class Backend(BaseBackend):
 
     def save(self,obj,autosave_dependent = True,call_hook = True):
 
+        if obj.lazy:
+            raise AttributeError("Trying to save a lazy object!")
+
         if call_hook:
             self.call_hook('before_save',obj)
 
@@ -717,18 +722,21 @@ class Backend(BaseBackend):
 
             return obj
 
-    def get_include_joins(self,cls,includes,excludes = None):
+    def get_include_joins(self,cls,includes,excludes = None,order_by_keys = None):
         collection = self.get_collection_for_cls(cls)
 
         include_params = {'joins' : {},
                           'fields' : {},
+                          'lazy' : False,
                           'collection' : collection,
                           'table' : self._collection_tables[collection]
                           }
 
         include_list = [include_params]
 
-        def resolve_include(include,collection,d):
+        def resolve_include(include,collection,d,path = None):
+            if path is None:
+                path = []
             if isinstance(include,(tuple,list)):
                 if len(include) >= 2:
                     main_include,sub_includes = include[0],include[1:]
@@ -754,11 +762,13 @@ class Backend(BaseBackend):
             else:
                 #if we ask for github_data and github_data.full_name is an index field, we
                 #need to fetch both the `data` field and the github_data_full_name index field.
+                #by adding the . we make sure that we won't inlcude e.g. committer_date
+                #if committer_date_ts is asked for.
                 for key,params in self._index_fields[collection].items():
-                    if key == include:
+                    if key == main_include:
                         d['fields'][key] = params['column']
                         break
-                    elif key.startswith(include):
+                    elif key.startswith(main_include+'.'):
                         d['fields'][key] = params['column']
                 else:
                     d['fields']['__data__'] = 'data'
@@ -766,13 +776,12 @@ class Backend(BaseBackend):
         for include in includes:
             resolve_include(include,collection,include_params)
 
-        excludes_set = set(excludes)
-        for include in include_list:
+        for i,include in enumerate(include_list):
             if not include['fields']:
                 include['fields']['__data__'] = 'data'
                 include['lazy'] = False
                 for key,params in self._table_columns[include['collection']].items():
-                    if key in excludes:
+                    if i == 0 and key in excludes:
                         include['lazy'] = True
                         continue
                     include['fields'][key] = params['column']
@@ -783,6 +792,11 @@ class Backend(BaseBackend):
                     include['lazy'] = True
                 else:
                     include['lazy'] = False
+
+        #we add the order_by_keys seperately
+        #(these should not influence whether a document is fetched lazily or not)
+        for order_by_key in order_by_keys:
+            resolve_include(order_by_key,collection,include_params)
 
         return include_params
 
@@ -867,6 +881,7 @@ class Backend(BaseBackend):
                 try:
                     foreign_key_data = get_value(data,params['key'])
                 except KeyError:
+                    set_value(data,params['key'],None)
                     continue
                 if foreign_key_data:
                     if not isinstance(foreign_key_data,dict):
@@ -1015,7 +1030,7 @@ class Backend(BaseBackend):
                     query = {'pk' : query.pk}
 
                 #to do: implement $size and $not: {$size} operators...
-                if isinstance(query,dict) and len(query) == 1 and query.keys()[0] in ('$all','$in','$elemMatch','$nin'):
+                if isinstance(query,dict) and len(query) == 1 and query.keys()[0] in ('$all','$in','$elemMatch','$nin','$exists'):
                     #this is an $in/$all/$nin query
                     query_type = query.keys()[0][1:]
                     subquery = query.values()[0]
@@ -1026,6 +1041,10 @@ class Backend(BaseBackend):
                                                 table = related_table,
                                                 path = path)
                         return queries
+                    elif query_type == 'exists':
+                        if not isinstance(subquery,bool):
+                            raise AttributeError("argument to $exists must be a boolean value")
+                        raise AttributeError("Not yet supported!")
                     else:
                         if isinstance(subquery,(ManyToManyProxy,QuerySet)):
                             if tail:
@@ -1230,7 +1249,6 @@ class Backend(BaseBackend):
                                         related_table_alias = related_table.alias()
                                         joins[related_table][path_str] = related_table_alias
                                         joins_list.append((related_table_alias,table.c[params['column']] == related_table_alias.c['pk']))
-
                                     where_statements.extend(compile_query(params['collection'],{tail : value},table = related_table_alias,path = new_path))
                             elif isinstance(params['field'],OneToManyField):
                                 related_table = self._collection_tables[params['collection']]

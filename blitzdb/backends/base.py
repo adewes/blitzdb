@@ -156,13 +156,13 @@ class Backend(object):
         if collection_name in self.collections:
             old_cls = self.collections[collection_name]
             if (issubclass(cls,old_cls) and not (cls is old_cls)) or overwrite:
-                logger.info("Replacing class %s with %s for collection %s" % (old_cls,cls,collection_name))
+                logger.warning("Replacing class %s with %s for collection %s" % (old_cls,cls,collection_name))
                 self.deprecated_classes[old_cls] = self.classes[old_cls]
                 del self.classes[old_cls]
                 register_class(collection_name,cls)
                 return True
         else:
-            logger.info("Registering class %s under collection %s" % (cls,collection_name))
+            logger.debug("Registering class %s under collection %s" % (cls,collection_name))
             register_class(collection_name,cls)
             return True
 
