@@ -23,6 +23,7 @@ class QuerySet(BaseQuerySet):
                  joins = None,
                  extra_fields = None,
                  group_bys = None,
+                 order_bys = None,
                  objects = None,
                  havings = None,
                  limit = None,
@@ -52,7 +53,7 @@ class QuerySet(BaseQuerySet):
         self.deserialized_objects = None
         self.deserialized_pop_objects = None
         self._it = None
-        self.order_bys = None
+        self.order_bys = order_bys
         self.count = None
         self.result = None
 
@@ -310,8 +311,8 @@ class QuerySet(BaseQuerySet):
             return d
 
         s_cte,order_bys,rows = self.get_select_table_and_rows()
-        field_map = build_field_map(self.include_joins)
 
+        field_map = build_field_map(self.include_joins)
         with self.backend.transaction(use_auto = False):
             try:
                 result = self.backend.connection.execute(select(rows).select_from(s_cte).order_by(*order_bys))
@@ -389,15 +390,18 @@ class QuerySet(BaseQuerySet):
         return self.intersect(qs)
 
     def intersect(self,qs):
-        new_condition = and_(self.condition,qs.condition)
+        #here the .self_group() is necessary to ensure the correct grouping within the INTERSECT...
+        my_select = self.get_select(fields = [self.table.c.pk]).self_group()
+        qs_select = qs.get_select(fields = [qs.table.c.pk]).self_group()
+        condition = and_(self.table.c.pk.in_(expression.intersect(my_select,qs_select)))
         new_qs = QuerySet(self.backend,
                           self.table,
                           self.cls,
-                          condition = new_condition,
+                          condition = condition,
+                          order_bys = self.order_bys,
                           raw = self.raw,
                           include = self.include,
                           only = self.only,
-                          joins = (self.joins if self.joins else [])+(qs.joins if qs.joins else []),
                           extra_fields = self.extra_fields)
         return new_qs
 
@@ -409,7 +413,7 @@ class QuerySet(BaseQuerySet):
     def get_fields(self):
         return [self.table]
 
-    def get_select(self,fields = None,strict_order_by = True):
+    def get_select(self,fields = None,order_by = True,strict_order_by = True):
         if self.select is not None:
             return self.select
         if fields is None:
@@ -433,7 +437,7 @@ class QuerySet(BaseQuerySet):
         if self.havings:
             for having in self.havings:
                 s = s.having(having)
-        if self.order_bys:
+        if order_by and self.order_bys:
             order_by_list = []
             for key,direction in self.order_bys:
                 try:
