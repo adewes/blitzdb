@@ -1030,7 +1030,7 @@ class Backend(BaseBackend):
                     query = {'pk' : query.pk}
 
                 #to do: implement $size and $not: {$size} operators...
-                if isinstance(query,dict) and len(query) == 1 and query.keys()[0] in ('$all','$in','$elemMatch','$nin','$exists'):
+                if isinstance(query,dict) and len(query) == 1 and query.keys()[0] in ('$all','$in','$elemMatch','$nin'):
                     #this is an $in/$all/$nin query
                     query_type = query.keys()[0][1:]
                     subquery = query.values()[0]
@@ -1041,10 +1041,6 @@ class Backend(BaseBackend):
                                                 table = related_table,
                                                 path = path)
                         return queries
-                    elif query_type == 'exists':
-                        if not isinstance(subquery,bool):
-                            raise AttributeError("argument to $exists must be a boolean value")
-                        raise AttributeError("Not yet supported!")
                     else:
                         if isinstance(subquery,(ManyToManyProxy,QuerySet)):
                             if tail:
