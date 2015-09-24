@@ -1271,9 +1271,6 @@ class Backend(BaseBackend):
         else:
             compiled_query = None
 
-        if joins_list:
-            group_bys = [table.c.pk]
-
         return QuerySet(backend = self, table = table,
                         joins = joins_list,
                         cls = cls,

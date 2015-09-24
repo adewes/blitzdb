@@ -224,7 +224,7 @@ class QuerySet(BaseQuerySet):
         my_columns = self.include_joins['fields'].values()+\
                      [params['relation']['column'] for params in self.include_joins['joins'].values()
                       if isinstance(params['relation']['field'],ForeignKeyField)]
-        s = self.get_select(fields = [self.table.c[column] for column in my_columns],strict_order_by = False)
+        s = self.get_select(columns = [self.table.c[column] for column in my_columns],strict_order_by = False)
         s_cte = s.cte(name = 'results')
 
         process_fields_and_subkeys(self.include_joins['collection'],s_cte,self.include_joins,[],[])
@@ -391,8 +391,8 @@ class QuerySet(BaseQuerySet):
 
     def intersect(self,qs):
         #here the .self_group() is necessary to ensure the correct grouping within the INTERSECT...
-        my_select = self.get_select(fields = [self.table.c.pk]).self_group()
-        qs_select = qs.get_select(fields = [qs.table.c.pk]).self_group()
+        my_select = self.get_select(columns = [self.table.c.pk]).self_group()
+        qs_select = qs.get_select(columns = [qs.table.c.pk]).self_group()
         condition = and_(self.table.c.pk.in_(expression.intersect(my_select,qs_select)))
         new_qs = QuerySet(self.backend,
                           self.table,
@@ -407,20 +407,21 @@ class QuerySet(BaseQuerySet):
 
     def delete(self):
         with self.backend.transaction(use_auto = False):
-            delete_stmt = self.table.delete().where(self.table.c.pk.in_(self.get_select(fields = [self.table.c.pk])))
+            delete_stmt = self.table.delete().where(self.table.c.pk.in_(self.get_select(columns = [self.table.c.pk])))
             self.backend.connection.execute(delete_stmt)
 
     def get_fields(self):
-        return [self.table]
+        return [column for column in self.table.columns]
 
-    def get_select(self,fields = None,order_by = True,strict_order_by = True):
+    def get_select(self,columns = None,order_by = True,strict_order_by = True):
         if self.select is not None:
             return self.select
-        if fields is None:
-            fields = self.get_fields()
+        if columns is None:
+            columns = self.get_fields()
         if self.extra_fields:
-            fields.extend(self.extra_fields)
-        s = select(fields)
+            columns.extend(self.extra_fields)
+
+        s = select(columns)
         if self.joins:
             full_join = None
             for j in self.joins:
@@ -432,8 +433,19 @@ class QuerySet(BaseQuerySet):
 
         if self.condition is not None:
             s = s.where(self.condition)
-        if self.group_bys:
-            s = s.group_by(*self.group_bys)
+
+        if self.joins:
+            if self.group_bys:
+                my_group_bys = self.group_bys[:]
+            else:
+                my_group_bys = []
+            for column in columns:
+                if not column in my_group_bys:
+                    my_group_bys.append(column)
+        else:
+            my_group_bys = self.group_bys
+        if my_group_bys:
+            s = s.group_by(*my_group_bys)
         if self.havings:
             for having in self.havings:
                 s = s.having(having)
@@ -458,7 +470,7 @@ class QuerySet(BaseQuerySet):
                 self.count = len(self.objects)
             else:
                 with self.backend.transaction(use_auto = False):
-                    s = select([func.count()]).select_from(self.get_select(fields = [self.table.c.pk],strict_order_by = False).alias('count_select'))
+                    s = select([func.count()]).select_from(self.get_select(columns = [self.table.c.pk],strict_order_by = False).alias('count_select'))
                     result = self.backend.connection.execute(s)
                     self.count = result.first()[0]
                     result.close()
