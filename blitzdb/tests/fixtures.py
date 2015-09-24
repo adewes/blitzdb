@@ -4,7 +4,7 @@ import tempfile
 import subprocess
 
 from blitzdb.backends.file import Backend as FileBackend
-from blitzdb.tests.helpers.movie_data import Actor, Director, Movie, generate_test_data
+from blitzdb.tests.helpers.movie_data import Actor, Director, Movie, Food, generate_test_data
 
 @pytest.fixture(scope="function")
 def temporary_path(request):
@@ -55,13 +55,13 @@ except ImportError:
     print("SQLAlchemy not found, skipping tests.")
     test_sql = False
 
-@pytest.fixture(scope="function", params=["file_json", "file_marshal", "file_pickle"]
+@pytest.fixture(scope="function", params=["file_json", "file_pickle"]
                 + (["mongo"] if test_mongo else [])
                 + (["sql"] if test_sql else []))
 def backend(request, temporary_path):
     return _backend(request, temporary_path)
 
-@pytest.fixture(scope="function", params=["file_json", "file_marshal", "file_pickle"]
+@pytest.fixture(scope="function", params=["file_json", "file_pickle"]
                 + (["mongo"] if test_mongo else [])
                 + (["sql"] if test_sql else []))
 def no_autoload_backend(request, temporary_path):
@@ -73,7 +73,7 @@ def no_autoload_mongodb_backend(request, temporary_path):
     return _backend(request, temporary_path, autoload_embedded=False)
 
 
-@pytest.fixture(scope="function", params=["file_json", "file_marshal", "file_pickle"]
+@pytest.fixture(scope="function", params=["file_json", "file_pickle"]
                                          + (["mongo"] if test_mongo else [])
                                          + (["sql"] if test_sql else []))
 def transactional_backend(request, temporary_path):
@@ -106,9 +106,6 @@ def _backend(request, temporary_path, autoload_embedded=True):
     """
     if request.param == 'file_json':
         return _file_backend(request, temporary_path, {'serializer_class': 'json'},
-                             autoload_embedded=autoload_embedded)
-    elif request.param == 'file_marshal':
-        return _file_backend(request, temporary_path, {'serializer_class': 'marshal'},
                              autoload_embedded=autoload_embedded)
     elif request.param == 'file_pickle':
         return _file_backend(request, temporary_path, {'serializer_class': 'pickle'},

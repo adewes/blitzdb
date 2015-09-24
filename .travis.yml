@@ -1,4 +1,5 @@
 language: python
+sudo: false
 services:
   - mongodb
 before_script:

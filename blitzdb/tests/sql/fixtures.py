@@ -1,6 +1,6 @@
 from blitzdb.backends.sql import Backend
 from blitzdb.fields import ForeignKeyField
-from blitzdb.tests.helpers.movie_data import Movie,Actor,Director
+from blitzdb.tests.helpers.movie_data import Movie,Actor,Director,Food
 from sqlalchemy import create_engine
 
 import pytest
@@ -14,6 +14,7 @@ def backend():
     backend.register(Actor)
     backend.register(Director)
     backend.register(Movie)
+    backend.register(Food)
 
     backend.init_schema()
     backend.create_schema()

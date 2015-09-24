@@ -4,10 +4,11 @@ import sqlalchemy
 
 from blitzdb.queryset import QuerySet as BaseQuerySet
 from functools import wraps
+from sqlalchemy.sql.functions import Function as SqlFunction
 from sqlalchemy.sql import select,func,expression,delete,distinct,and_,union,intersect
 from sqlalchemy.sql.expression import join,asc,desc,outerjoin
 from ..file.serializers import JsonSerializer
-from .helpers import get_value
+from blitzdb.helpers import get_value
 from collections import OrderedDict
 from blitzdb.fields import ManyToManyField,ForeignKeyField,OneToManyField
 
@@ -440,7 +441,7 @@ class QuerySet(BaseQuerySet):
             else:
                 my_group_bys = []
             for column in columns:
-                if not column in my_group_bys:
+                if not column in my_group_bys and not isinstance(column,SqlFunction):
                     my_group_bys.append(column)
         else:
             my_group_bys = self.group_bys

@@ -1,7 +1,6 @@
 from blitzdb.backends.file.utils import JsonEncoder
 import json
 import sys
-import marshal
 import six
 
 if six.PY3:
@@ -12,7 +11,7 @@ else:
 """
 Serializers take a Python object and return a string representation of it.
 BlitzDB currently supports several differen JSON serializers,
-as well as a cPickle and marshal serializer.
+as well as a cPickle serializer.
 """
 
 
@@ -45,17 +44,6 @@ class PickleSerializer(object):
     @classmethod
     def deserialize(cls, data):
         return cPickle.loads(data)
-
-
-class MarshalSerializer(object):
-
-    @classmethod
-    def serialize(cls, data):
-        return marshal.dumps(data)
-
-    @classmethod
-    def deserialize(cls, data):
-        return marshal.loads(data)
 
 try:
     import cjson

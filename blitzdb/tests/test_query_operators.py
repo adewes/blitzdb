@@ -228,34 +228,47 @@ def test_exists(backend):
 
 def test_all(backend):
     # DB setup
+    #currently those queries are not supported by the file backend.
+    if isinstance(backend,FileBackend):
+        return
     backend.filter(Actor, {}).delete()
 
-    marlon_brando = Actor({'name': 'Marlon Brando','favorite_food' : ['pizza','spaghetti','focaccia'], 'gross_income_m': 1.453, 'appearances': 78, 'is_funny': False, 'birth_year': 1924})
-    leonardo_di_caprio = Actor({'name': 'Leonardo di Caprio', 'favorite_food' : ['hamburger','pizza','spaghetti'], 'gross_income_m': 12.453, 'appearances': 34, 'is_funny': False, 'birth_year': 1974})
-    david_hasselhoff = Actor({'name': 'David Hasselhoff','favorite_food' : ['hamburger','weisswurst'], 'gross_income_m': 1.0, 'appearances': 173, 'is_funny': True, 'birth_year': 1952})
-    charlie_chaplin = Actor({'name': 'Charlie Chaplin', 'favorite_food' : ['oysters','spaghetti'],'gross_income_m': 0.371, 'appearances': 473, 'is_funny': True, 'birth_year': 1889})
+    pizza = Food({'name' : 'Pizza'})
+    spaghetti = Food({'name' : 'Spaghetti'})
+    focaccia = Food({'name' : 'Foccacia'})
+    hamburger = Food({'name' : 'Hamburger'})
+    weisswurst = Food({'name' : 'Weisswurst'})
+    oysters = Food({'name' : 'oysters'})
+
+    marlon_brando = Actor({'name': 'Marlon Brando','favorite_food' : [pizza,spaghetti,focaccia], 'gross_income_m': 1.453, 'appearances': 78, 'is_funny': False, 'birth_year': 1924})
+    leonardo_di_caprio = Actor({'name': 'Leonardo di Caprio', 'favorite_food' : [hamburger,pizza,spaghetti], 'gross_income_m': 12.453, 'appearances': 34, 'is_funny': False, 'birth_year': 1974})
+    david_hasselhoff = Actor({'name': 'David Hasselhoff','favorite_food' : [hamburger,weisswurst], 'gross_income_m': 1.0, 'appearances': 173, 'is_funny': True, 'birth_year': 1952})
+    charlie_chaplin = Actor({'name': 'Charlie Chaplin', 'favorite_food' : [oysters,spaghetti],'gross_income_m': 0.371, 'appearances': 473, 'is_funny': True, 'birth_year': 1889})
 
     backend.save(marlon_brando)
     backend.save(leonardo_di_caprio)
     backend.save(david_hasselhoff)
     backend.save(charlie_chaplin)
+    #contained nowhere
+    backend.save(focaccia)
 
     backend.commit()
+
     assert len(backend.filter(Actor, {})) == 4
     # DB setup
 
     # Test with float
-    query = {'favorite_food': {'$all': ['pizza', 'spaghetti','focaccia']}}
+    query = {'favorite_food': {'$all': [pizza, spaghetti,focaccia]}}
     assert len(backend.filter(Actor, query)) == 1
     # Test with float
 
     # Test with full result
-    query = {'favorite_food': {'$all': ['pizza','spaghetti']}}
+    query = {'favorite_food': {'$all': [pizza,spaghetti]}}
     assert len(backend.filter(Actor, query)) == 2
     # Test with full result
 
     # Test with full result
-    query = {'favorite_food': {'$all': ['spaghetti']}}
+    query = {'favorite_food': {'$all': [spaghetti]}}
     assert len(backend.filter(Actor, query)) == 3
     # Test with full result
 

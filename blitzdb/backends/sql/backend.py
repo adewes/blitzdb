@@ -47,7 +47,7 @@ from sqlalchemy.types import (Integer,
                               Unicode)
 from sqlalchemy.sql import select,insert,update,func,and_,or_,not_,expression,null,distinct
 from sqlalchemy.ext.compiler import compiles
-from .helpers import get_value, set_value, delete_value
+from blitzdb.helpers import get_value, set_value, delete_value
 
 @compiles(DateTime, "sqlite")
 def compile_binary_sqlite(type_, compiler, **kw):
@@ -497,6 +497,8 @@ class Backend(BaseBackend):
         if update_obj:
             for key,value in set_fields.items():
                 set_value(obj,key,value)
+            for key in unset_fields:
+                delete_value(obj,key)
 
         if not isinstance(set_fields,dict):
             raise TypeError("set_fields must be a dictionary")

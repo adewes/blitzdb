@@ -13,6 +13,8 @@ import pymongo
 import logging
 import traceback
 
+from blitzdb.helpers import get_value,set_value,delete_value
+
 logger = logging.getLogger(__name__)
 
 class Backend(BaseBackend):
@@ -155,65 +157,22 @@ class Backend(BaseBackend):
         if obj.pk == None:
             raise obj.DoesNotExist("update() called on document without primary key!")
 
-        def _get(obj, key):
-            value = obj
-            for elem in key.split("."):
-                if isinstance(value, list):
-                    value = value[int(elem)]
-                else:
-                    value = value[elem]
-            return value
-
-        def _exists(obj, key):
-            value = obj
-            for elem in key.split("."):
-                if isinstance(value, list):
-                    try:
-                        value = value[int(elem)]
-                    except:
-                        return False
-                else:
-                    try:
-                        value = value[elem]
-                    except:
-                        return False
-            return True
-
-        def _set(obj, key,new_value):
-            value = obj
-            last_value = None
-            for elem in key.split("."):
-                if isinstance(value, list):
-                    last_value = value
-                    value = value[int(elem)]
-                else:
-                    last_value = value
-                    value = value[elem]
-            if isinstance(last_value,list):
-                last_value[int(elem)] = new_value
-            else:
-                last_value[elem] = new_value
-            return value
-
         def serialize_fields(fields):
 
 
             if isinstance(fields, (list,tuple)):
-                update_dict = {key : _get(obj.attributes,key) for key in fields 
-                                if _exists(obj.attributes,key)}
-                serialized_attributes = {key : self.serialize(value)
-                                            for key,value in update_dict.items()}
-            elif isinstance(fields, dict):
-                serialized_attributes = {key : self.serialize(value)
-                                            for key,value in fields.items()}
-                if update_obj:
-                    for key,value in fields.items():
-                        if _exists(obj.attributes,key):
-                            _set(obj.attributes,key,value)
+                update_dict = {}
+                for key in fields:
+                    try:
+                        update_dict[key] = get_value(obj,key)
+                    except KeyError:
+                        pass
+            elif isinstance(fields,dict):
+                update_dict = fields.copy()
             else:
                 raise TypeError("fields must be a list/tuple!")
 
-            return serialized_attributes
+            return update_dict
 
         if set_fields:
             set_attributes = serialize_fields(set_fields)
@@ -226,6 +185,16 @@ class Backend(BaseBackend):
             unset_attributes = []
 
         self.call_hook('before_update',obj,set_attributes,unset_attributes)
+
+
+        set_attributes = {key : self.serialize(value)
+                                for key,value in set_attributes.items()}
+
+        if update_obj:
+            for key,value in set_attributes.items():
+                set_value(obj,key,value)
+            for key in unset_attributes:
+                delete_value(obj,key)
 
         update_dict = {}
 

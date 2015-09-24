@@ -19,13 +19,13 @@ from blitzdb.backends.file.queries import compile_query
 from blitzdb.backends.file.queryset import QuerySet
 from blitzdb.backends.file.serializers import (
     JsonSerializer,
-    MarshalSerializer,
     PickleSerializer,
 )
 from blitzdb.backends.file.store import (
     Store,
     TransactionalStore,
 )
+from blitzdb.helpers import get_value,set_value,delete_value
 
 import six
 
@@ -43,7 +43,6 @@ index_classes = {
 serializer_classes = {
     'pickle': PickleSerializer,
     'json': JsonSerializer,
-    'marshal': MarshalSerializer
 }
 
 # will only be available if cjson is installed
@@ -439,15 +438,34 @@ class Backend(BaseBackend):
         obj = self.create_instance(cls, data)
         return obj
 
-    def update(self,obj,*args,**kwargs):
+    def update(self, obj, set_fields = None, unset_fields = None, update_obj = True):
         """
         We return the result of the save method (updates are not yet implemented here).
         """
-        return self.save(obj)
+        if set_fields:
+            if isinstance(set_fields,(list,tuple)):
+                set_attributes = {key : get_value(obj,key) for key in set_fields}
+            else:
+                set_attributes = set_fields
+        if unset_fields:
+            unset_attributes = unset_fields
+        else:
+            unset_attributes = []
 
-    def save(self, obj):
+        self.call_hook('before_update',obj,set_attributes,unset_attributes)
 
-        self.call_hook('before_save',obj)
+        if update_obj:
+            for key,value in set_attributes.items():
+                set_value(obj,key,value)
+            for key in unset_attributes:
+                delete_value(obj,key)
+
+        return self.save(obj,call_hook = False)
+
+    def save(self, obj,call_hook = True):
+
+        if call_hook:
+            self.call_hook('before_save',obj)
 
         collection = self.get_collection_for_obj(obj)
         indexes = self.get_collection_indexes(collection)

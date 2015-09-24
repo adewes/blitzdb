@@ -32,9 +32,13 @@ class Actor(Document):
     salary_currency = CharField(indexed = True,key = 'salary.currency')
     appearances = IntegerField(indexed = True)
     birth_year = IntegerField(indexed = True)
+    favorite_food = ManyToManyField('Food')
     is_funny = BooleanField(indexed = True)
     movies = ManyToManyField('Movie',backref = 'actors')
 
+class Food(Document):
+
+    name = CharField(indexed = True)
 
 class Director(Document):
 
