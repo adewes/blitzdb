@@ -6,7 +6,7 @@ from blitzdb.queryset import QuerySet as BaseQuerySet
 from functools import wraps
 from sqlalchemy.sql.functions import Function as SqlFunction
 from sqlalchemy.sql import select,func,expression,delete,distinct,and_,union,intersect
-from sqlalchemy.sql.expression import join,asc,desc,outerjoin
+from sqlalchemy.sql.expression import join,asc,desc,outerjoin,nullsfirst,nullslast
 from ..file.serializers import JsonSerializer
 from blitzdb.helpers import get_value
 from collections import OrderedDict
@@ -85,9 +85,11 @@ class QuerySet(BaseQuerySet):
         order_bys = []
         for key,direction in keys:
             if direction > 0:
-                direction = asc
+                #when sorting in ascending direction, NULL values should come first
+                direction = lambda *args,**kwargs: nullsfirst(asc(*args,**kwargs))
             else:
-                direction = desc
+                #when sorting in descending direction, NULL values should come last
+                direction = lambda *args,**kwargs: nullslast(desc(*args,**kwargs))
             order_bys.append((key,direction))
         self.order_bys = order_bys
         self.objects = None
@@ -108,6 +110,7 @@ class QuerySet(BaseQuerySet):
         raise StopIteration
 
     def __contains__(self, obj):
+        #todo: optimize this so we don't go to the database
         pks = self.distinct_pks()
         if isinstance(obj, list) or isinstance(obj, tuple):
             obj_list = obj
@@ -479,7 +482,7 @@ class QuerySet(BaseQuerySet):
 
     def distinct_pks(self):
         with self.backend.transaction(use_auto = False):
-            s = self.get_select([self.table.c.pk]).distinct(self.table.c.pk)
+            s = self.get_select([self.table.c.pk])
             result = self.backend.connection.execute(s)
             return set([r[0] for r in result.fetchall()])
         

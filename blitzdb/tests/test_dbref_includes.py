@@ -8,8 +8,11 @@ def test_nested_value(backend):
 
     actor = Actor({'name' : 'Robert de Niro'})
     movie = Movie({'best_actor' : actor,'title' : 'The Godfather'})
-    actor.movies = [movie]
 
+    backend.save(actor)
+    actor.movies = [movie]
+    backend.save(actor)
+    backend.commit()
     backend.save(movie)
     backend.commit()
 

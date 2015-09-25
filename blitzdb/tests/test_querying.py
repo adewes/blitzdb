@@ -188,9 +188,11 @@ def test_non_indexed_delete(backend, small_test_data):
 
     for movie in movies:
         if movie.get('director'):
-            backend.delete(movie.director)
-            movie.director = None
-            backend.update(movie,['director'])
+            director = movie.director
+            for directed_movie in backend.filter(Movie,{'director' : director}):
+                backend.update(directed_movie,unset_fields = ['director'])
+                backend.commit()
+            backend.delete(director)
 
     backend.commit()
 

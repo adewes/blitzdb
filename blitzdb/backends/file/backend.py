@@ -444,9 +444,16 @@ class Backend(BaseBackend):
         """
         if set_fields:
             if isinstance(set_fields,(list,tuple)):
-                set_attributes = {key : get_value(obj,key) for key in set_fields}
+                set_attributes = {}
+                for key in set_fields:
+                    try:
+                        set_attributes[key] = get_value(obj,key)
+                    except KeyError:
+                        pass
             else:
                 set_attributes = set_fields
+        else:
+            set_attributes = {}
         if unset_fields:
             unset_attributes = unset_fields
         else:

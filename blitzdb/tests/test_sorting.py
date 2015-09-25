@@ -37,6 +37,10 @@ def test_basic_sorting(backend):
     actor_wo_birth_year = Actor({})
 
     backend.save(actor_wo_birth_year)
+    print actor_wo_birth_year.pk
     backend.commit()
-    actors = backend.filter(Actor, {}).sort([('birth_year', 1)])
+    actors = list(backend.filter(Actor, {}).sort([('birth_year', 1)]))
+    assert actor_wo_birth_year in actors
+    for actor in actors:
+        print actor.pk,"<<<"
     assert actors[0] == actor_wo_birth_year

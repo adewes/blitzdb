@@ -45,7 +45,7 @@ from sqlalchemy.types import (Integer,
                               Text,
                               LargeBinary,
                               Unicode)
-from sqlalchemy.sql import select,insert,update,func,and_,or_,not_,expression,null,distinct
+from sqlalchemy.sql import select,insert,update,func,and_,or_,not_,expression,null
 from sqlalchemy.ext.compiler import compiles
 from blitzdb.helpers import get_value, set_value, delete_value
 

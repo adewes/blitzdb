@@ -2,6 +2,7 @@ from __future__ import print_function
 import pytest
 import tempfile
 import subprocess
+import os
 
 from blitzdb.backends.file import Backend as FileBackend
 from blitzdb.tests.helpers.movie_data import Actor, Director, Movie, Food, generate_test_data
@@ -37,12 +38,41 @@ except ImportError:
 
 try:
     from sqlalchemy import create_engine
+    from sqlalchemy.schema import MetaData
     from sqlalchemy.types import Integer
     from blitzdb.backends.sql import Backend as SqlBackend
 
+    url = os.environ.get('BLITZDB_SQLALCHEMY_URL','sqlite:///:memory:')
+    engine = create_engine(url, echo=False)
+
+    def _sql_backend(request,engine):
+
+        meta = MetaData(engine)
+        meta.reflect()
+        meta.drop_all()
+
+        backend = SqlBackend(engine = engine)
+        backend.init_schema()
+        backend.create_schema()
+
+        def finalizer():
+            backend.close_connection()
+            print("Dropping schema...")
+            meta = MetaData(engine)
+            meta.reflect()
+            meta.drop_all()
+            print("Done...")
+
+        request.addfinalizer(finalizer)
+
+        return backend
+
     @pytest.fixture(scope="function")
-    def sql_backend():
-        return _sql_backend(request,{})
+    def sql_backend(request):
+        backend = _sql_backend(request,engine)
+
+        return backend
+
 
     test_sql = True
 
@@ -113,7 +143,7 @@ def _backend(request, temporary_path, autoload_embedded=True):
     elif request.param == 'mongo':
         return _mongodb_backend(request, {}, autoload_embedded=autoload_embedded)
     elif request.param == 'sql':
-        return _sql_backend(request, {})
+        return _sql_backend(request, engine)
 
 
 def _init_indexes(backend):
@@ -123,13 +153,6 @@ def _init_indexes(backend):
     backend.create_index(Actor, fields={'movies': 1})
     return backend
 
-def _sql_backend(request,config):
-    engine = create_engine('sqlite:///:memory:', echo=False)
-
-    backend = SqlBackend(engine = engine)
-    backend.init_schema()
-    backend.create_schema()
-    return backend
 
 def _file_backend(request, temporary_path, config, autoload_embedded=True):
     backend = FileBackend(path=temporary_path, config=config,

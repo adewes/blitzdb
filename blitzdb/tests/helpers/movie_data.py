@@ -104,11 +104,11 @@ def generate_test_data(request, backend, n):
         n_movies = 2 + int((1.0 - math.log(random.randint(1, 1000)) / math.log(1000.0)) * 10)
         director_movies = random.sample(movies, n_movies)
 
+        director.save(backend)
         for movie in director_movies:
             movie.director = director
             movie.save(backend)
         directors.append(director)
-        director.save(backend)
     
     backend.commit()
 

@@ -1,9 +1,14 @@
 language: python
+addons:
+  postgresql: "9.3"
 sudo: false
 services:
   - mongodb
 before_script:
-  - sleep 10
+  - psql -c 'create database blitzdb_test;' -U postgres
+  - sleep 3
+env:
+  BLITZDB_SQLALCHEMY_URL: "postgres://postgres@localhost/blitzdb_test"
 python:
   - "2.7"
   - "3.3"
