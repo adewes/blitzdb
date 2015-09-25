@@ -47,7 +47,7 @@ class Store(object):
             with open(self._get_path_for_key(key), "rb") as input_file:
                 return input_file.read()
         except IOError:
-            raise KeyError("Key %s not found!" % key)
+            raise KeyError("Key {0} not found!".format(key))
 
     def has_blob(self, key):
         if os.path.exists(self._get_path_for_key(key)):

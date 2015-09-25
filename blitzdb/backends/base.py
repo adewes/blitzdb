@@ -446,7 +446,7 @@ class Backend(object):
         .. admonition:: Exception Behavior
 
             Raises a :py:class:`blitzdb.document.Document.DoesNotExist` exception if no object with the given
-            properties exists in the database, and a :py:class:`blitzdb.document.Document.MultipleObjectsReturned` 
+            properties exists in the database, and a :py:class:`blitzdb.document.Document.MultipleObjectsReturned`
             exception if more than one object in the database corresponds to the given properties.
         
         """

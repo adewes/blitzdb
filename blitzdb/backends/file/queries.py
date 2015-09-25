@@ -173,7 +173,7 @@ def compile_query(query):
         for key, value in query.items():
             if key.startswith('$'):
                 if key not in query_funcs:
-                    raise AttributeError('Invalid operator: %s' % key)
+                    raise AttributeError('Invalid operator: {0}'.format(key))
                 expressions.append(query_funcs[key](value))
             else:
                 expressions.append(filter_query(key, value))

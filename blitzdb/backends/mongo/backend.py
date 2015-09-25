@@ -71,7 +71,7 @@ class Backend(BaseBackend):
                     try:
                         self.db[collection].save(attributes)
                     except:
-                        logger.error("Error when saving the document with pk %s in collection %s" % (attributes['pk'], collection))
+                        logger.error("Error when saving the document with pk {0} in collection {1}".format(attributes['pk'], collection))
                         logger.error("Attributes (excerpt):" + str(dict(attributes.items()[:100])))
                         raise
 
@@ -339,7 +339,7 @@ class Backend(BaseBackend):
 
         .. note::
 
-            This function supports all query operators that are available in MongoDB and returns 
+            This function supports most query operators that are available in MongoDB and returns 
             a query set that is based on a MongoDB cursor.
 
         """

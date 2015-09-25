@@ -318,8 +318,7 @@ class Document(object):
         return False
 
     def __unicode__(self):
-        return self.__class__.__name__ + "({%s : '%s'},lazy = %s)" % (self.get_pk_name(),
-                                                                      self.pk, self._lazy)
+        return self.__class__.__name__ + "({{{0} : '{1}'}},lazy = {2})".format(self.get_pk_name(), self.pk, self._lazy)
 
     if six.PY3:
         __str__ = __unicode__
