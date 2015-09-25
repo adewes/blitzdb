@@ -138,8 +138,5 @@ def test_basics(backend):
 
     result = backend.filter(Movie,{'director' : francis_coppola})
 
-    for movie in result:
-        print movie.title,"<<<"
-
     assert len(result) == 1
     assert the_godfather in result

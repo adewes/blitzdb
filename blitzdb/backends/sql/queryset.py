@@ -78,7 +78,7 @@ class QuerySet(BaseQuerySet):
 
         return obj
 
-    def sort(self, keys,direction = None):
+    def sort(self, keys,direction = None,explicit_nullsfirst = False):
         #we sort by a single argument
         if direction:
             keys = ((keys,direction),)
@@ -86,10 +86,16 @@ class QuerySet(BaseQuerySet):
         for key,direction in keys:
             if direction > 0:
                 #when sorting in ascending direction, NULL values should come first
-                direction = lambda *args,**kwargs: nullsfirst(asc(*args,**kwargs))
+                if explicit_nullsfirst:
+                    direction = lambda *args,**kwargs: nullsfirst(asc(*args,**kwargs))
+                else:
+                    direction = asc
             else:
                 #when sorting in descending direction, NULL values should come last
-                direction = lambda *args,**kwargs: nullslast(desc(*args,**kwargs))
+                if explicit_nullsfirst:
+                    direction = lambda *args,**kwargs: nullslast(desc(*args,**kwargs))
+                else:
+                    direction = desc
             order_bys.append((key,direction))
         self.order_bys = order_bys
         self.objects = None

@@ -239,7 +239,12 @@ class Backend(object):
             if six.PY3:
                 return str(obj)
             else:
-                return unicode(obj if isinstance(obj,str) else str(obj),errors = 'replace')
+                if isinstance(obj,unicode):
+                    return obj
+                elif isinstance(obj,str):
+                    return unicode(obj)
+                else:
+                    return unicode(str(obj),errors='replace')
 
         if isinstance(obj, dict):
             output_obj = {}
@@ -249,7 +254,7 @@ class Backend(object):
                     output_obj[encode_as_str(key) if convert_keys_to_str else key] = serialize_with_opts(value, embed_level=embed_level,path = new_path)
                 except DoNotSerialize:
                     pass
-        elif isinstance(obj,str):
+        elif isinstance(obj,six.string_types):
             output_obj = encode_as_str(obj)
         elif isinstance(obj, (list,tuple)):
             try:
@@ -328,7 +333,7 @@ class Backend(object):
                 output_obj = {}
                 for key, value in obj.items():
                     output_obj[key] = self.deserialize(value,encoders = encoders)
-        elif isinstance(obj, list) or isinstance(obj, tuple):
+        elif isinstance(obj, (list,tuple)):
             output_obj = list(map(lambda x: self.deserialize(x), obj))
         else:
             output_obj = obj

@@ -1,6 +1,5 @@
  # -*- coding: utf-8 -*-
 import pytest
-import pprint
 
 from ..helpers.movie_data import Movie,Actor,Director
 
@@ -85,8 +84,6 @@ def test_queryset_all(backend):
     assert al_pacino.movies._queryset is None
 
     actors = backend.filter(Actor,{'movies' : {'$all' : al_pacino.movies} })
-
-    print actors.get_select()
 
     assert actors
     assert len(actors) == 1

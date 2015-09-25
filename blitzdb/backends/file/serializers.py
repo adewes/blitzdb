@@ -21,18 +21,18 @@ class JsonSerializer(object):
     def serialize(cls, data):
         if six.PY3:
             if isinstance(data, bytes):
-                return json.dumps(data.decode('utf-8'), cls=JsonEncoder).encode('utf-8')
+                return json.dumps(data.decode('utf-8'), cls=JsonEncoder,ensure_ascii = False).encode('utf-8')
             else:
-                return json.dumps(data, cls=JsonEncoder).encode('utf-8')
+                return json.dumps(data, cls=JsonEncoder,ensure_ascii = False).encode('utf-8')
         else:
-            return json.dumps(data, cls=JsonEncoder)
+            return json.dumps(data, cls=JsonEncoder,ensure_ascii = False).encode('utf-8')
 
     @classmethod
     def deserialize(cls, data):
         if six.PY3:
             return json.loads(data.decode('utf-8'))
         else:
-            return json.loads(data)
+            return json.loads(data.decode('utf-8'))
 
 
 class PickleSerializer(object):

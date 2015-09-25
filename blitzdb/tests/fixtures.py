@@ -42,8 +42,11 @@ try:
     from sqlalchemy.types import Integer
     from blitzdb.backends.sql import Backend as SqlBackend
 
-    url = os.environ.get('BLITZDB_SQLALCHEMY_URL','sqlite:///:memory:')
-    engine = create_engine(url, echo=False)
+    def get_sql_engine():
+        url = os.environ.get('BLITZDB_SQLALCHEMY_URL','sqlite:///:memory:')
+        return create_engine(url, echo=False)
+
+    engine = get_sql_engine()
 
     def _sql_backend(request,engine):
 

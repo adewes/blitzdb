@@ -3,7 +3,7 @@ from __future__ import absolute_import
 from .fixtures import *
 
 from blitzdb.tests.helpers.movie_data import Actor
-
+from blitzdb.backends.sql import Backend as SqlBackend
 
 def test_basic_sorting(backend):
 
@@ -37,10 +37,10 @@ def test_basic_sorting(backend):
     actor_wo_birth_year = Actor({})
 
     backend.save(actor_wo_birth_year)
-    print actor_wo_birth_year.pk
     backend.commit()
     actors = list(backend.filter(Actor, {}).sort([('birth_year', 1)]))
     assert actor_wo_birth_year in actors
-    for actor in actors:
-        print actor.pk,"<<<"
-    assert actors[0] == actor_wo_birth_year
+    #SQL backends can produce ambigous results depending on how NULLS FIRST is implemented
+    #this varies e.g. between Postgres and SQLite (which does not even support NULLS FIRST)
+    if not isinstance(backend,SqlBackend):
+        assert actors[0] == actor_wo_birth_year

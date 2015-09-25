@@ -1,6 +1,5 @@
  # -*- coding: utf-8 -*-
 import pytest
-import pprint
 
 from ..helpers.movie_data import Movie,Actor,Director
 
@@ -98,7 +97,6 @@ def test_basics(backend):
         assert not actor.lazy
         assert actor.movies._objects is not None
         if actor.movies:
-            print actor.movies,len(actor.movies)
             assert actor.movies[0].lazy
 
     actor = backend.get(Actor,{'name' : 'Andreas Dewes'},include = (('movies',('director','favorite_actor')),) )
@@ -136,7 +134,6 @@ def test_include_with_only(backend):
 
     assert isinstance(actors[0],Actor)
     assert actors[0].lazy
-    print actors[0].lazy_attributes.keys()
     assert set(actors[0].lazy_attributes.keys()) == set(('favorite_food','best_movies','related_director_favorite_actor','movies','gross_income_m','pk','related_movie_cast'))
     assert isinstance(actors[0]['movies'],ManyToManyProxy)
     assert actors[0]['movies']._objects
@@ -150,7 +147,6 @@ def test_only(backend):
 
     assert isinstance(actors[0],Actor)
     assert actors[0].lazy
-    print actors[0].lazy_attributes.keys()
     assert set(actors[0].lazy_attributes.keys()) == set(('favorite_food','related_director_favorite_actor','best_movies','movies','gross_income_m','pk','related_movie_cast'))
     assert isinstance(actors[0]['movies'],ManyToManyProxy)
     assert actors[0]['movies']._objects is None
