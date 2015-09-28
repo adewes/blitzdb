@@ -11,10 +11,11 @@ def test_multiple_joins(backend):
     backend.save(francis_coppola)
 
     al_pacino = Actor({'name': 'Al Pacino'})
-    the_godfather = Movie({'title' : 'The Godfather','director' : francis_coppola,'best_actor' : al_pacino})
-    al_pacino['movies'] = [the_godfather]
+    the_godfather = Movie({'title' : 'The Godfather','director' : francis_coppola})
+    al_pacino.movies = [the_godfather]
 
     backend.save(the_godfather)
+    backend.update(the_godfather,{'best_actor' : al_pacino})
 
     result = backend.filter(Movie,{'director.name' : francis_coppola.name,'best_actor.name' : 'Al Pacino'})
     assert len(result) == 1

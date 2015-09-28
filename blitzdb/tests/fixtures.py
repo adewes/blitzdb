@@ -55,7 +55,7 @@ try:
         meta.drop_all()
 
         backend = SqlBackend(engine = engine)
-        #backend.init_schema()
+        backend.init_schema()
         backend.create_schema()
 
         def finalizer():

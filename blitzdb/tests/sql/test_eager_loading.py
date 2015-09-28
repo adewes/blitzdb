@@ -20,11 +20,10 @@ def prepare_data(backend):
 
     al_pacino = Actor({'name' : 'Al Pacino','movies' : [],'salary' : {'amount' : 100000000,'currency' : u'€'}})
 
-    scarface = Movie({'title' : 'Scarface','director' : brian_de_palma,'best_actor' : al_pacino})
+    scarface = Movie({'title' : 'Scarface','director' : brian_de_palma})
 
     the_godfather = Movie({'title' : 'The Godfather',
-                           'director' : francis_coppola,
-                           'best_actor' : al_pacino})
+                           'director' : francis_coppola})
 
     space_odyssey = Movie({'title' : '2001 - A space odyssey',
                            'director' : stanley_kubrick})
@@ -35,24 +34,30 @@ def prepare_data(backend):
     robert_de_niro.movies.append(the_godfather)
     al_pacino.movies.append(the_godfather)
     al_pacino.movies.append(scarface)
-    stanley_kubrick.favorite_actor = al_pacino
-    francis_coppola.favorite_actor = robert_de_niro
 
     apocalypse_now = Movie({'title' : 'Apocalypse Now'})
     star_wars_v = Movie({'title' : 'Star Wars V: The Empire Strikes Back'})
     harrison_ford.movies = [star_wars_v]
 
-    backend.save(the_godfather)
     backend.save(robert_de_niro)
     backend.save(al_pacino)
     backend.save(francis_coppola)
     backend.save(andreas_dewes)
     backend.save(stanley_kubrick)
+    backend.save(brian_de_palma)
+    backend.save(harrison_ford)
+
+    backend.update(the_godfather,{'best_actor' : al_pacino})
+    backend.update(scarface,{'best_actor' : al_pacino})
+
+    backend.update(stanley_kubrick,{'favorite_actor' : al_pacino})
+    backend.update(francis_coppola,{'favorite_actor' : robert_de_niro})
+
+    backend.save(the_godfather)
     backend.save(clockwork_orange)
     backend.save(space_odyssey)
-    backend.save(brian_de_palma)
     backend.save(scarface)
-    backend.save(harrison_ford)
+
     backend.commit()
 
 def test_one_to_many_include(backend):
@@ -134,7 +139,7 @@ def test_include_with_only(backend):
 
     assert isinstance(actors[0],Actor)
     assert actors[0].lazy
-    assert set(actors[0].lazy_attributes.keys()) == set(('actor_movie_movies','actor_movie_cast','actor_food_favorite_food','favorite_food','best_movies','related_director_favorite_actor','movies','gross_income_m','pk','related_movie_cast'))
+    assert set(actors[0].lazy_attributes.keys()) == set(('related_role_actor','actor_movie_movies','actor_movie_cast','actor_food_favorite_food','favorite_food','best_movies','related_director_favorite_actor','movies','gross_income_m','pk','related_movie_cast'))
     assert isinstance(actors[0]['movies'],ManyToManyProxy)
     assert actors[0]['movies']._objects
 
@@ -147,6 +152,6 @@ def test_only(backend):
 
     assert isinstance(actors[0],Actor)
     assert actors[0].lazy
-    assert set(actors[0].lazy_attributes.keys()) == set(('actor_movie_movies','actor_movie_cast','actor_food_favorite_food','favorite_food','related_director_favorite_actor','best_movies','movies','gross_income_m','pk','related_movie_cast'))
+    assert set(actors[0].lazy_attributes.keys()) == set(('related_role_actor','actor_movie_movies','actor_movie_cast','actor_food_favorite_food','favorite_food','related_director_favorite_actor','best_movies','movies','gross_income_m','pk','related_movie_cast'))
     assert isinstance(actors[0]['movies'],ManyToManyProxy)
     assert actors[0]['movies']._objects is None

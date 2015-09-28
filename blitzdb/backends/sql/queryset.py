@@ -401,9 +401,9 @@ class QuerySet(BaseQuerySet):
 
     def intersect(self,qs):
         #here the .self_group() is necessary to ensure the correct grouping within the INTERSECT...
-        my_select = self.get_select(columns = [self.table.c.pk]).self_group()
-        qs_select = qs.get_select(columns = [qs.table.c.pk]).self_group()
-        condition = and_(self.table.c.pk.in_(expression.intersect(my_select,qs_select)))
+        my_select = self.get_select(columns = [self.table.c.pk]).self_group().cte()
+        qs_select = qs.get_select(columns = [qs.table.c.pk]).self_group().cte()
+        condition = and_(self.table.c.pk.in_(expression.intersect(select([my_select.c.pk]),select([qs_select.c.pk]))))
         new_qs = QuerySet(self.backend,
                           self.table,
                           self.cls,
@@ -431,6 +431,18 @@ class QuerySet(BaseQuerySet):
         if self.extra_fields:
             columns.extend(self.extra_fields)
 
+        order_by_list = []
+        if order_by and self.order_bys:
+            for key,direction in self.order_bys:
+                try:
+                    column = self.table.c[self.backend.get_column_for_key(self.cls,key)]
+                    if not column in columns:
+                        columns.append(column)
+                    order_by_list.append(direction(column))
+                except KeyError:
+                    if strict_order_by:
+                        raise
+
         s = select(columns)
         if self.joins:
             full_join = None
@@ -443,6 +455,9 @@ class QuerySet(BaseQuerySet):
 
         if self.condition is not None:
             s = s.where(self.condition)
+
+        if order_by_list:
+            s = s.order_by(*order_by_list)
 
         if self.joins:
             if self.group_bys:
@@ -459,15 +474,7 @@ class QuerySet(BaseQuerySet):
         if self.havings:
             for having in self.havings:
                 s = s.having(having)
-        if order_by and self.order_bys:
-            order_by_list = []
-            for key,direction in self.order_bys:
-                try:
-                    order_by_list.append(direction(self.table.c[self.backend.get_column_for_key(self.cls,key)]))
-                except KeyError:
-                    if strict_order_by:
-                        raise
-            s = s.order_by(*order_by_list)
+
         if self._offset:
             s = s.offset(self._offset)
         if self._limit:

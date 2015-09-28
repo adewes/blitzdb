@@ -33,23 +33,26 @@ def test_basics(backend):
     robert_de_niro.movies.append(the_godfather)
     al_pacino.movies.append(the_godfather)
     al_pacino.movies.append(scarface)
-    stanley_kubrick.favorite_actor = al_pacino
-    francis_coppola.favorite_actor = robert_de_niro
 
     apocalypse_now = Movie({'title' : 'Apocalypse Now'})
     star_wars_v = Movie({'title' : 'Star Wars V: The Empire Strikes Back'})
     harrison_ford.movies = [star_wars_v]
 
-    backend.save(the_godfather)
     backend.save(robert_de_niro)
     backend.save(al_pacino)
     backend.save(francis_coppola)
     backend.save(stanley_kubrick)
+    backend.save(brian_de_palma)
+    backend.save(harrison_ford)
+
+    backend.update(stanley_kubrick,{'favorite_actor' : al_pacino})
+    backend.update(francis_coppola,{'favorite_actor' : robert_de_niro})
+
+    backend.save(the_godfather)
     backend.save(clockwork_orange)
     backend.save(space_odyssey)
-    backend.save(brian_de_palma)
     backend.save(scarface)
-    backend.save(harrison_ford)
+
     backend.commit()
 
 

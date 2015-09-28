@@ -21,11 +21,11 @@ def backend():
     engine = create_engine('sqlite:///:memory:', echo=True)
     backend = Backend(engine = engine,autodiscover_classes = False)
     backend.register(Actor)
+    backend.init_schema()
+    backend.create_schema()
     return backend
 
 def test_basics(backend):
-
-    backend.create_schema()
 
     actor = Actor({'created_at' : datetime.datetime.now()})
 
