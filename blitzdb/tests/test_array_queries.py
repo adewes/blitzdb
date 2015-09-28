@@ -24,7 +24,7 @@ def test_array_queries(backend):
 
     backend.commit()
 
-    result = backend.filter(Actor,{'movies.pk' : the_godfather.pk})
+    result = backend.filter(Actor,{'movies' : the_godfather})
 
     assert len(result) == 2
     assert marlon_brando in result

@@ -31,22 +31,22 @@ class MetaDocument(type):
 
     def __new__(meta, name, bases, dct):
         sanitized_dct = {}
-        sanitized_dct['_fields'] = {}
+        sanitized_dct['fields'] = {}
 
         class_type = type.__new__(meta, name, bases, dct)
 
         fields = {}
 
         #we inherit the fields from the base type(s)
-        if hasattr(class_type,'_fields'):
-            fields.update(class_type._fields)
+        if hasattr(class_type,'fields'):
+            fields.update(class_type.fields)
 
         for key,value in dct.items():
             if isinstance(value,BaseField):
                 fields[key] = value
                 delattr(class_type,key)
 
-        class_type._fields = fields
+        class_type.fields = fields
 
         global DoesNotExist,MultipleDocumentsReturned
 

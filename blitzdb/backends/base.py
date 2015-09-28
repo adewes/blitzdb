@@ -104,6 +104,12 @@ class Backend(object):
         for document_class in document_classes:
             self.register(document_class)
 
+    def unregister(self,cls):
+
+        if cls in self.classes:
+            del self.collections[self.classes[cls]['collection']]
+            del self.classes[cls]
+
     def register(self, cls, parameters=None,overwrite = False):
         """
         Explicitly register a new document class for use in the backend.

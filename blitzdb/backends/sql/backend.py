@@ -96,13 +96,13 @@ class Backend(BaseBackend):
 
         self._engine_getter = engine
         self._engine = None
+        self._schema_initialized = False
+        self._relationship_classes = []
         self._transactions = []
         self.table_postfix = table_postfix
 
         if create_schema:
             self.create_schema()
-
-        self.init_schema()
 
         self._conn = None
         self._auto_transaction = False
@@ -197,6 +197,19 @@ class Backend(BaseBackend):
         self._excluded_keys = defaultdict(dict)
         self._foreign_key_backrefs = defaultdict(dict)
         self._many_to_many_backrefs = defaultdict(dict)
+        self._metadata = MetaData()
+        self._schema_initialized = True
+
+        for cls in self._relationship_classes:
+            self.unregister(cls)
+
+        self._relationship_classes = []
+
+        for collection,cls in self.collections.items():
+            self.init_class_schema(cls,collection)
+
+
+    def init_class_schema(self,cls,collection,table = None):
 
         def add_one_to_many_field(collection,cls,key,field,backref = None):
 
@@ -246,6 +259,7 @@ class Backend(BaseBackend):
             column = Column(column_name,self.get_field_type(related_class.Meta.PkType),
                             ForeignKey('%s%s.pk' % (related_collection,self.table_postfix),name = '%s_%s_%s' % (collection,related_collection,column_name), ondelete = field.ondelete,use_alter = False),
                             index=True,nullable = True if field.nullable else False)
+
             params = {'field' : field,
                       'key' : key,
                       'column' : column_name,
@@ -274,7 +288,6 @@ class Backend(BaseBackend):
 
             return params
 
-
         def add_many_to_many_field(collection,cls,key,field,backref = None):
 
             if isinstance(field.related,(list,tuple)):
@@ -292,6 +305,11 @@ class Backend(BaseBackend):
             else:
                 related_collection = self.get_collection_for_cls(field.related)
             related_class = self.get_cls_for_collection(related_collection)
+
+            pk_field_name = field.field or collection
+            related_pk_field_name = field.related_field or related_collection
+
+            relationship_name = "%s_%s_%s" % (collection,related_collection,column_name)
 
             params = {'field' : field,
                       'key' : key,
@@ -312,8 +330,8 @@ class Backend(BaseBackend):
                     UniqueConstraint('pk_%s' % related_collection,'pk_%s' % collection,name = '%s_%s_unique' % (relationship_name,column_name))
                     ]
                 relationship_table = Table('%s%s' % (relationship_name,self.table_postfix),self._metadata,
-                        Column(related_pk_field_name,self.get_field_type(related_class.Meta.PkType),ForeignKey('%s%s.pk' % (related_collection,self.table_postfix),name = "%s_%s" % (relationship_name,related_pk_field_name), ondelete = field.ondelete,use_alter = False),index = True),
-                        Column(pk_field_name,self.get_field_type(cls.Meta.PkType),ForeignKey('%s%s.pk' % (collection,self.table_postfix),name = "%s_%s" % (relationship_name,pk_field_name),ondelete = field.ondelete,use_alter = False),index = True),
+                        Column(related_pk_field_name,self.get_field_type(related_class.Meta.PkType),ForeignKey('%s%s.pk' % (related_collection,self.table_postfix),name = "%s_%s" % (relationship_name,related_pk_field_name), ondelete = 'CASCADE',use_alter = False),index = True),
+                        Column(pk_field_name,self.get_field_type(cls.Meta.PkType),ForeignKey('%s%s.pk' % (collection,self.table_postfix),name = "%s_%s" % (relationship_name,pk_field_name),ondelete = 'CASCADE',use_alter = False),index = True),
                         *extra_columns
                     )
                 params['relationship_table'] = relationship_table
@@ -329,6 +347,34 @@ class Backend(BaseBackend):
                                        key = backref_key,
                                        field = ManyToManyField(cls,key = backref_key),
                                        backref = params)
+
+                #We add an explicit relationship class for the relationship
+
+                class RelationshipClass(Document):
+
+                    class Meta(Document.Meta):
+                        autoregister = False
+
+                    from_class = cls
+                    to_class = related_class
+
+                RelationshipClass.__name__ = str("%s%s%s" % (collection.capitalize(),related_collection.capitalize(),"".join([k.capitalize() for k in key.split(".")])))
+                
+                RelationshipClass.fields[pk_field_name] = ForeignKeyField(cls,
+                                                            backref = '%s_%s_%s' % (collection,related_collection,column_name),
+                                                            ondelete = 'CASCADE')
+                RelationshipClass.fields[related_pk_field_name] =ForeignKeyField(related_class,
+                                                            backref = '%s_%s_%s' % (related_collection,collection,column_name),
+                                                            ondelete = 'CASCADE')
+
+                field.RelationshipClass = RelationshipClass
+
+                #we append the class to the list of relationship classes so we can unregister it later
+                #this is important when calling init_schema more than once...
+                self._relationship_classes.append(RelationshipClass)
+
+                self.register(RelationshipClass,parameters = {'collection' : relationship_name},overwrite = True)
+                self.init_class_schema(RelationshipClass,relationship_name,table = relationship_table)
 
             return params
 
@@ -347,48 +393,47 @@ class Backend(BaseBackend):
                 name = 'unique_%s_%s' % (collection,column_name)
                 extra_columns.append(UniqueConstraint(column_name,name = name))
 
-        self._metadata = MetaData()
+        index_params = {
+            'field' : cls.Meta.PkType,
+            'type' : self.get_field_type(cls.Meta.PkType),
+            'column' : 'pk',
+            'key' : 'pk'
+        }
+        self._index_fields[collection]['pk'] = index_params
+        self._table_columns[collection]['pk'] = index_params
+        self._excluded_keys[collection]['pk'] = True
 
-        for collection,cls in self.collections.items():
-            index_params = {
-                'field' : cls.Meta.PkType,
-                'type' : self.get_field_type(cls.Meta.PkType),
-                'column' : 'pk',
-                'key' : 'pk'
-            }
-            self._index_fields[collection]['pk'] = index_params
-            self._table_columns[collection]['pk'] = index_params
-            self._excluded_keys[collection]['pk'] = True
+        extra_columns = [Column('pk',self.get_field_type(cls.Meta.PkType),primary_key = True,index = True)]
 
-            extra_columns = [Column('pk',self.get_field_type(cls.Meta.PkType),primary_key = True,index = True)]
+        meta_attributes = self.get_meta_attributes(cls)
 
-            meta_attributes = self.get_meta_attributes(cls)
+        for key,field in cls.fields.items():
+            if field.key:
+                key = field.key
 
-            for key,field in cls._fields.items():
-                if field.key:
-                    key = field.key
+            if not isinstance(field,BaseField):
+                raise AttributeError("Not a valid field: %s = %s" % (key,field))
+            if isinstance(field,ForeignKeyField):
+                add_foreign_key_field(collection,cls,key,field)
+            elif isinstance(field,ManyToManyField):
+                add_many_to_many_field(collection,cls,key,field)
+            elif isinstance(field,OneToManyField):
+                add_one_to_many_field(collection,cls,key,field)
+            else:
+                add_field(collection,key,field)
 
-                if not isinstance(field,BaseField):
-                    raise AttributeError("Not a valid field: %s = %s" % (key,field))
-                if isinstance(field,ForeignKeyField):
-                    add_foreign_key_field(collection,cls,key,field)
-                elif isinstance(field,ManyToManyField):
-                    add_many_to_many_field(collection,cls,key,field)
-                elif isinstance(field,OneToManyField):
-                    add_one_to_many_field(collection,cls,key,field)
-                else:
-                    add_field(collection,key,field)
+        if 'unique_together' in meta_attributes:
+            for keys in meta_attributes['unique_together']:
+                columns = [self.get_column_for_key(collection,key) for key in keys]
+                name = 'unique_together_%s_%s' % (collection,'_'.join(columns))
+                extra_columns.append(UniqueConstraint(*columns,name = name))
 
-            if 'unique_together' in meta_attributes:
-                for keys in meta_attributes['unique_together']:
-                    columns = [self.get_column_for_key(collection,key) for key in keys]
-                    name = 'unique_together_%s_%s' % (collection,'_'.join(columns))
-                    extra_columns.append(UniqueConstraint(*columns,name = name))
-
-            self._collection_tables[collection] = Table('%s%s' % (collection,self.table_postfix),self._metadata,
-                    Column('data',LargeBinary),
-                    *extra_columns
-                )
+        if table is None:
+            table = Table('%s%s' % (collection,self.table_postfix),self._metadata,
+                            Column('data',LargeBinary),
+                            *extra_columns
+                        )
+        self._collection_tables[collection] = table
 
     def get_collection_table(self,collection):
         return self._collection_tables[collection]
@@ -456,7 +501,8 @@ class Backend(BaseBackend):
         self._transactions = []
 
     def create_schema(self,indexes = None):
-        self.init_schema()
+        if not self._schema_initialized:
+            self.init_schema()
         self._metadata.create_all(self.engine,checkfirst = True)
 
     def drop_schema(self):
@@ -1153,6 +1199,8 @@ class Backend(BaseBackend):
                         return [table.c[column_name] == None]
                 elif '$like' in query:
                     return [table.c[column_name].like(expression.cast(query['$like'],String))]
+                elif '$ilike' in query:
+                    return [table.c[column_name].ilike(expression.cast(query['$ilike'],String))]
                 elif '$regex' in query:
                     if not self.engine.url.drivername in ('postgres','mysql','sqlite'):
                         raise AttributeError("Regex queries not supported with %s engine!" % self.engine.url.drivername)
@@ -1198,7 +1246,8 @@ class Backend(BaseBackend):
                                                     where_statements.append(table.c[params['column']] != None)
                                                 else:
                                                     where_statements.append(table.c[params['column']] == None)
-                                            if not key in ('$in','$nin'):
+                                                break
+                                            elif not key in ('$in','$nin'):
                                                 raise AttributeError("Invalid query!")
                                             query_type = key[1:]
                                         else:
