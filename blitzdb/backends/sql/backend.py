@@ -101,6 +101,8 @@ class Backend(BaseBackend):
         self._transactions = []
         self.table_postfix = table_postfix
 
+        self.init_schema()
+
         if create_schema:
             self.create_schema()
 
