@@ -529,7 +529,12 @@ class Backend(BaseBackend):
             set_fields = {}
 
         if unset_fields is None:
-            unset_fields = ()
+            unset_fields = []
+        else:
+            unset_fields = list(unset_fields)
+
+        collection = self.get_collection_for_cls(obj.__class__)
+        table = self._collection_tables[collection]
 
         if isinstance(set_fields,(list,tuple)):
             set_fields_dict = {}
@@ -539,6 +544,19 @@ class Backend(BaseBackend):
                 except KeyError:
                     set_fields_dict[key] = None
             set_fields = set_fields_dict
+
+
+        #if we set/unset `github_access_data`, we also set/unset `github_access_data.login` etc...
+        for key in self._table_columns[collection]:
+            for unset_field in unset_fields:
+                if key.startswith(unset_field+'.') and not key in unset_fields:
+                    unset_fields.append(key)
+            for set_field in set_fields.keys():
+                if key.startswith(set_field+'.') and not key in set_fields:
+                    try:
+                        set_fields[key] = get_value(obj,key)
+                    except KeyError:
+                        set_fields[key] = None
 
         self.call_hook('before_update',obj,set_fields,unset_fields)
 
@@ -554,8 +572,6 @@ class Backend(BaseBackend):
         if not isinstance(unset_fields,(tuple,list)):
             raise TypeError("unset_fields must be a tuple or a list")
 
-        collection = self.get_collection_for_cls(obj.__class__)
-        table = self._collection_tables[collection]
 
         index_fields = self._index_fields[collection]
         related_fields = self._related_fields[collection]

@@ -10,7 +10,6 @@ import pytest
 def backend(request):
 
     engine = get_sql_engine()
-
     backend = _sql_backend(request,engine)
 
     backend.register(Actor)
