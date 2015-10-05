@@ -975,7 +975,10 @@ class Backend(BaseBackend):
                         raw = False,
                         )
                 if params['field'].unique:
-                    def db_loader():
+
+                    def db_loader(params = params,qs = qs):
+                        #warning: pass external parameters as default to 
+                        #make sure that the function sees the correct closure
                         try:
                             obj = qs[0]
                         except IndexError:
@@ -983,6 +986,7 @@ class Backend(BaseBackend):
                         if len(qs) > 1:
                             raise params['class'].MultipleDocumentsReturned
                         return obj
+
                     set_value(data,params['key'],params['class']({},lazy = True,db_loader = db_loader))
                 else:
                     set_value(data,params['key'],qs)
@@ -1123,12 +1127,10 @@ class Backend(BaseBackend):
                                 qs = subquery
                             if not query_type in ('in','nin','all'):
                                 raise AttributeError
-                            #how to implement $all query with a QuerySet?
                             if query_type == 'all':
                                 op = 'in'
                             else:
                                 op = query_type
-
                             if query_type == 'all':
                                 cnt = func.count(count_column)
                                 condition = cnt == qs.get_select([func.count(qs.table.c['pk'])])
