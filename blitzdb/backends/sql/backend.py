@@ -1032,9 +1032,9 @@ class Backend(BaseBackend):
 
         result = self.filter(cls_or_collection,query,raw = raw,only = only,include = include)
         try:
-            obj = result[0]
             if len(result) > 1:
                 raise cls.MultipleDocumentsReturned
+            obj = result[:1][0]
             return obj
         except IndexError:
             raise cls.DoesNotExist
