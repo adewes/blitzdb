@@ -975,19 +975,24 @@ class Backend(BaseBackend):
                         raw = False,
                         )
                 if params['field'].unique:
-
-                    def db_loader(params = params,qs = qs):
-                        #warning: pass external parameters as default to 
-                        #make sure that the function sees the correct closure
+                    if objects is not None:
                         try:
-                            obj = qs[0]
+                            set_value(data,params['key'],qs[0])
                         except IndexError:
-                            raise params['class'].DoesNotExist
-                        if len(qs) > 1:
-                            raise params['class'].MultipleDocumentsReturned
-                        return obj
+                            set_value(data,params['key'],None)
+                    else:
+                        def db_loader(params = params,qs = qs):
+                            #warning: pass external parameters as default to 
+                            #make sure that the function sees the correct closure
+                            try:
+                                obj = qs[0]
+                            except IndexError:
+                                raise params['class'].DoesNotExist
+                            if len(qs) > 1:
+                                raise params['class'].MultipleDocumentsReturned
+                            return obj
 
-                    set_value(data,params['key'],params['class']({},lazy = True,db_loader = db_loader))
+                        set_value(data,params['key'],params['class']({},lazy = True,db_loader = db_loader))
                 else:
                     set_value(data,params['key'],qs)
 

@@ -140,25 +140,23 @@ class QuerySet(BaseQuerySet):
         column_map = {}
         joins = []
 
-        def join_table(collection,table,key,params,path = None,key_path = None):
-            if path is None:
-                path = []
+        def join_table(collection,table,key,params,key_path = None):
             if key_path is None:
                 key_path = []
             if isinstance(params['relation']['field'],ManyToManyField):
-                join_many_to_many(collection,table,key,params,path,key_path)
+                join_many_to_many(collection,table,key,params,key_path)
             elif isinstance(params['relation']['field'],ForeignKeyField):
-                join_foreign_key(collection,table,key,params,path,key_path)
+                join_foreign_key(collection,table,key,params,key_path)
             elif isinstance(params['relation']['field'],OneToManyField):
-                join_one_to_many(collection,table,key,params,path,key_path)
+                join_one_to_many(collection,table,key,params,key_path)
             else:
                 raise AttributeError
 
-        def process_fields_and_subkeys(related_collection,related_table,params,path,key_path):
+        def process_fields_and_subkeys(related_collection,related_table,params,key_path):
 
             params['table_fields'] = {}
             for field,column_name in params['fields'].items():
-                column_label = '_'.join(path+[column_name])
+                column_label = '_'.join(key_path+[column_name])
                 params['table_fields'][field] = column_label
                 column = related_table.c[column_name].label(column_label)
                 columns.append(column)
@@ -166,25 +164,23 @@ class QuerySet(BaseQuerySet):
                     column_map[".".join(key_path+[field])] = column
 
             for subkey,subparams in sorted(params['joins'].items(),key = lambda i : i[0]):
-                join_table(params['collection'],related_table,subkey,subparams,path = path,key_path = key_path+[subkey])
+                join_table(params['collection'],related_table,subkey,subparams,key_path = key_path+[subkey])
 
-        def join_one_to_many(collection,table,key,params,path,key_path):
+        def join_one_to_many(collection,table,key,params,key_path):
             related_table = params['table'].alias()
             related_collection = params['relation']['collection']
             condition = table.c['pk'] == related_table.c[params['relation']['backref']['column']]
             joins.append((related_table,condition))
-            process_fields_and_subkeys(related_collection,related_table,params,path+\
-                                        [params['relation']['backref']['column']],key_path)
+            process_fields_and_subkeys(related_collection,related_table,params,key_path)
 
-        def join_foreign_key(collection,table,key,params,path,key_path):
+        def join_foreign_key(collection,table,key,params,key_path):
             related_table = params['table'].alias()
             related_collection = params['relation']['collection']
             condition = table.c[params['relation']['column']] == related_table.c.pk
             joins.append((related_table,condition))
-            process_fields_and_subkeys(related_collection,related_table,params,path+\
-                                        [params['relation']['column']],key_path)
+            process_fields_and_subkeys(related_collection,related_table,params,key_path)
 
-        def join_many_to_many(collection,table,key,params,path,key_path):
+        def join_many_to_many(collection,table,key,params,key_path):
             relationship_table = params['relation']['relationship_table'].alias()
             related_collection = params['relation']['collection']
             related_table = self.backend.get_collection_table(related_collection).alias()
@@ -192,7 +188,7 @@ class QuerySet(BaseQuerySet):
             right_condition = relationship_table.c['pk_%s' % related_collection] == related_table.c.pk
             joins.append((relationship_table,left_condition))
             joins.append((related_table,right_condition))
-            process_fields_and_subkeys(related_collection,related_table,params,path+[key],key_path)
+            process_fields_and_subkeys(related_collection,related_table,params,key_path)
 
         if self.include:
             include = copy.deepcopy(self.include)
@@ -237,7 +233,7 @@ class QuerySet(BaseQuerySet):
         s = self.get_select(columns = [self.table.c[column] for column in my_columns],strict_order_by = False)
         s_cte = s.cte(name = 'results')
 
-        process_fields_and_subkeys(self.include_joins['collection'],s_cte,self.include_joins,[],[])
+        process_fields_and_subkeys(self.include_joins['collection'],s_cte,self.include_joins,[])
 
         if joins:
             for i,j in enumerate(joins):
@@ -323,6 +319,7 @@ class QuerySet(BaseQuerySet):
         s_cte,order_bys,rows = self.get_select_table_and_rows()
 
         field_map = build_field_map(self.include_joins)
+
         with self.backend.transaction(use_auto = False):
             try:
                 result = self.backend.connection.execute(select(rows).select_from(s_cte).order_by(*order_bys))

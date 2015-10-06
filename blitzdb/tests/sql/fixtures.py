@@ -21,3 +21,11 @@ def backend(request):
     backend.create_schema()
 
     return backend
+
+@pytest.fixture(scope="function")
+def empty_backend(request):
+
+    engine = get_sql_engine()
+    backend = _sql_backend(request,engine)
+
+    return backend

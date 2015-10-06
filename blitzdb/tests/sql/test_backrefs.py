@@ -33,6 +33,7 @@ def test_basics(backend):
     al_pacino.movies.append(the_godfather)
     al_pacino.movies.append(scarface)
     stanley_kubrick.favorite_actor = al_pacino
+    francis_coppola.best_movie = the_godfather
 
     apocalypse_now = Movie({'title' : 'Apocalypse Now'})
     star_wars_v = Movie({'title' : 'Star Wars V: The Empire Strikes Back'})
