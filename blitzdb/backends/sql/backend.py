@@ -533,6 +533,18 @@ class Backend(BaseBackend):
         else:
             unset_fields = list(unset_fields)
 
+        def flatten_set_fields(d,fd = None,path = None):
+            if path is None:
+                path = []
+            if fd is None:
+                fd = {}
+            for key,value in d.items():
+                if isinstance(value,dict):
+                    flatten_set_fields(value,fd,path = path+[key])
+                else:
+                    fd[".".join(path+[key])] = value
+            return fd
+
         collection = self.get_collection_for_cls(obj.__class__)
         table = self._collection_tables[collection]
 
@@ -545,6 +557,7 @@ class Backend(BaseBackend):
                     set_fields_dict[key] = None
             set_fields = set_fields_dict
 
+        set_fields = flatten_set_fields(set_fields)
 
         #if we set/unset `github_access_data`, we also set/unset `github_access_data.login` etc...
         for key in self._table_columns[collection]:
