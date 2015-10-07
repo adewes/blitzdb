@@ -128,7 +128,7 @@ class Backend(BaseBackend):
         m = {
             IntegerField : Integer,
             FloatField : Float,
-            CharField : VARCHAR(60),
+            CharField : lambda field: String(length = field.length),
             EnumField : lambda field: Enum(*field.enums,name = name,native_enum = field.native_enum),
             TextField : Text,
             BooleanField: Boolean,
@@ -389,7 +389,14 @@ class Backend(BaseBackend):
                             'column' : column_name}
             self._index_fields[collection][key] = index_params
             self._table_columns[collection][key] = index_params
-            extra_columns.append(Column(column_name,index_params['type'],index = field.indexed))
+            column_args = {'index' : field.indexed,
+                           'nullable' : field.nullable}
+
+            if field.default is not None:
+                column_args['server_default'] = expression.cast(field.default,index_params['type'])
+
+            extra_columns.append(Column(column_name,index_params['type'],
+                                        **column_args))
 
             if field.unique:
                 name = 'unique_%s_%s' % (collection,column_name)
