@@ -808,6 +808,7 @@ class Backend(BaseBackend):
                 self.connection.execute(insert)
 
             obj.backend = self
+            #after saving an object, we initialize the relations
             self.initialize_relations(obj)
 
             return obj
@@ -837,9 +838,7 @@ class Backend(BaseBackend):
                 except KeyError:
                     set_value(data,key,None)
                     continue
-                print foreign_key_data
                 if isinstance(foreign_key_data,Document):
-                    print "Skipping"
                     continue #already initialized
                 if foreign_key_data:
                     if not isinstance(foreign_key_data,dict):
