@@ -43,7 +43,11 @@ class MetaDocument(type):
 
         for key,value in dct.items():
             if isinstance(value,BaseField):
-                fields[key] = value
+                if value.key:
+                    field_key = value.key
+                else:
+                    field_key = key
+                fields[field_key] = value
                 delattr(class_type,key)
 
         class_type.fields = fields
@@ -254,7 +258,7 @@ class Document(object):
             raise AttributeError(key)
 
     def __setattr__(self, key, value):
-        if key.startswith('_') or key in ('attributes','pk','lazy'):
+        if key.startswith('_') or key in ('attributes','pk','lazy','backend'):
             return super(Document, self).__setattr__(key, value)
         else:
             self.attributes[key] = value

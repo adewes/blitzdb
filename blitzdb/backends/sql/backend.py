@@ -393,6 +393,9 @@ class Backend(BaseBackend):
                            'nullable' : field.nullable}
 
             if field.default is not None:
+                column_args['default'] = expression.cast(field.default,index_params['type'])
+
+            if field.server_default is not None:
                 column_args['server_default'] = expression.cast(field.default,index_params['type'])
 
             extra_columns.append(Column(column_name,index_params['type'],
@@ -417,9 +420,6 @@ class Backend(BaseBackend):
         meta_attributes = self.get_meta_attributes(cls)
 
         for key,field in cls.fields.items():
-            if field.key:
-                key = field.key
-
             if not isinstance(field,BaseField):
                 raise AttributeError("Not a valid field: %s = %s" % (key,field))
             if isinstance(field,ForeignKeyField):
@@ -778,10 +778,10 @@ class Backend(BaseBackend):
 
         with self.transaction(use_auto = False):
 
-            insert = False
+            is_insert = False
             if not obj.pk:
                 obj.pk = uuid.uuid4().hex
-                insert = True
+                is_insert = True
 
             d = {'data' : self.serialize_json(self.serialize(obj.attributes,
                     encoders = [ExcludedFieldsEncoder(self,collection)])),
@@ -791,14 +791,15 @@ class Backend(BaseBackend):
             self._serialize_and_update_relations(obj,collection,d,deletes,inserts,autosave_dependent = autosave_dependent)
 
             #if we got an object with a PK, we try to perform an UPDATE operation
-            if not insert:
+            if not is_insert:
                 update = self._collection_tables[collection].update().values(**d).where(table.c.pk == obj.pk)
                 result = self.connection.execute(update)
 
             #if we did not get a PK the UPDATE did not match any rows, we perform an INSERT instead
-            if insert or not result.rowcount:
+            if is_insert or not result.rowcount:
                 insert = self._collection_tables[collection].insert().values(**d)
                 result = self.connection.execute(insert)
+                is_insert = True
 
             for delete in deletes:
                 self.connection.execute(delete)
@@ -806,7 +807,89 @@ class Backend(BaseBackend):
             for insert in inserts:
                 self.connection.execute(insert)
 
+            obj.backend = self
+            self.initialize_relations(obj)
+
             return obj
+
+    def initialize_relations(self,obj,data = None):
+
+        if data is None:
+            data = obj.attributes
+
+        collection = self.get_collection_for_cls(obj.__class__)
+
+        for key,params in self._related_fields[collection].items():
+            if isinstance(params['field'],ManyToManyField):
+                try:
+                    #to do: add proper select condition
+                    objects = get_value(data,key)
+                except KeyError:
+                    objects = None
+                if isinstance(objects,ManyToManyProxy):
+                    continue #already initialized
+                #check if we have data for this ManyToMany proxy. If yes, pass it along!
+                set_value(data,key,ManyToManyProxy(obj,key,params,objects = objects))
+            elif isinstance(params['field'],ForeignKeyField):
+                #check if we have data for this ForeignKey object. If yes, pass it along!
+                try:
+                    foreign_key_data = get_value(data,key)
+                except KeyError:
+                    set_value(data,key,None)
+                    continue
+                print foreign_key_data
+                if isinstance(foreign_key_data,Document):
+                    print "Skipping"
+                    continue #already initialized
+                if foreign_key_data:
+                    if not isinstance(foreign_key_data,dict):
+                        foreign_key_data = {'pk' : foreign_key_data,
+                                            '__lazy__' : True,
+                                            '__collection__' : collection}
+                    d,lazy_foreign_obj = self.deserialize_db_data(foreign_key_data)
+                    foreign_obj = self.create_instance(params['class'],d,lazy = lazy_foreign_obj)
+                else:
+                    foreign_obj = None
+                set_value(data,key,foreign_obj)
+            elif isinstance(params['field'],OneToManyField):
+                try:
+                    objects = get_value(data,key)
+                except KeyError:
+                    objects = None
+                if isinstance(objects,(QuerySet,Document)):
+                    continue #already initialized
+                table = self._collection_tables[params['collection']]
+                related_table = self._collection_tables[params['backref']['collection']]
+                qs = QuerySet(backend = self,
+                        table = table,
+                        cls = params['class'],
+                        condition = table.c[params['backref']['column']] == expression.cast(data['pk'],params['type']),
+                        objects = objects,
+                        raw = False,
+                        )
+                if params['field'].unique:
+                    if objects is not None:
+                        try:
+                            set_value(data,key,qs[0])
+                        except IndexError:
+                            set_value(data,key,None)
+                    else:
+                        def db_loader(params = params,qs = qs):
+                            #warning: pass external parameters as default to 
+                            #make sure that the function sees the correct closure
+                            try:
+                                obj = qs[0]
+                            except IndexError:
+                                raise params['class'].DoesNotExist
+                            if len(qs) > 1:
+                                raise params['class'].MultipleDocumentsReturned
+                            return obj
+
+                        set_value(data,key,params['class']({},lazy = True,db_loader = db_loader))
+                else:
+                    set_value(data,key,qs)
+
+        obj.attributes = data
 
     def get_include_joins(self,cls,includes,excludes = None,order_by_keys = None):
         collection = self.get_collection_for_cls(cls)
@@ -944,81 +1027,10 @@ class Backend(BaseBackend):
 
     def create_instance(self, collection_or_class,attributes,lazy = False):
 
-        if isinstance(collection_or_class,six.string_types):
-            collection = collection_or_class
-        else:
-            collection = self.get_collection_for_cls(collection_or_class)
-
-        data = attributes
-        #we create the object first
         obj = super(Backend,self).create_instance(collection_or_class,{},call_hook = False,lazy = lazy)
-
-        for field_name,params in self._related_fields[collection].items():
-            if isinstance(params['field'],ManyToManyField):
-                try:
-                    #to do: add proper select condition
-                    objects = get_value(data,params['key'])
-                except KeyError:
-                    objects = None
-                #check if we have data for this ManyToMany proxy. If yes, pass it along!
-                set_value(data,params['key'],ManyToManyProxy(obj,field_name,params,objects = objects))
-            elif isinstance(params['field'],ForeignKeyField):
-                #check if we have data for this ForeignKey object. If yes, pass it along!
-                try:
-                    foreign_key_data = get_value(data,params['key'])
-                except KeyError:
-                    set_value(data,params['key'],None)
-                    continue
-                if foreign_key_data:
-                    if not isinstance(foreign_key_data,dict):
-                        foreign_key_data = {'pk' : foreign_key_data,
-                                            '__lazy__' : True,
-                                            '__collection__' : collection
-                                            }
-                    d,lazy_foreign_obj = self.deserialize_db_data(foreign_key_data)
-                    foreign_obj = self.create_instance(params['class'],d,lazy = lazy_foreign_obj)
-                else:
-                    foreign_obj = None
-                set_value(data,params['key'],foreign_obj)
-            elif isinstance(params['field'],OneToManyField):
-                try:
-                    objects = get_value(data,params['key'])
-                except KeyError:
-                    objects = None
-                table = self._collection_tables[params['collection']]
-                related_table = self._collection_tables[params['backref']['collection']]
-                qs = QuerySet(backend = self,
-                        table = table,
-                        cls = params['class'],
-                        condition = table.c[params['backref']['column']] == expression.cast(data['pk'],params['type']),
-                        objects = objects,
-                        raw = False,
-                        )
-                if params['field'].unique:
-                    if objects is not None:
-                        try:
-                            set_value(data,params['key'],qs[0])
-                        except IndexError:
-                            set_value(data,params['key'],None)
-                    else:
-                        def db_loader(params = params,qs = qs):
-                            #warning: pass external parameters as default to 
-                            #make sure that the function sees the correct closure
-                            try:
-                                obj = qs[0]
-                            except IndexError:
-                                raise params['class'].DoesNotExist
-                            if len(qs) > 1:
-                                raise params['class'].MultipleDocumentsReturned
-                            return obj
-
-                        set_value(data,params['key'],params['class']({},lazy = True,db_loader = db_loader))
-                else:
-                    set_value(data,params['key'],qs)
-
-        obj.attributes = data
+        self.initialize_relations(obj,data = attributes.copy())
         self.call_hook('after_load',obj)
-
+        
         return obj
 
     def create_index(self, cls_or_collection, *args, **kwargs):

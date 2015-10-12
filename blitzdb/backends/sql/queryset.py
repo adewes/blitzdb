@@ -9,6 +9,7 @@ from sqlalchemy.sql import select,func,expression,delete,distinct,and_,union,int
 from sqlalchemy.sql.expression import join,asc,desc,outerjoin,nullsfirst,nullslast
 from ..file.serializers import JsonSerializer
 from blitzdb.helpers import get_value
+from blitzdb.document import Document
 from collections import OrderedDict
 from blitzdb.fields import ManyToManyField,ForeignKeyField,OneToManyField
 
@@ -67,6 +68,9 @@ class QuerySet(BaseQuerySet):
         return self
 
     def deserialize(self, data):
+
+        if isinstance(data,Document):
+            return data
 
         d,lazy = self.backend.deserialize_db_data(data)
 
