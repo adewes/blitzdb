@@ -324,7 +324,7 @@ class QuerySet(BaseQuerySet):
 
         field_map = build_field_map(self.include_joins)
 
-        with self.backend.transaction(use_auto = False):
+        with self.backend.transaction():
             try:
                 result = self.backend.connection.execute(select(rows).select_from(s_cte).order_by(*order_bys))
                 if result.returns_rows:
@@ -417,7 +417,7 @@ class QuerySet(BaseQuerySet):
         return new_qs
 
     def delete(self):
-        with self.backend.transaction(use_auto = False):
+        with self.backend.transaction(implicit = True):
             delete_stmt = self.table.delete().where(self.table.c.pk.in_(self.get_select(columns = [self.table.c.pk])))
             self.backend.connection.execute(delete_stmt)
 
@@ -487,7 +487,7 @@ class QuerySet(BaseQuerySet):
             if self.objects is not None:
                 self.count = len(self.objects)
             else:
-                with self.backend.transaction(use_auto = False):
+                with self.backend.transaction():
                     s = select([func.count()]).select_from(self.get_select(columns = [self.table.c.pk],strict_order_by = False).alias('count_select'))
                     result = self.backend.connection.execute(s)
                     self.count = result.first()[0]
@@ -495,7 +495,7 @@ class QuerySet(BaseQuerySet):
         return self.count
 
     def distinct_pks(self):
-        with self.backend.transaction(use_auto = False):
+        with self.backend.transaction():
             s = self.get_select([self.table.c.pk])
             result = self.backend.connection.execute(s)
             return set([r[0] for r in result.fetchall()])

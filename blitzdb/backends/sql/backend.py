@@ -107,7 +107,6 @@ class Backend(BaseBackend):
             self.create_schema()
 
         self._conn = None
-        self._auto_transaction = False
 
     @property
     def engine(self):
@@ -123,6 +122,12 @@ class Backend(BaseBackend):
         if self._conn is None:
             self._conn = self.engine.connect()
         return self._conn
+
+    @connection.deleter
+    def connection(self):
+        if self._conn:
+            self._conn.close()
+        self._conn = None
 
     def get_field_type(self,field,name = None):
         m = {
@@ -447,12 +452,13 @@ class Backend(BaseBackend):
     def get_collection_table(self,collection):
         return self._collection_tables[collection]
 
-    def begin(self,use_auto = True):
-        if not self._transactions:
-            self._auto_transaction = True
-        elif self._auto_transaction and use_auto:
-            self._auto_transaction = False
-            return self._transactions[0]
+    @property
+    def current_transaction(self):
+        if self._transactions:
+            return self._transactions[-1]
+        return None
+
+    def begin(self):
         self._transactions.append(self.connection.begin())
         return self._transactions[-1]
 
@@ -464,9 +470,9 @@ class Backend(BaseBackend):
             return
         last_transaction = self._transactions.pop()
         last_transaction.commit()
-        #if we have committed the last transaction, we open a new one
         if not self._transactions:
-            self.begin()
+            #we return the connection to the pool
+            del self.connection
 
     def rollback(self,transaction = None):
         if not self._transactions:
@@ -477,32 +483,8 @@ class Backend(BaseBackend):
         last_transaction.rollback()
         #we roll back ALL transactions.
         self._transactions = []
-        self.begin()
-
-    def transaction(self,use_auto = True):
-        """
-        This returns a context guard which will automatically open and close a transaction
-        """
-
-        class TransactionManager(object):
-
-            def __init__(self,backend,use_auto = True):
-                self.use_auto = use_auto
-                self.backend = backend
-
-            def __enter__(self):
-                self.transaction = self.backend.begin(use_auto = self.use_auto)
-
-            def __exit__(self,exc_type,exc_value,traceback_obj):
-                if exc_type:
-                    self.backend.rollback(self.transaction)
-                else:
-                    self.backend.commit(self.transaction)
-
-        return TransactionManager(self,use_auto = use_auto)
-
-    def close_connection(self):
-        return self.connection.close()
+        #we return the connection to the pool
+        del self.connection
 
     def replace_engine(self,engine):
         self._engine = engine
@@ -600,7 +582,7 @@ class Backend(BaseBackend):
         deletes = []
         inserts = []
 
-        with self.transaction(use_auto = False):
+        with self.transaction(implicit = True):
 
             data_set_keys = {}
             data_unset_keys = set()
@@ -776,7 +758,7 @@ class Backend(BaseBackend):
         deletes = []
         inserts = []
 
-        with self.transaction(use_auto = False):
+        with self.transaction(implicit = True):
 
             is_insert = False
             if not obj.pk:
