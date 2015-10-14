@@ -124,7 +124,7 @@ class Backend(BaseBackend):
             raise TypeError('Value must be boolean!')
         self.config['autocommit'] = value
 
-    def begin(self, transaction=None):
+    def begin(self):
         """Start a new transaction."""
         if self.in_transaction:  # we're already in a transaction...
             if self._auto_transaction:

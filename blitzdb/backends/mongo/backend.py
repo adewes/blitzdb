@@ -154,7 +154,7 @@ class Backend(BaseBackend):
 
         collection = self.get_collection_for_cls(obj.__class__)
 
-        if obj.pk == None:
+        if obj.pk is None:
             raise obj.DoesNotExist("update() called on document without primary key!")
 
         def serialize_fields(fields):

@@ -376,6 +376,27 @@ class Backend(object):
 
         return obj
 
+    def transaction(self):
+        """
+        This returns a context guard which will automatically open and close a transaction
+        """
+
+        class TransactionManager(object):
+
+            def __init__(self,backend):
+                self.backend = backend
+
+            def __enter__(self):
+                self.transaction = self.backend.begin()
+
+            def __exit__(self,exc_type,exc_value,traceback_obj):
+                if exc_type:
+                    self.backend.rollback(self.transaction)
+                else:
+                    self.backend.commit(self.transaction)
+
+        return TransactionManager(self)
+
     def get_collection_for_obj(self, obj):
         """
         Returns the collection name for a given object, based on the class of the object.

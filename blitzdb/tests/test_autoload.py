@@ -11,8 +11,8 @@ def test_update_by_list(no_autoload_mongodb_backend):
 
     actor = Actor({'name': 'Robert de Niro', 'age': 54, 'movies': [Movie({'name': 'The Godfather', 'year': 1987, 'rating': 'AAA'})]})
 
-    no_autoload_mongodb_backend.save(actor)
-    no_autoload_mongodb_backend.commit()
+    with no_autoload_mongodb_backend.transaction():
+        no_autoload_mongodb_backend.save(actor)
 
     assert len(no_autoload_mongodb_backend.filter(Actor, {'name': 'Robert de Niro'})) == 1
 
@@ -37,8 +37,8 @@ def test_eager_property(no_autoload_mongodb_backend):
 
     actor = Actor({'name': 'Robert de Niro', 'age': 54, 'movies': [Movie({'name': 'The Godfather', 'year': 1987, 'rating': 'AAA'})]})
 
-    no_autoload_mongodb_backend.save(actor)
-    no_autoload_mongodb_backend.commit()
+    with no_autoload_mongodb_backend.transaction():
+        no_autoload_mongodb_backend.save(actor)
 
     assert len(no_autoload_mongodb_backend.filter(Actor, {'name': 'Robert de Niro'})) == 1
 

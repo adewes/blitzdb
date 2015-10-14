@@ -9,9 +9,9 @@ def test_delete(backend):
     stallone = Actor({'name' : 'Silvester Stallone'})
     arnie = Actor({'name' : 'Arnold Schwarzenegger'})
 
-    backend.save(stallone)
-    backend.save(arnie)
-    backend.commit()
+    with backend.transaction():
+        backend.save(stallone)
+        backend.save(arnie)
 
     assert backend.get(Actor,{'name' : 'Silvester Stallone'}) == stallone
     assert backend.get(Actor,{'name' : 'Arnold Schwarzenegger'}) == arnie

@@ -9,12 +9,11 @@ def test_nested_value(backend):
     actor = Actor({'name' : 'Robert de Niro'})
     movie = Movie({'best_actor' : actor,'title' : 'The Godfather'})
 
-    backend.save(actor)
-    actor.movies = [movie]
-    backend.save(actor)
-    backend.commit()
-    backend.save(movie)
-    backend.commit()
+    with backend.transaction():
+        backend.save(actor)
+        actor.movies = [movie]
+        backend.save(actor)
+        backend.save(movie)
 
     recovered_actor = backend.get(Actor,{'pk' : actor.pk})
 

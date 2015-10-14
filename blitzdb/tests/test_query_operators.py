@@ -1,21 +1,44 @@
 from .fixtures import *
+from blitzdb.backends.sql import Backend as SqlBackend
 
-
-def test_in(backend):
-    # DB setup
+@pytest.fixture
+def prepared_data(backend):
     backend.filter(Actor, {}).delete()
 
-    marlon_brando = Actor({'name': 'Marlon Brando', 'gross_income_m': 1.453, 'appearances': 78, 'is_funny': False, 'birth_year': 1924})
-    leonardo_di_caprio = Actor({'name': 'Leonardo di Caprio', 'gross_income_m': 12.453, 'appearances': 34, 'is_funny': False, 'birth_year': 1974})
-    david_hasselhoff = Actor({'name': 'David Hasselhoff', 'gross_income_m': 12.453, 'appearances': 173, 'is_funny': True, 'birth_year': 1952})
-    charlie_chaplin = Actor({'name': 'Charlie Chaplin', 'gross_income_m': 0.371, 'appearances': 473, 'is_funny': True, 'birth_year': 1889})
+    global marlon_brando
+    global leonardo_di_caprio
+    global david_hasselhoff
+    global charlie_chaplin
 
-    backend.save(marlon_brando)
-    backend.save(leonardo_di_caprio)
-    backend.save(david_hasselhoff)
-    backend.save(charlie_chaplin)
+    global pizza
+    global spaghetti
+    global focaccia
+    global hamburger
+    global weisswurst
+    global oysters
 
-    backend.commit()
+    pizza = Food({'name' : 'Pizza'})
+    spaghetti = Food({'name' : 'Spaghetti'})
+    focaccia = Food({'name' : 'Foccacia'})
+    hamburger = Food({'name' : 'Hamburger'})
+    weisswurst = Food({'name' : 'Weisswurst'})
+    oysters = Food({'name' : 'oysters'})
+
+    marlon_brando = Actor({'name': 'Marlon Brando','favorite_food' : [pizza,spaghetti,focaccia], 'gross_income_m': 1.453, 'appearances': 78, 'birth_year': 1924})
+    leonardo_di_caprio = Actor({'name': 'Leonardo di Caprio', 'favorite_food' : [hamburger,pizza,spaghetti], 'gross_income_m': 12.453, 'appearances': 34, 'is_funny': False, 'birth_year': 1974})
+    david_hasselhoff = Actor({'name': 'David Hasselhoff','favorite_food' : [hamburger,weisswurst], 'gross_income_m': 1.0, 'appearances': 173, 'is_funny': True, 'birth_year': 1952})
+    charlie_chaplin = Actor({'name': 'Charlie Chaplin', 'favorite_food' : [oysters,spaghetti],'gross_income_m': 0.371, 'appearances': 473, 'is_funny': True, 'birth_year': 1889})
+
+    with backend.transaction():
+        backend.save(marlon_brando)
+        backend.save(leonardo_di_caprio)
+        backend.save(david_hasselhoff)
+        backend.save(charlie_chaplin)
+        #contained nowhere
+        backend.save(focaccia)
+
+def test_in(backend,prepared_data):
+    # DB setup
     assert len(backend.filter(Actor, {})) == 4
     # DB setup
 
@@ -42,21 +65,9 @@ def test_in(backend):
     # Test with different types
 
 
-def test_lt(backend):
+def test_lt(backend,prepared_data):
     # DB setup
-    backend.filter(Actor, {}).delete()
 
-    marlon_brando = Actor({'name': 'Marlon Brando', 'gross_income_m': 1.453, 'appearances': 78, 'is_funny': False, 'birth_year': 1924})
-    leonardo_di_caprio = Actor({'name': 'Leonardo di Caprio', 'gross_income_m': 12.453, 'appearances': 34, 'is_funny': False, 'birth_year': 1974})
-    david_hasselhoff = Actor({'name': 'David Hasselhoff', 'gross_income_m': 12.453, 'appearances': 173, 'is_funny': True, 'birth_year': 1952})
-    charlie_chaplin = Actor({'name': 'Charlie Chaplin', 'gross_income_m': 0.371, 'appearances': 473, 'is_funny': True, 'birth_year': 1889})
-
-    backend.save(marlon_brando)
-    backend.save(leonardo_di_caprio)
-    backend.save(david_hasselhoff)
-    backend.save(charlie_chaplin)
-
-    backend.commit()
     assert len(backend.filter(Actor, {})) == 4
     # DB setup
 
@@ -77,25 +88,12 @@ def test_lt(backend):
 
     # Test with normal conditions
     query = {'gross_income_m': {'$lt': david_hasselhoff.gross_income_m}}
-    assert len(backend.filter(Actor, query)) == len([marlon_brando, charlie_chaplin])
+    assert len(backend.filter(Actor, query)) == len([ charlie_chaplin])
     # Test with normal conditions
 
 
-def test_gt(backend):
+def test_gt(backend,prepared_data):
     # DB setup
-    backend.filter(Actor, {}).delete()
-
-    marlon_brando = Actor({'name': 'Marlon Brando', 'gross_income_m': 1.453, 'appearances': 78, 'is_funny': False, 'birth_year': 1924})
-    leonardo_di_caprio = Actor({'name': 'Leonardo di Caprio', 'gross_income_m': 12.453, 'appearances': 34, 'is_funny': False, 'birth_year': 1974})
-    david_hasselhoff = Actor({'name': 'David Hasselhoff', 'gross_income_m': 12.453, 'appearances': 173, 'is_funny': True, 'birth_year': 1952})
-    charlie_chaplin = Actor({'name': 'Charlie Chaplin', 'gross_income_m': 0.371, 'appearances': 473, 'is_funny': True, 'birth_year': 1889})
-
-    backend.save(marlon_brando)
-    backend.save(leonardo_di_caprio)
-    backend.save(david_hasselhoff)
-    backend.save(charlie_chaplin)
-
-    backend.commit()
     assert len(backend.filter(Actor, {})) == 4
     # DB setup
 
@@ -116,25 +114,12 @@ def test_gt(backend):
 
     # Test with normal conditions
     query = {'gross_income_m': {'$gt': marlon_brando.gross_income_m}}
-    assert len(backend.filter(Actor, query)) == len([charlie_chaplin, david_hasselhoff])
+    assert len(backend.filter(Actor, query)) == len([david_hasselhoff])
     # Test with normal conditions
 
 
-def test_gte(backend):
+def test_gte(backend,prepared_data):
     # DB setup
-    backend.filter(Actor, {}).delete()
-
-    marlon_brando = Actor({'name': 'Marlon Brando', 'gross_income_m': 1.453, 'appearances': 78, 'is_funny': False, 'birth_year': 1924})
-    leonardo_di_caprio = Actor({'name': 'Leonardo di Caprio', 'gross_income_m': 12.453, 'appearances': 34, 'is_funny': False, 'birth_year': 1974})
-    david_hasselhoff = Actor({'name': 'David Hasselhoff', 'gross_income_m': 12.453, 'appearances': 173, 'is_funny': True, 'birth_year': 1952})
-    charlie_chaplin = Actor({'name': 'Charlie Chaplin', 'gross_income_m': 0.371, 'appearances': 473, 'is_funny': True, 'birth_year': 1889})
-
-    backend.save(marlon_brando)
-    backend.save(leonardo_di_caprio)
-    backend.save(david_hasselhoff)
-    backend.save(charlie_chaplin)
-
-    backend.commit()
     assert len(backend.filter(Actor, {})) == 4
     # DB setup
 
@@ -155,25 +140,12 @@ def test_gte(backend):
 
     # Test with normal conditions
     query = {'gross_income_m': {'$gte': marlon_brando.gross_income_m}}
-    assert len(backend.filter(Actor, query)) == len([marlon_brando, charlie_chaplin, david_hasselhoff])
+    assert len(backend.filter(Actor, query)) == len([marlon_brando, david_hasselhoff])
     # Test with normal conditions
 
 
-def test_lte(backend):
+def test_lte(backend,prepared_data):
     # DB setup
-    backend.filter(Actor, {}).delete()
-
-    marlon_brando = Actor({'name': 'Marlon Brando', 'gross_income_m': 1.453, 'appearances': 78, 'is_funny': False, 'birth_year': 1924})
-    leonardo_di_caprio = Actor({'name': 'Leonardo di Caprio', 'gross_income_m': 12.453, 'appearances': 34, 'is_funny': False, 'birth_year': 1974})
-    david_hasselhoff = Actor({'name': 'David Hasselhoff', 'gross_income_m': 12.453, 'appearances': 173, 'is_funny': True, 'birth_year': 1952})
-    charlie_chaplin = Actor({'name': 'Charlie Chaplin', 'gross_income_m': 0.371, 'appearances': 473, 'is_funny': True, 'birth_year': 1889})
-
-    backend.save(marlon_brando)
-    backend.save(leonardo_di_caprio)
-    backend.save(david_hasselhoff)
-    backend.save(charlie_chaplin)
-
-    backend.commit()
     assert len(backend.filter(Actor, {})) == 4
     # DB setup
 
@@ -194,65 +166,30 @@ def test_lte(backend):
 
     # Test with normal conditions
     query = {'gross_income_m': {'$lte': david_hasselhoff.gross_income_m}}
-    assert len(backend.filter(Actor, query)) == len([marlon_brando, charlie_chaplin, david_hasselhoff, leonardo_di_caprio])
+    assert len(backend.filter(Actor, query)) == len([marlon_brando, david_hasselhoff])
     # Test with normal conditions
 
 
-def test_exists(backend):
+def test_exists(backend,prepared_data):
     # DB setup
-    backend.filter(Actor, {}).delete()
-
-    marlon_brando = Actor({'name': 'Marlon Brando', 'gross_income_m': 1.453, 'appearances': 78, 'is_funny': False, 'birth_year': 1924})
-    leonardo_di_caprio = Actor({'name': 'Leonardo di Caprio', 'gross_income_m': 12.453, 'appearances': 34 ,'birth_year': 1974})
-    david_hasselhoff = Actor({'name': 'David Hasselhoff', 'gross_income_m': 12.453, 'appearances': 173, 'birth_year': 1952})
-    charlie_chaplin = Actor({'name': 'Charlie Chaplin', 'gross_income_m': 0.371, 'appearances': 473, 'is_funny': True, 'birth_year': 1889})
-
-    backend.save(marlon_brando)
-    backend.save(leonardo_di_caprio)
-    backend.save(david_hasselhoff)
-    backend.save(charlie_chaplin)
-
-    backend.commit()
     assert len(backend.filter(Actor, {})) == 4
     # DB setup
 
     # Test with normal conditions
     query = {'is_funny': {'$exists': True}}
-    assert len(backend.filter(Actor, query)) == 2
-    assert all([actor in backend.filter(Actor, query) for actor in [marlon_brando,charlie_chaplin]])
+    assert len(backend.filter(Actor, query)) == 3
+    assert all([actor in backend.filter(Actor, query) for actor in [david_hasselhoff,charlie_chaplin,leonardo_di_caprio]])
 
     query = {'is_funny': {'$exists': False}}
-    assert len(backend.filter(Actor, query)) == 2
-    assert all([actor in backend.filter(Actor, query) for actor in [leonardo_di_caprio,david_hasselhoff]])
+    assert len(backend.filter(Actor, query)) == 1
+    assert all([actor in backend.filter(Actor, query) for actor in [marlon_brando]])
 
 
-def test_all(backend):
+def test_all(backend,prepared_data):
     # DB setup
     #currently those queries are not supported by the file backend.
     if isinstance(backend,FileBackend):
         return
-    backend.filter(Actor, {}).delete()
-
-    pizza = Food({'name' : 'Pizza'})
-    spaghetti = Food({'name' : 'Spaghetti'})
-    focaccia = Food({'name' : 'Foccacia'})
-    hamburger = Food({'name' : 'Hamburger'})
-    weisswurst = Food({'name' : 'Weisswurst'})
-    oysters = Food({'name' : 'oysters'})
-
-    marlon_brando = Actor({'name': 'Marlon Brando','favorite_food' : [pizza,spaghetti,focaccia], 'gross_income_m': 1.453, 'appearances': 78, 'is_funny': False, 'birth_year': 1924})
-    leonardo_di_caprio = Actor({'name': 'Leonardo di Caprio', 'favorite_food' : [hamburger,pizza,spaghetti], 'gross_income_m': 12.453, 'appearances': 34, 'is_funny': False, 'birth_year': 1974})
-    david_hasselhoff = Actor({'name': 'David Hasselhoff','favorite_food' : [hamburger,weisswurst], 'gross_income_m': 1.0, 'appearances': 173, 'is_funny': True, 'birth_year': 1952})
-    charlie_chaplin = Actor({'name': 'Charlie Chaplin', 'favorite_food' : [oysters,spaghetti],'gross_income_m': 0.371, 'appearances': 473, 'is_funny': True, 'birth_year': 1889})
-
-    backend.save(marlon_brando)
-    backend.save(leonardo_di_caprio)
-    backend.save(david_hasselhoff)
-    backend.save(charlie_chaplin)
-    #contained nowhere
-    backend.save(focaccia)
-
-    backend.commit()
 
     assert len(backend.filter(Actor, {})) == 4
     # DB setup
@@ -273,21 +210,8 @@ def test_all(backend):
     # Test with full result
 
 
-def test_ne(backend):
-    # DB setup
-    backend.filter(Actor, {}).delete()
+def test_ne(backend,prepared_data):
 
-    marlon_brando = Actor({'name': 'Marlon Brando', 'gross_income_m': 1.453, 'appearances': 78, 'is_funny': False, 'birth_year': 1924})
-    leonardo_di_caprio = Actor({'name': 'Leonardo di Caprio', 'gross_income_m': 12.453, 'appearances': 34, 'is_funny': False, 'birth_year': 1974})
-    david_hasselhoff = Actor({'name': 'David Hasselhoff', 'gross_income_m': 12.453, 'appearances': 173, 'is_funny': True, 'birth_year': 1952})
-    charlie_chaplin = Actor({'name': 'Charlie Chaplin', 'gross_income_m': 0.371, 'appearances': 473, 'is_funny': True, 'birth_year': 1889})
-
-    backend.save(marlon_brando)
-    backend.save(leonardo_di_caprio)
-    backend.save(david_hasselhoff)
-    backend.save(charlie_chaplin)
-
-    backend.commit()
     assert len(backend.filter(Actor, {})) == 4
     # DB setup
 
@@ -311,14 +235,17 @@ def test_ne(backend):
     assert len(backend.filter(Actor, query)) == 4
     # Test with float/full results
 
+    #here there is an inconsistency between MongoDB and SQL:
+    #In MongoDB, {is_funny : {$ne : true}} will include documents whree is_funny : null,
+    #whereas SQL will never return True for a comparison of a value with null
     # Test with boolean
     query = {'is_funny': {'$ne': True}}
-    assert len(backend.filter(Actor, query)) == 2
+    assert len(backend.filter(Actor, query)) == 1 if isinstance(backend,SqlBackend) else 2
     # Test with boolean
 
     # Test with boolean/string
     query = {'is_funny': {'$ne': False}}
-    assert len(backend.filter(Actor, query)) == 2
+    assert len(backend.filter(Actor, query)) == 2 if isinstance(backend,SqlBackend) else 3
     # Test with boolean/string
 
     # Test with crossed type
@@ -327,22 +254,7 @@ def test_ne(backend):
     # Test with crossed type
 
 
-def test_and(backend):
-    # DB setup
-    backend.filter(Actor, {}).delete()
-
-    marlon_brando = Actor({'name': 'Marlon Brando', 'gross_income_m': 1.453, 'appearances': 78, 'is_funny': False, 'birth_year': 1924})
-    leonardo_di_caprio = Actor({'name': 'Leonardo di Caprio', 'gross_income_m': 12.453, 'appearances': 34, 'is_funny': False, 'birth_year': 1974})
-    david_hasselhoff = Actor({'name': 'David Hasselhoff', 'gross_income_m': 12.453, 'appearances': 173, 'is_funny': True, 'birth_year': 1952})
-    charlie_chaplin = Actor({'name': 'Charlie Chaplin', 'gross_income_m': 0.371, 'appearances': 473, 'is_funny': True, 'birth_year': 1889})
-
-    backend.save(marlon_brando)
-    backend.save(leonardo_di_caprio)
-    backend.save(david_hasselhoff)
-    backend.save(charlie_chaplin)
-
-    backend.commit()
-    assert len(backend.filter(Actor, {})) == 4
+def test_and(backend,prepared_data):
     # DB setup
 
     # Test with normal conditions
@@ -376,23 +288,9 @@ def test_and(backend):
     # Test with crossed type
 
 
-def test_or(backend):
+def test_or(backend,prepared_data):
     # DB setup
-    backend.filter(Actor, {}).delete()
-
-    marlon_brando = Actor({'name': 'Marlon Brando', 'gross_income_m': 1.453, 'appearances': 78, 'is_funny': False, 'birth_year': 1924})
-    leonardo_di_caprio = Actor({'name': 'Leonardo di Caprio', 'gross_income_m': 12.453, 'appearances': 34, 'is_funny': False, 'birth_year': 1974})
-    david_hasselhoff = Actor({'name': 'David Hasselhoff', 'gross_income_m': 12.453, 'appearances': 173, 'is_funny': True, 'birth_year': 1952})
-    charlie_chaplin = Actor({'name': 'Charlie Chaplin', 'gross_income_m': 0.371, 'appearances': 473, 'is_funny': True, 'birth_year': 1889})
-
-    backend.save(marlon_brando)
-    backend.save(leonardo_di_caprio)
-    backend.save(david_hasselhoff)
-    backend.save(charlie_chaplin)
-
-    backend.commit()
     assert len(backend.filter(Actor, {})) == 4
-    # DB setup
 
     # Test with normal conditions
     query = {'$or': [{'name': charlie_chaplin.name}, {'birth_year': 1889}]}
@@ -401,7 +299,7 @@ def test_or(backend):
 
     # Test with full results
     query = {'$or': [{'name': charlie_chaplin.name}, {'birth_year': 1924}, {'is_funny': False}, {'gross_income_m': 12.453}]}
-    assert len(backend.filter(Actor, query)) == len([charlie_chaplin, marlon_brando, leonardo_di_caprio, david_hasselhoff])
+    assert len(backend.filter(Actor, query)) == len([charlie_chaplin, leonardo_di_caprio, david_hasselhoff])
     # Test with full results
 
     # Test repeating request

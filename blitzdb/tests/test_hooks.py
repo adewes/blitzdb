@@ -32,8 +32,8 @@ class MyDerivedDocument(MyDocument):
 def test_after_load_hook(backend, small_test_data):
 
     my_document = MyDocument({'test': 123})
-    backend.save(my_document)
-    backend.commit()
+    with backend.transaction():
+        backend.save(my_document)
 
     recovered_document = backend.get(MyDocument,{'pk' : my_document.pk})
 
@@ -51,13 +51,15 @@ def test_before_save_hook(backend, small_test_data):
 def test_before_update_hook(backend, small_test_data):
 
     my_document = MyDerivedDocument({'test': 123})
-    backend.save(my_document)
+    
+    with backend.transaction():
+        backend.save(my_document)
 
     assert hasattr(my_document, 'foo')
     assert my_document.foo == "bar"
 
-    backend.update(my_document,{'foo' : 'baz'})
-    backend.commit()
+    with backend.transaction():
+        backend.update(my_document,{'foo' : 'baz'})
 
     assert my_document.foo == 'baz'
     assert 'updated_at' in my_document
@@ -69,7 +71,8 @@ def test_before_delete_hook(backend, small_test_data):
     my_document = MyDocument({'test': 123})
     my_document.pk = 1
 
-    backend.delete(my_document)
+    with backend.transaction():
+        backend.delete(my_document)
 
     assert hasattr(my_document, 'foo')
     assert my_document.foo == "bar"

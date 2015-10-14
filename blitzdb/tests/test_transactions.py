@@ -46,10 +46,12 @@ def test_advanced_transaction(transactional_backend):
     transactional_backend.filter(Movie, {}).delete()
     transactional_backend.rollback()
 
+    transactional_backend.begin()
     movie = Movie({'title': 'The Godfather', 'year': 1979})
     movie.save(transactional_backend)
     transactional_backend.commit()
 
+    transactional_backend.begin()
     transactional_backend.delete(movie)
     movie.title = 'Star Wars IV'
     movie.save(transactional_backend)

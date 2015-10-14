@@ -7,22 +7,21 @@ from blitzdb.backends.mongo import Backend as MongoBackend
     
 def test_array_queries(backend):
 
-    francis_coppola = Director({'name' : 'Francis Coppola'})
-    backend.save(francis_coppola)
+    with backend.transaction():
+        francis_coppola = Director({'name' : 'Francis Coppola'})
+        backend.save(francis_coppola)
 
-    the_godfather = Movie({'title' : 'The Godfather','director' : francis_coppola})
-    apocalypse_now = Movie({'title' : 'Apocalypse Now'})
+        the_godfather = Movie({'title' : 'The Godfather','director' : francis_coppola})
+        apocalypse_now = Movie({'title' : 'Apocalypse Now'})
 
-    backend.save(the_godfather)
-    backend.save(apocalypse_now)
+        backend.save(the_godfather)
+        backend.save(apocalypse_now)
 
-    marlon_brando = Actor({'name': 'Marlon Brando', 'movies' : [the_godfather,apocalypse_now]})
-    al_pacino = Actor({'name': 'Al Pacino', 'movies' : [the_godfather]})
+        marlon_brando = Actor({'name': 'Marlon Brando', 'movies' : [the_godfather,apocalypse_now]})
+        al_pacino = Actor({'name': 'Al Pacino', 'movies' : [the_godfather]})
 
-    backend.save(marlon_brando)
-    backend.save(al_pacino)
-
-    backend.commit()
+        backend.save(marlon_brando)
+        backend.save(al_pacino)
 
     result = backend.filter(Actor,{'movies' : the_godfather})
 

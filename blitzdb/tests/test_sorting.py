@@ -7,23 +7,23 @@ from blitzdb.backends.sql import Backend as SqlBackend
 
 def test_basic_sorting(backend):
 
-    backend.filter(Actor, {}).delete()
+    with backend.transaction():
+        backend.filter(Actor, {}).delete()
 
-    backend.save(Actor({'birth_year': 1983}))
-    backend.save(Actor({'birth_year': 1983}))
-    backend.save(Actor({'birth_year': 1984}))
-    backend.save(Actor({'birth_year': 1984}))
-    backend.save(Actor({'birth_year': 1984}))
-    backend.save(Actor({'birth_year': 1985}))
-    backend.save(Actor({'birth_year': 1980}))
-    backend.save(Actor({'birth_year': 1990}))
-    backend.save(Actor({'birth_year': 2000}))
-    backend.save(Actor({'birth_year': 2000}))
-    backend.save(Actor({'birth_year': 1900}))
-    backend.save(Actor({'birth_year': 1843}))
-    backend.save(Actor({'birth_year': 2014}))
-
-    backend.commit()
+    with backend.transaction():
+        backend.save(Actor({'birth_year': 1983}))
+        backend.save(Actor({'birth_year': 1983}))
+        backend.save(Actor({'birth_year': 1984}))
+        backend.save(Actor({'birth_year': 1984}))
+        backend.save(Actor({'birth_year': 1984}))
+        backend.save(Actor({'birth_year': 1985}))
+        backend.save(Actor({'birth_year': 1980}))
+        backend.save(Actor({'birth_year': 1990}))
+        backend.save(Actor({'birth_year': 2000}))
+        backend.save(Actor({'birth_year': 2000}))
+        backend.save(Actor({'birth_year': 1900}))
+        backend.save(Actor({'birth_year': 1843}))
+        backend.save(Actor({'birth_year': 2014}))
 
     actors = backend.filter(Actor, {}).sort([('birth_year', -1)])
     for i in range(1, len(actors)):
@@ -36,8 +36,9 @@ def test_basic_sorting(backend):
 
     actor_wo_birth_year = Actor({})
 
-    backend.save(actor_wo_birth_year)
-    backend.commit()
+    with backend.transaction():
+        backend.save(actor_wo_birth_year)
+
     actors = list(backend.filter(Actor, {}).sort([('birth_year', 1)]))
     assert actor_wo_birth_year in actors
     #SQL backends can produce ambigous results depending on how NULLS FIRST is implemented

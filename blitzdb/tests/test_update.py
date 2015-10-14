@@ -13,17 +13,16 @@ def test_update_by_list(backend):
 
     actor = Actor({'name': 'Robert de Niro', 'age': 54})
 
-    backend.save(actor)
-    backend.commit()
+    with backend.transaction():
+        backend.save(actor)
 
     assert len(backend.filter(Actor, {'name': 'Robert de Niro'})) == 1
 
     actor.name = 'Patrick Stewart'
     actor.age = 50
 
-    backend.update(actor, ('name',))
-
-    backend.commit()
+    with backend.transaction():
+        backend.update(actor, ('name',))
 
     assert len(backend.filter(Actor, {'name': 'Robert de Niro'})) == 0
     assert len(backend.filter(Actor, {'name': 'Patrick Stewart'})) == 1
@@ -39,17 +38,16 @@ def test_update_non_indexed_field(backend):
 
     actor = Actor({'name': 'Robert de Niro', 'age': 54})
 
-    backend.save(actor)
-    backend.commit()
+    with backend.transaction():
+        backend.save(actor)
 
     assert len(backend.filter(Actor, {'name': 'Robert de Niro'})) == 1
 
     actor.name = 'Patrick Stewart'
     actor.age = 50
 
-    backend.update(actor, ('name','age'))
-
-    backend.commit()
+    with backend.transaction():
+        backend.update(actor, ('name','age'))
 
     assert len(backend.filter(Actor, {'name': 'Robert de Niro'})) == 0
     assert len(backend.filter(Actor, {'name': 'Patrick Stewart'})) == 1
@@ -64,18 +62,17 @@ def test_multiple_updates(backend):
 
     actor = Actor({'name': 'Robert de Niro', 'age': 54})
 
-    backend.save(actor)
-    backend.commit()
+    with backend.transaction():
+        backend.save(actor)
 
     assert len(backend.filter(Actor, {'name': 'Robert de Niro'})) == 1
 
     actor.name = 'Patrick Stewart'
     actor.age = 50
 
-    backend.update(actor, ('name',))
-    backend.update(actor, ('age',))
-
-    backend.commit()
+    with backend.transaction():
+        backend.update(actor, ('name',))
+        backend.update(actor, ('age',))
 
     assert len(backend.filter(Actor, {'name': 'Robert de Niro'})) == 0
     assert len(backend.filter(Actor, {'name': 'Patrick Stewart'})) == 1
@@ -90,18 +87,20 @@ def test_update_on_deleted_document_fails(backend):
 
     actor = Actor({'name': 'Robert de Niro', 'age': 54})
 
-    backend.save(actor)
-    backend.commit()
+    with backend.transaction():
+        backend.save(actor)
 
     assert len(backend.filter(Actor, {'name': 'Robert de Niro'})) == 1
 
-    backend.delete(actor)
+    with backend.transaction():
+        backend.delete(actor)
 
     actor.name = 'Patrick Stewart'
     actor.age = 50
 
     with pytest.raises(actor.DoesNotExist):
-        backend.update(actor, ('name',))
+        with backend.transaction():
+            backend.update(actor, ('name',))
      
 
 def test_update_with_dict(backend):
@@ -111,22 +110,20 @@ def test_update_with_dict(backend):
 
     actor = Actor({'name': 'Robert de Niro', 'age': 54})
 
-    backend.save(actor)
-    backend.commit()
+    with backend.transaction():
+        backend.save(actor)
 
     assert len(backend.filter(Actor, {'name': 'Robert de Niro'})) == 1
 
-    backend.update(actor, {'name': 'Ian McKellan'})
-
-    backend.commit()
+    with backend.transaction():
+        backend.update(actor, {'name': 'Ian McKellan'})
 
     assert len(backend.filter(Actor, {'name': 'Ian McKellan'})) == 1
 
     assert actor.name == 'Ian McKellan'
-     
-    backend.update(actor, {'name': 'Roger Moore'}, update_obj=False)
-
-    backend.commit()
+    
+    with backend.transaction():
+        backend.update(actor, {'name': 'Roger Moore'}, update_obj=False)
 
     assert len(backend.filter(Actor, {'name': 'Roger Moore'})) == 1
 
@@ -140,14 +137,13 @@ def test_update_unset(backend):
 
     actor = Actor({'name': 'Robert de Niro', 'age': 54})
 
-    backend.save(actor)
-    backend.commit()
+    with backend.transaction():
+        backend.save(actor)
 
     assert len(backend.filter(Actor, {'name': 'Robert de Niro'})) == 1
 
-    backend.update(actor, unset_fields=['name'])
-
-    backend.commit()
+    with backend.transaction():
+        backend.update(actor, unset_fields=['name'])
 
     assert len(backend.filter(Actor, {'name': 'Ian McKellan'})) == 0
 
@@ -163,15 +159,14 @@ def test_update_set_then_unset(backend):
 
     actor = Actor({'name': 'Robert de Niro', 'age': 54})
 
-    backend.save(actor)
-    backend.commit()
+    with backend.transaction():
+        backend.save(actor)
 
     assert len(backend.filter(Actor, {'name': 'Robert de Niro'})) == 1
 
-    backend.update(actor, set_fields={'name': 'Patrick Stewart'})
-    backend.update(actor, unset_fields=['name'])
-
-    backend.commit()
+    with backend.transaction():
+        backend.update(actor, set_fields={'name': 'Patrick Stewart'})
+        backend.update(actor, unset_fields=['name'])
 
     assert len(backend.filter(Actor, {'name': 'Patrick Stewart'})) == 0
 
@@ -187,15 +182,14 @@ def test_update_unset_then_set(backend):
 
     actor = Actor({'name': 'Robert de Niro', 'age': 54})
 
-    backend.save(actor)
-    backend.commit()
+    with backend.transaction():
+        backend.save(actor)
 
     assert len(backend.filter(Actor, {'name': 'Robert de Niro'})) == 1
 
-    backend.update(actor, unset_fields=['name'])
-    backend.update(actor, set_fields={'name': 'Patrick Stewart'})
-
-    backend.commit()
+    with backend.transaction():
+        backend.update(actor, unset_fields=['name'])
+        backend.update(actor, set_fields={'name': 'Patrick Stewart'})
 
     assert len(backend.filter(Actor, {'name': 'Patrick Stewart'})) == 1
 
