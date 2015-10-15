@@ -399,6 +399,7 @@ class Backend(object):
             def __exit__(self,exc_type,exc_value,traceback_obj):
                 if exc_type:
                     self.backend.rollback(self.transaction)
+                    return False
                 else:
                     #if the transaction has been created implicitly and we are not within
                     #another transaction, we leave it open (the user needs to call commit manually)

@@ -476,7 +476,7 @@ class Backend(BaseBackend):
 
     def rollback(self,transaction = None):
         if not self._transactions:
-            raise AttributeError("Not in a transaction!")
+            return
         if transaction is not None and self._transactions[-1] is not transaction:
             return
         last_transaction = self._transactions.pop()
@@ -625,7 +625,7 @@ class Backend(BaseBackend):
                 for key in data_unset_keys:
                     delete_value(data,key)
                 self.connection.execute(table.update()\
-                                        .values({'data' : self.serialize_json(self.serialize(data))})\
+                                        .values({'data' : expression.cast(self.serialize_json(self.serialize(data)),LargeBinary)})\
                                         .where(table.c.pk == obj.pk))
 
             for delete in deletes:
@@ -765,8 +765,8 @@ class Backend(BaseBackend):
                 obj.pk = uuid.uuid4().hex
                 is_insert = True
 
-            d = {'data' : self.serialize_json(self.serialize(obj.attributes,
-                    encoders = [ExcludedFieldsEncoder(self,collection)])),
+            d = {'data' : expression.cast(self.serialize_json(self.serialize(obj.attributes,
+                    encoders = [ExcludedFieldsEncoder(self,collection)])),LargeBinary),
                  'pk' : expression.cast(obj.pk,pk_type)}
 
             self._serialize_and_update_indexes(obj,collection,d)
