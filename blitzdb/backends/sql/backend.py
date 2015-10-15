@@ -120,8 +120,11 @@ class Backend(BaseBackend):
     @property
     def connection(self):
         if self._conn is None:
-            self._conn = self.engine.connect()
+            raise AttributeError("No connection available!")
         return self._conn
+
+    def create_connection(self):
+        self._conn = self.engine.connect()
 
     @connection.deleter
     def connection(self):
@@ -459,6 +462,9 @@ class Backend(BaseBackend):
         return None
 
     def begin(self):
+        #if we do not have an active connection, we create one
+        if self._conn is None:
+            self.create_connection()
         self._transactions.append(self.connection.begin())
         return self._transactions[-1]
 
