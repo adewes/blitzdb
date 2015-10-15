@@ -82,7 +82,7 @@ class ManyToManyProxy(object):
         return self._queryset
 
     def append(self,obj):
-        with self.obj.backend.transaction():
+        with self.obj.backend.transaction(implicit = True):
             relationship_table = self.params['relationship_table']
             condition = and_(relationship_table.c['pk_%s' % self.params['collection']] == obj.pk,
                              relationship_table.c['pk_%s' % self.collection] == self.obj.pk)
@@ -107,7 +107,7 @@ class ManyToManyProxy(object):
         raise NotImplementedError
 
     def delete(self):
-        with self.obj.backend.transaction():
+        with self.obj.backend.transaction(implicit = True):
             condition = relationship_table.c['pk_%s' % self.collection] == self.obj.pk
             self.obj.bckend.connection.execute(delete(relationship_table).where(condition))
 
@@ -115,7 +115,7 @@ class ManyToManyProxy(object):
         """
         Remove an object from the relation
         """
-        with self.obj.backend.transaction():
+        with self.obj.backend.transaction(implicit = True):
             relationship_table = self.params['relationship_table']
             condition = and_(relationship_table.c['pk_%s' % self.params['collection']] == obj.pk,
                              relationship_table.c['pk_%s' % self.collection] == self.obj.pk)
