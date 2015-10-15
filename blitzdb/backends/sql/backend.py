@@ -464,7 +464,7 @@ class Backend(BaseBackend):
 
     def commit(self,transaction = None):
         if not self._transactions:#should never happen
-            raise AttributeError("Not in a transaction!")
+            return
         if transaction is not None and self._transactions[-1] is not transaction:
             #this is the wrong transaction object...
             return
