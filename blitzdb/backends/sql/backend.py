@@ -1221,8 +1221,13 @@ class Backend(BaseBackend):
                 if '$not' in query:
                     return [not_(*prepare_special_query(column_name,params,sanitize(query['$not'])))]
                 elif '$in' in query:
+                    if not query['$in']:
+                        #we return an impossible condition since the $in query does not contain any values
+                        return [expression.cast(True,Boolean) == expression.cast(False,Boolean)]
                     return [table.c[column_name].in_(sanitize(query['$in']))]
                 elif '$nin' in query:
+                    if not query['$nin']:
+                        return [expression.cast(True,Boolean) == expression.cast(False,Boolean)]
                     return [~table.c[column_name].in_(sanitize(query['$nin']))]
                 elif '$eq' in query:
                     return [table.c[column_name] == sanitize(query['$eq'])]
