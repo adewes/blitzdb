@@ -235,7 +235,7 @@ class QuerySet(BaseQuerySet):
                      [params['relation']['column'] for params in self.include_joins['joins'].values()
                       if isinstance(params['relation']['field'],ForeignKeyField)]
         s = self.get_select(columns = [self.table.c[column] for column in my_columns],strict_order_by = False)
-        s_cte = s.cte(name = 'results')
+        s_cte = s.cte()
 
         process_fields_and_subkeys(self.include_joins['collection'],s_cte,self.include_joins,[])
 
