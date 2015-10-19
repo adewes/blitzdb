@@ -429,8 +429,8 @@ class QuerySet(BaseQuerySet):
             return self.select
         if columns is None:
             columns = self.get_fields()
-        if self.extra_fields:
-            columns.extend(self.extra_fields)
+            if self.extra_fields:
+                columns.extend(self.extra_fields)
 
         order_by_list = []
         if order_by and self.order_bys:
