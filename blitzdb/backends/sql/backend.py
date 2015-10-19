@@ -669,16 +669,19 @@ class Backend(BaseBackend):
                     value = get_value(obj,index_field)
                 if value is None:
                     if not index_params['field'].nullable:
-                        raise ValueError("No value for %s given, but this is a mandatory field!" % index_field)
+                        raise ValueError("Value for %s is `None`, but this is a mandatory field!" % index_field)
                     d[index_params['column']] = null()
                 else:
                     d[index_params['column']] = expression.cast(value,index_params['type'])
             except KeyError:
                 if for_update:
                     continue
-                if not index_params['field'].nullable:
+                if index_params['field'].default is not None:
+                    d[index_params['column']] = index_params['field'].default
+                elif not index_params['field'].nullable:
                     raise ValueError("No value for %s given, but this is a mandatory field!" % index_field)
-                d[index_params['column']] = null()
+                else:
+                    d[index_params['column']] = null()
 
     def _serialize_and_update_relations(self,obj,collection,d,deletes,inserts,autosave_dependent = True,for_update = False):
 
