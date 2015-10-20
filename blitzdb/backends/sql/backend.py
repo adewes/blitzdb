@@ -782,6 +782,7 @@ class Backend(BaseBackend):
             self._serialize_and_update_relations(obj,collection,d,deletes,inserts,autosave_dependent = autosave_dependent)
 
             #if we got an object with a PK, we try to perform an UPDATE operation
+
             if not is_insert:
                 update = self._collection_tables[collection].update().values(**d).where(table.c.pk == obj.pk)
                 result = self.connection.execute(update)
