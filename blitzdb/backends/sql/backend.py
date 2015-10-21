@@ -486,11 +486,14 @@ class Backend(BaseBackend):
         if transaction is not None and self._transactions[-1] is not transaction:
             return
         last_transaction = self._transactions.pop()
-        last_transaction.rollback()
-        #we roll back ALL transactions.
-        self._transactions = []
-        #we return the connection to the pool
-        del self.connection
+        try:
+            last_transaction.rollback()
+            #we roll back ALL transactions.
+            self._transactions = []
+            #we return the connection to the pool
+        finally:
+            #we always delete the connection, even if the rollback has failed
+            del self.connection
 
     def replace_engine(self,engine):
         self._engine = engine
