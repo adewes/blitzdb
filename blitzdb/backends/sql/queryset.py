@@ -17,13 +17,11 @@ class QuerySet(BaseQuerySet):
 
     def __init__(self, backend, table, cls,
                  condition = None,
-                 select = None,
                  intersects = None,
                  raw = False,
                  include = None,
                  only = None,
                  joins = None,
-                 extra_fields = None,
                  group_bys = None,
                  order_bys = None,
                  objects = None,
@@ -36,11 +34,9 @@ class QuerySet(BaseQuerySet):
         self.joins = joins
         self.backend = backend
         self.condition = condition
-        self.select = select
         self.havings = havings
         self.only = only
         self.include = include
-        self.extra_fields = extra_fields
         self.group_bys = group_bys
         self.cls = cls
         self._limit = limit
@@ -138,9 +134,12 @@ class QuerySet(BaseQuerySet):
         self.deserialized_objects = [self.deserialize(obj) for obj in self.objects]
         self.deserialized_pop_objects = self.deserialized_objects[:]
 
-    def get_select_table_and_rows(self):
+    def as_table(self):
+        return self.get_select(with_joins = True).cte()
 
-        columns = []
+    def get_select(self,columns = None,with_joins = True):
+
+        all_columns = []
         column_map = {}
         joins = []
 
@@ -162,8 +161,11 @@ class QuerySet(BaseQuerySet):
             for field,column_name in params['fields'].items():
                 column_label = '_'.join(key_path+[column_name])
                 params['table_fields'][field] = column_label
-                column = related_table.c[column_name].label(column_label)
-                columns.append(column)
+                try:
+                    column = related_table.c[column_name].label(column_label)
+                except KeyError:
+                    continue
+                all_columns.append(column)
                 if field != '__data__':
                     column_map[".".join(key_path+[field])] = column
 
@@ -219,7 +221,6 @@ class QuerySet(BaseQuerySet):
                 if not only_key in include:
                     include.append(only_key)
 
-        #problem: if we include a foreign object, we will trigger 
         order_by_keys = []
         if self.order_bys:
             for key,direction in self.order_bys:
@@ -230,27 +231,29 @@ class QuerySet(BaseQuerySet):
                                                             excludes = exclude,
                                                             order_by_keys = order_by_keys)
 
+
         #we only select the columns that we actually need
         my_columns = self.include_joins['fields'].values()+\
                      [params['relation']['column'] for params in self.include_joins['joins'].values()
                       if isinstance(params['relation']['field'],ForeignKeyField)]
-        s = self.get_select(columns = [self.table.c[column] for column in my_columns],strict_order_by = False)
-        s_cte = s.cte()
 
-        process_fields_and_subkeys(self.include_joins['collection'],s_cte,self.include_joins,[])
+        process_fields_and_subkeys(self.include_joins['collection'],self.table,self.include_joins,[])
 
-        if joins:
+        select_table = self.table
+
+        if joins and with_joins:
             for i,j in enumerate(joins):
-                s_cte = s_cte.outerjoin(*j)
+                select_table = select_table.outerjoin(*j)
 
-        order_bys = []
+        bare_select = self.get_bare_select(columns = [self.table.c.pk])
+
+        s = select([column_map[key] for key in columns] if columns is not None else all_columns).select_from(select_table).where(column_map['pk'].in_(bare_select))
+
+        #we order again, this time including the joined columns
         if self.order_bys:
-            order_bys = [direction(column_map[key]) for (key,direction) in self.order_bys]
+            s = s.order_by(*[direction(column_map[key]) for (key,direction) in self.order_bys])
 
-        return s_cte,order_bys,columns
-
-    def as_table(self):
-        return self.get_select_table_and_rows()[0]
+        return s
 
     def get_objects(self):
 
@@ -320,13 +323,13 @@ class QuerySet(BaseQuerySet):
                     d[key] = replace_ordered_dicts(value)
             return d
 
-        s_cte,order_bys,rows = self.get_select_table_and_rows()
+        s = self.get_select()
 
         field_map = build_field_map(self.include_joins)
 
         with self.backend.transaction():
             try:
-                result = self.backend.connection.execute(select(rows).select_from(s_cte).order_by(*order_bys))
+                result = self.backend.connection.execute(s)
                 if result.returns_rows:
                     objects = list(result.fetchall())
                 else:
@@ -402,9 +405,9 @@ class QuerySet(BaseQuerySet):
 
     def intersect(self,qs):
         #here the .self_group() is necessary to ensure the correct grouping within the INTERSECT...
-        my_select = self.get_select(columns = [self.table.c.pk]).self_group().cte()
-        qs_select = qs.get_select(columns = [qs.table.c.pk]).self_group().cte()
-        condition = and_(self.table.c.pk.in_(expression.intersect(select([my_select.c.pk]),select([qs_select.c.pk]))))
+        ms_s = self.get_barse_select(columns = [self.table.c.pk])
+        qs_s = qs.get_bare_select(columns = [self.table.c.pk])
+        condition = and_(self.table.c.pk.in_(expression.intersect(my_s,qs_s)))
         new_qs = QuerySet(self.backend,
                           self.table,
                           self.cls,
@@ -412,39 +415,25 @@ class QuerySet(BaseQuerySet):
                           order_bys = self.order_bys,
                           raw = self.raw,
                           include = self.include,
-                          only = self.only,
-                          extra_fields = self.extra_fields)
+                          only = self.only)
         return new_qs
 
     def delete(self):
         with self.backend.transaction(implicit = True):
-            delete_stmt = self.table.delete().where(self.table.c.pk.in_(self.get_select(columns = [self.table.c.pk])))
+            s = self.get_bare_select(columns = [self.table.c.pk])
+            delete_stmt = self.table.delete().where(self.table.c.pk.in_(s))
             self.backend.connection.execute(delete_stmt)
 
     def get_fields(self):
-        return [column for column in self.table.columns]
+        columns = [column for column in self.table.columns]
 
-    def get_select(self,columns = None,order_by = True,strict_order_by = True):
-        if self.select is not None:
-            return self.select
+    def get_bare_select(self,columns = None):
+
         if columns is None:
             columns = self.get_fields()
-            if self.extra_fields:
-                columns.extend(self.extra_fields)
-
-        order_by_list = []
-        if order_by and self.order_bys:
-            for key,direction in self.order_bys:
-                try:
-                    column = self.table.c[self.backend.get_column_for_key(self.cls,key)]
-                    if not column in columns:
-                        columns.append(column)
-                    order_by_list.append(direction(column))
-                except KeyError:
-                    if strict_order_by:
-                        raise
 
         s = select(columns)
+
         if self.joins:
             full_join = None
             for j in self.joins:
@@ -457,9 +446,6 @@ class QuerySet(BaseQuerySet):
         if self.condition is not None:
             s = s.where(self.condition)
 
-        if order_by_list:
-            s = s.order_by(*order_by_list)
-
         if self.joins:
             if self.group_bys:
                 my_group_bys = self.group_bys[:]
@@ -470,17 +456,35 @@ class QuerySet(BaseQuerySet):
                     my_group_bys.append(column)
         else:
             my_group_bys = self.group_bys
+
         if my_group_bys:
             s = s.group_by(*my_group_bys)
+
         if self.havings:
             for having in self.havings:
                 s = s.having(having)
 
-        if self._offset:
-            s = s.offset(self._offset)
         if self._limit:
             s = s.limit(self._limit)
+        if self._offset:
+            s = s.offset(self._offset)
+
+        if self.order_bys:
+            order_bys = []
+            for key,direction in self.order_bys:
+                #here we can only perform the ordering by columns that exist in the given query table.
+                try:
+                    order_bys.append(direction(self.table.c[key]))
+                except KeyError:
+                    continue
+                s = s.order_by(*order_bys)
+
         return s
+
+    def get_count_select(self):
+        s = self.get_bare_select(columns = [self.table.c.pk])
+        count_select = select([func.count()]).select_from(s.alias())
+        return count_select
 
     def __len__(self):
         if self.count is None:
@@ -488,15 +492,15 @@ class QuerySet(BaseQuerySet):
                 self.count = len(self.objects)
             else:
                 with self.backend.transaction():
-                    s = select([func.count()]).select_from(self.get_select(columns = [self.table.c.pk],strict_order_by = False).alias('count_select'))
-                    result = self.backend.connection.execute(s)
+                    count_select = self.get_count_select()
+                    result = self.backend.connection.execute(count_select)
                     self.count = result.first()[0]
                     result.close()
         return self.count
 
     def distinct_pks(self):
         with self.backend.transaction():
-            s = self.get_select([self.table.c.pk])
+            s = self.get_bare_select(columns = [self.table.c.pk])
             result = self.backend.connection.execute(s)
             return set([r[0] for r in result.fetchall()])
         

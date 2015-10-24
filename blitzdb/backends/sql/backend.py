@@ -1079,7 +1079,6 @@ class Backend(BaseBackend):
         joins_list = []
         group_bys = []
         havings = []
-        extra_fields = []
 
         def compile_query(collection,query,table = None,path = None):
             if path is None:
@@ -1164,9 +1163,9 @@ class Backend(BaseBackend):
                                 op = query_type
                             if query_type == 'all':
                                 cnt = func.count(count_column)
-                                condition = cnt == qs.get_select([func.count(qs.table.c['pk'])],order_by = False)
+                                condition = cnt == qs.get_count_select()
                                 havings.append(condition)
-                            return [getattr(related_table.c['pk'],op+'_')(qs.get_select([qs.table.c['pk']],order_by = False))]
+                            return [getattr(related_table.c['pk'],op+'_')(qs.get_select(columns = ['pk']))]
                         elif isinstance(subquery,(list,tuple)):
                             if subquery and isinstance(subquery[0],dict) and len(subquery[0]) == 1 and \
                             subquery[0].keys()[0] == '$elemMatch':
@@ -1322,7 +1321,7 @@ class Backend(BaseBackend):
                                             raise AttributeError("$in/$nin query with empty QuerySet/ManyToManyProxy!")
                                         if qs.cls is not params['class']:
                                             raise AttributeError("Invalid QuerySet class!")
-                                        condition = getattr(table.c[params['column']],query_type+'_')(qs.get_select([qs.table.c['pk']],order_by = False))
+                                        condition = getattr(table.c[params['column']],query_type+'_')(qs.get_select(columns = ['pk']))
                                         where_statements.append(condition)
                                     elif isinstance(query,(list,tuple)):
                                         if not query_type in ('in','nin'):
@@ -1381,7 +1380,6 @@ class Backend(BaseBackend):
         return QuerySet(backend = self, table = table,
                         joins = joins_list,
                         cls = cls,
-                        extra_fields = extra_fields,
                         condition = compiled_query,
                         raw = raw,
                         group_bys = group_bys,
