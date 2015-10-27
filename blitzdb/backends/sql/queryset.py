@@ -405,9 +405,9 @@ class QuerySet(BaseQuerySet):
 
     def intersect(self,qs):
         #here the .self_group() is necessary to ensure the correct grouping within the INTERSECT...
-        ms_s = self.get_barse_select(columns = [self.table.c.pk])
-        qs_s = qs.get_bare_select(columns = [self.table.c.pk])
-        condition = and_(self.table.c.pk.in_(expression.intersect(my_s,qs_s)))
+        my_s = self.get_bare_select(columns = [self.table.c.pk]).cte()
+        qs_s = qs.get_bare_select(columns = [self.table.c.pk]).cte()
+        condition = self.table.c.pk.in_(expression.intersect(select([my_s.c.pk]),select([qs_s.c.pk])))
         new_qs = QuerySet(self.backend,
                           self.table,
                           self.cls,
