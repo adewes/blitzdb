@@ -136,7 +136,7 @@ class Document(object):
 
     class Meta:
 
-        PkType = CharField(length = 32)
+        PkType = CharField(length = 32,primary_key = True,indexed = True,nullable = False)
         primary_key = "pk"
         indexes = {}
 

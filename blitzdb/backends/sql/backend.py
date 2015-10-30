@@ -368,7 +368,7 @@ class Backend(BaseBackend):
                     from_class = cls
                     to_class = related_class
 
-                RelationshipClass.__name__ = str("%s%s%s" % (collection.capitalize(),related_collection.capitalize(),"".join([k.capitalize() for k in key.split(".")])))
+                RelationshipClass.__name__ = str("%s%s" % (collection.capitalize(),"".join([ "".join([kk.capitalize() for kk in k.split("_")]) for k in key.split(".")])))
                 
                 RelationshipClass.fields[pk_field_name] = ForeignKeyField(cls,
                                                             backref = '%s_%s_%s' % (collection,related_collection,column_name),
@@ -377,7 +377,7 @@ class Backend(BaseBackend):
                                                             backref = '%s_%s_%s' % (related_collection,collection,column_name),
                                                             ondelete = 'CASCADE')
 
-                field.RelationshipClass = RelationshipClass
+                field.relationship_class = RelationshipClass
 
                 #we append the class to the list of relationship classes so we can unregister it later
                 #this is important when calling init_schema more than once...
@@ -398,6 +398,7 @@ class Backend(BaseBackend):
             self._index_fields[collection][key] = index_params
             self._table_columns[collection][key] = index_params
             column_args = {'index' : field.indexed,
+                           'primary_key' : field.primary_key,
                            'nullable' : field.nullable}
 
             if field.default is not None:
@@ -413,17 +414,11 @@ class Backend(BaseBackend):
                 name = 'unique_%s_%s' % (collection,column_name)
                 extra_columns.append(UniqueConstraint(column_name,name = name))
 
-        index_params = {
-            'field' : cls.Meta.PkType,
-            'type' : self.get_field_type(cls.Meta.PkType),
-            'column' : 'pk',
-            'key' : 'pk'
-        }
-        self._index_fields[collection]['pk'] = index_params
-        self._table_columns[collection]['pk'] = index_params
-        self._excluded_keys[collection]['pk'] = True
+        #if not primary key field is defined, we add one
+        if not 'pk' in cls.fields:
+            cls.fields['pk'] = cls.Meta.PkType
 
-        extra_columns = [Column('pk',self.get_field_type(cls.Meta.PkType),primary_key = True,index = True)]
+        extra_columns = []
 
         meta_attributes = self.get_meta_attributes(cls)
 
@@ -624,7 +619,7 @@ class Backend(BaseBackend):
 
             #if we have to update the JSON data
             if data_set_keys or data_unset_keys:
-                result = self.connection.execute(select([table.c.data]).where(table.c.pk == obj.pk))
+                result = self.connection.execute(select([table.c.data]).where(table.c.pk == expression.cast(obj.pk,pk_type)))
                 data_row = result.fetchone()
                 if data_row is None:
                     raise obj.DoesNotExist("Object does not exist!")
@@ -635,7 +630,7 @@ class Backend(BaseBackend):
                     delete_value(data,key)
                 self.connection.execute(table.update()\
                                         .values({'data' : expression.cast(self.serialize_json(self.serialize(data)),LargeBinary)})\
-                                        .where(table.c.pk == obj.pk))
+                                        .where(table.c.pk == expression.cast(obj.pk,pk_type)))
 
             for delete in deletes:
                 self.connection.execute(delete)
@@ -644,7 +639,7 @@ class Backend(BaseBackend):
                 self.connection.execute(insert)
 
             if d:
-                update = table.update().values(**d).where(table.c.pk == obj.pk)
+                update = table.update().values(**d).where(table.c.pk == expression.cast(obj.pk,pk_type))
                 result = self.connection.execute(update)
                 if not result.rowcount:
                     raise obj.DoesNotExist("Object does not exist!")
