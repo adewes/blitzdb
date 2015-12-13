@@ -474,7 +474,7 @@ class QuerySet(BaseQuerySet):
             for key,direction in self.order_bys:
                 #here we can only perform the ordering by columns that exist in the given query table.
                 try:
-                    order_bys.append(direction(self.table.c[key]))
+                    order_bys.append(direction(self.table.c[self.backend.get_column_for_key(self.cls,key)]))
                 except KeyError:
                     continue
                 s = s.order_by(*order_bys)
