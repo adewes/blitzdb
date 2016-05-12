@@ -27,3 +27,4 @@ def test_nested_value(backend):
     recovered_actors = backend.filter(Actor,{'movies.title' : 'The Godfather'})
     assert len(recovered_actors) == 1
     assert actor in recovered_actors
+

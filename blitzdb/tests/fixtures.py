@@ -17,24 +17,25 @@ def temporary_path(request):
     request.addfinalizer(finalizer)
     return str(d)
 
+test_mongo = False
+
 try:
-    import pymongo
-    from blitzdb.backends.mongo import Backend as MongoBackend
-    test_mongo = True
+    if not os.environ.get('NO_MONGO'):
+        import pymongo
+        from blitzdb.backends.mongo import Backend as MongoBackend
+        test_mongo = True
 
-    @pytest.fixture(scope="function")
-    def mongodb_backend(request):
-        return _mongodb_backend(request, {})
+        @pytest.fixture(scope="function")
+        def mongodb_backend(request):
+            return _mongodb_backend(request, {})
 
-    @pytest.fixture(scope="function")
-    def small_mongodb_test_data(request, mongodb_backend):
-        return generate_test_data(request, mongodb_backend, 20)
+        @pytest.fixture(scope="function")
+        def small_mongodb_test_data(request, mongodb_backend):
+            return generate_test_data(request, mongodb_backend, 20)
 
-    print("Testing with MongoDB")
-
+        print("Testing with MongoDB")
 except ImportError:
     print("MongoDB not found, skipping tests.")
-    test_mongo = False
 
 try:
     from sqlalchemy import create_engine

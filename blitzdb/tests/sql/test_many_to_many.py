@@ -1,10 +1,10 @@
 import pytest
 import pprint
 
-from ..helpers.movie_data import Movie,Actor,Director
+from ..helpers.movie_data import Movie,Actor,Director,Document
+from blitzdb.backends.sql.relations import ManyToManyProxy
 
 from .fixtures import backend
-from blitzdb.backends.sql.relations import ManyToManyProxy
 
 def test_basics(backend):
 
@@ -97,3 +97,15 @@ def test_basics(backend):
     assert len(actor.movies[1:2]) == 1
     assert len(actor.movies[:-1]) == 2
     assert len(actor.movies[1:-1]) == 1
+
+def test_self_reference(backend):
+
+
+    from blitzdb.fields import ManyToManyField
+    class MovieMovie(Document):
+
+        related_movies = ManyToManyField('MovieMovie',backref = 'related_movies_backref')
+
+    backend.init_schema()
+    backend.register(MovieMovie)
+    backend.create_schema()

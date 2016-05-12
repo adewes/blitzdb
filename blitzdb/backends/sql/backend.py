@@ -316,8 +316,10 @@ class Backend(BaseBackend):
                 related_collection = self.get_collection_for_cls(field.related)
             related_class = self.get_cls_for_collection(related_collection)
 
-            pk_field_name = field.field or collection
-            related_pk_field_name = field.related_field or related_collection
+            pk_field_name = field.field or 'pk_%s' % collection
+            related_pk_field_name = field.related_field or 'pk_%s' % related_collection
+            if related_pk_field_name == pk_field_name:#this can happen if we connect a given table with itself
+                related_pk_field_name = related_pk_field_name+'_right'
 
             relationship_name = "%s_%s_%s" % (collection,related_collection,column_name)
 
@@ -334,8 +336,6 @@ class Backend(BaseBackend):
                 relationship_table = backref['relationship_table']
             else:
                 relationship_name = "%s_%s" % (collection,related_collection)
-                pk_field_name = field.field or 'pk_%s' % collection
-                related_pk_field_name = field.related_field or 'pk_%s' % related_collection
                 extra_columns = [
                     UniqueConstraint('pk_%s' % related_collection,'pk_%s' % collection,name = '%s_%s_unique' % (relationship_name,column_name))
                     ]
@@ -370,11 +370,15 @@ class Backend(BaseBackend):
 
                 RelationshipClass.__name__ = str("%s%s" % (collection.capitalize(),"".join([ "".join([kk.capitalize() for kk in k.split("_")]) for k in key.split(".")])))
                 
+                backref_name_left = '%s_%s_%s' % (collection,related_collection,column_name)
+                backref_name_right = '%s_%s_%s' % (related_collection,collection,column_name)
+                if backref_name_left == backref_name_right:
+                    backref_name_right += '_right'
                 RelationshipClass.fields[pk_field_name] = ForeignKeyField(cls,
-                                                            backref = '%s_%s_%s' % (collection,related_collection,column_name),
+                                                            backref = backref_name_left,
                                                             ondelete = 'CASCADE')
                 RelationshipClass.fields[related_pk_field_name] =ForeignKeyField(related_class,
-                                                            backref = '%s_%s_%s' % (related_collection,collection,column_name),
+                                                            backref = backref_name_right,
                                                             ondelete = 'CASCADE')
 
                 field.relationship_class = RelationshipClass
