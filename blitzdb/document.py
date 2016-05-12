@@ -197,7 +197,7 @@ class Document(object):
 
     @property
     def attributes(self):
-        if self._lazy and self._autoload:
+        if self._lazy and self._autoload and self.pk is not None:
             self.revert()
         return self._attributes
 
