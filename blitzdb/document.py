@@ -197,7 +197,7 @@ class Document(object):
 
     @property
     def attributes(self):
-        if self._lazy and self._autoload and self.pk is not None:
+        if self._lazy and self._autoload:
             self.revert()
         return self._attributes
 
@@ -486,8 +486,8 @@ class Document(object):
             backend = backend or self._backend
             if not backend:
                 raise AttributeError("No backend given!")
-            if self.pk == None:
-                raise self.DoesNotExist("No primary key given!")
+            if self.pk is None:
+                return
             obj = backend.get(self.__class__, {self.get_pk_name(): self.pk})
         self._attributes = obj.attributes
         self.initialize()
