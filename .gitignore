@@ -2,6 +2,7 @@
 *~
 # C extensions
 venv*/*
+.cache/*
 *.so
 *.orig
 .checkmate

@@ -469,10 +469,11 @@ class Backend(BaseBackend):
 
     def commit(self,transaction = None):
         if not self._transactions:#should never happen
+            logger.warning("Not in a transaction! You might call commit from outside a transaction, please check your code.")
             return
         if transaction is not None and self._transactions[-1] is not transaction:
             #this is the wrong transaction object...
-            return
+            pass
         last_transaction = self._transactions.pop()
         last_transaction.commit()
         if not self._transactions:
@@ -803,16 +804,11 @@ class Backend(BaseBackend):
 
             obj.backend = self
             #after saving an object, we initialize the relations
-            self.initialize_relations(obj)
+            self.initialize_relations(collection, obj, obj.lazy_attributes)
 
             return obj
 
-    def initialize_relations(self,obj,data = None):
-
-        if data is None:
-            data = obj.attributes
-
-        collection = self.get_collection_for_cls(obj.__class__)
+    def initialize_relations(self, collection, obj, data):
 
         for key,params in self._related_fields[collection].items():
             if isinstance(params['field'],ManyToManyField):
@@ -881,8 +877,6 @@ class Backend(BaseBackend):
                         set_value(data,key,params['class']({},lazy = True,db_loader = db_loader))
                 else:
                     set_value(data,key,qs)
-
-        obj.attributes = data
 
     def get_include_joins(self,cls,includes,excludes = None,order_by_keys = None):
         collection = self.get_collection_for_cls(cls)
@@ -962,20 +956,6 @@ class Backend(BaseBackend):
 
         return include_params
 
-    def deserialize(self, obj, encoders=None,create_instance = True):
-        return super(Backend, self).deserialize(obj,encoders = encoders,create_instance = create_instance)
-
-    def serialize(self, obj, convert_keys_to_str=True, embed_level=0, encoders=None,**kwargs):
-        """
-        Only serialize fields that are not associate with a relation/backref!
-        """
-
-        return super(Backend, self).serialize(obj,
-                                              convert_keys_to_str=convert_keys_to_str, 
-                                              embed_level=embed_level,
-                                              encoders = (encoders if encoders else []),
-                                              **kwargs)
-
     def map_index_fields(self,collection_or_class,attributes):
 
         incomplete = False
@@ -1018,10 +998,20 @@ class Backend(BaseBackend):
             set_value(d,key,value)
         return d,lazy
 
-    def create_instance(self, collection_or_class,attributes,lazy = False):
+    def create_instance(self, cls_or_collection,attributes,lazy = False):
 
-        obj = super(Backend,self).create_instance(collection_or_class,{},call_hook = False,lazy = lazy)
-        self.initialize_relations(obj,data = attributes.copy())
+        if not isinstance(cls_or_collection, six.string_types):
+            collection = self.get_collection_for_cls(cls_or_collection)
+        else:
+            collection = cls_or_collection
+
+        #first, we create an object without attributes
+        obj = super(Backend,self).create_instance(cls_or_collection, {}, call_hook=False, lazy=lazy, deserialize=False)
+        #then, we initialize it with the relationship data
+        self.initialize_relations(collection, obj, attributes)
+        #then, we deserialize the attributes and assign them to the object
+        obj.attributes = self.deserialize(attributes)
+        #finally, we call the after_load hook
         self.call_hook('after_load',obj)
         
         return obj

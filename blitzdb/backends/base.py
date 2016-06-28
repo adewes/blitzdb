@@ -311,7 +311,7 @@ class Backend(object):
             output_obj = obj
         return output_obj
 
-    def deserialize(self, obj, encoders=None,embedded = False,create_instance = True):
+    def deserialize(self, obj, encoders=None, embedded=False, create_instance=True):
         """
         Deserializes a given object, i.e. converts references to other (known) `Document` objects by lazy instances of the
         corresponding class. This allows the automatic fetching of related documents from the database as required.
@@ -334,7 +334,12 @@ class Backend(object):
                 del attributes['__collection__']
                 if '__ref__' in attributes:
                     del attributes['__ref__']
-                output_obj = self.create_instance(obj['__collection__'], attributes, lazy=True)
+                if '__lazy__' in attributes:
+                    lazy = attributes['__lazy__']
+                    del attributes['__lazy__']
+                else:
+                    lazy = True
+                output_obj = self.create_instance(obj['__collection__'], attributes, lazy=lazy)
             else:
                 output_obj = {}
                 for key, value in obj.items():
@@ -346,7 +351,7 @@ class Backend(object):
 
         return output_obj
 
-    def create_instance(self, collection_or_class, attributes, lazy=False,call_hook = True):
+    def create_instance(self, collection_or_class, attributes, lazy=False, call_hook=True, deserialize=True):
         """
         Creates an instance of a `Document` class corresponding to the given collection name or class.
 
@@ -363,13 +368,18 @@ class Backend(object):
         else:
             raise AttributeError("Unknown collection or class: %s!" % str(collection_or_class))
 
+        #we deserialize the attributes that we receive
+        if deserialize:
+            deserialized_attributes = self.deserialize(attributes, create_instance=False)
+        else:
+            deserialized_attributes = attributes
         if 'constructor' in self.classes[cls]:
-            obj = self.classes[cls]['constructor'](attributes,
+            obj = self.classes[cls]['constructor'](deserialized_attributes,
                                                    backend=self,
                                                    autoload=self._autoload_embedded,
                                                    lazy=lazy)
         else:
-            obj = cls(attributes, lazy=lazy, backend=self, autoload=self._autoload_embedded)
+            obj = cls(deserialized_attributes, lazy=lazy, backend=self, autoload=self._autoload_embedded)
 
         if call_hook:
             self.call_hook('after_load',obj)

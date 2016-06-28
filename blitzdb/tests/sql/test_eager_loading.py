@@ -135,13 +135,13 @@ def test_include_with_only(backend):
 
     prepare_data(backend)
 
-    actors = backend.filter(Actor,{},include = (('movies',('director',),'title'),('movies','year')),only = ('gross_income_m',))
+    actors = backend.filter(Actor,{},include = (('movies',('director',),'title','year'),('movies')),only = ('gross_income_m',))
 
     assert isinstance(actors[0],Actor)
     assert actors[0].lazy
     assert set(actors[0].lazy_attributes.keys()) == set(('related_role_actor','actor_movie_movies','actor_movie_cast','actor_food_favorite_food','favorite_food','best_movies','related_director_favorite_actor','movies','gross_income_m','pk','related_movie_cast'))
     assert isinstance(actors[0]['movies'],ManyToManyProxy)
-    assert actors[0]['movies']._objects
+    assert actors[0]['movies']._objects is not None
 
 
 def test_only(backend):

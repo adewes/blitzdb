@@ -241,9 +241,6 @@ class Backend(BaseBackend):
                                               path=path,
                                               for_query=for_query)
 
-    def deserialize(self, obj, encoders=None,create_instance = True):
-        return super(Backend, self).deserialize(obj, encoders = encoders,create_instance = create_instance)
-
     def create_indexes(self, cls_or_collection, params_list):
         for params in params_list:
             self.create_index(cls_or_collection, **params)
