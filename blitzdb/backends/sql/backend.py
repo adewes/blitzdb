@@ -470,9 +470,9 @@ class Backend(BaseBackend):
     def commit(self,transaction = None):
         if not self._transactions:#should never happen
             return
-        if transaction is not None and self._transactions[-1] is not transaction:
-            #this is the wrong transaction object...
-            return
+        #if transaction is not None and self._transactions[-1] is not transaction:
+        #    #this is the wrong transaction object...
+        #    return
         last_transaction = self._transactions.pop()
         last_transaction.commit()
         if not self._transactions:

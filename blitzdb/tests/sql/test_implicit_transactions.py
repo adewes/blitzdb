@@ -13,10 +13,8 @@ def test_implicit_transaction(backend):
     backend.create_schema()
 
     al_pacino = Actor({'name' : 'Al Pacino','best_genre' : 'action'})
+    #this will be automatically committed
     backend.save(al_pacino)
-    assert backend.current_transaction
-    assert backend._conn is not None
-    backend.commit()
     assert backend.current_transaction is None
     assert backend._conn is None
 

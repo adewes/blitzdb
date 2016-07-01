@@ -403,8 +403,8 @@ class Backend(object):
                 else:
                     #if the transaction has been created implicitly and we are not within
                     #another transaction, we leave it open (the user needs to call commit manually)
-                    if self.implicit and not self.within_transaction:
-                        return
+                    #if self.implicit and not self.within_transaction:
+                    #    return
                     self.backend.commit(self.transaction)
 
         return TransactionManager(self,implicit = implicit)

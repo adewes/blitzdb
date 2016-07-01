@@ -50,6 +50,7 @@ def test_advanced_transaction(transactional_backend):
     movie.save(transactional_backend)
     transactional_backend.commit()
 
+    transactional_backend.begin()
     transactional_backend.delete(movie)
     movie.title = 'Star Wars IV'
     movie.save(transactional_backend)
