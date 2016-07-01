@@ -74,7 +74,6 @@ class QuerySet(BaseQuerySet):
             return d
 
         obj = self.backend.create_instance(self.cls, d,lazy = lazy)
-        obj.attributes = self.backend.deserialize(obj.lazy_attributes,create_instance = False)
 
         return obj
 

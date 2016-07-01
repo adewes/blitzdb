@@ -60,6 +60,7 @@ try:
         backend.create_schema()
 
         def finalizer():
+            backend.rollback()
             del backend.connection
             print("Dropping schema...")
             meta = MetaData(engine)
