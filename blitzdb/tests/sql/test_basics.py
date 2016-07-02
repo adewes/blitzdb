@@ -3,7 +3,7 @@ import pprint
 
 from ..helpers.movie_data import Movie,Actor,Director
 
-from .fixtures import backend,Movie
+from .fixtures import backend
 
 def test_multiple_joins(backend):
 
