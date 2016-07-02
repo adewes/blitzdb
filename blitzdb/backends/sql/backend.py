@@ -962,20 +962,6 @@ class Backend(BaseBackend):
 
         return include_params
 
-    def deserialize(self, obj, encoders=None,create_instance = True):
-        return super(Backend, self).deserialize(obj,encoders = encoders,create_instance = create_instance)
-
-    def serialize(self, obj, convert_keys_to_str=True, embed_level=0, encoders=None,**kwargs):
-        """
-        Only serialize fields that are not associate with a relation/backref!
-        """
-
-        return super(Backend, self).serialize(obj,
-                                              convert_keys_to_str=convert_keys_to_str, 
-                                              embed_level=embed_level,
-                                              encoders = (encoders if encoders else []),
-                                              **kwargs)
-
     def map_index_fields(self,collection_or_class,attributes):
 
         incomplete = False
@@ -1018,10 +1004,20 @@ class Backend(BaseBackend):
             set_value(d,key,value)
         return d,lazy
 
-    def create_instance(self, collection_or_class,attributes,lazy = False):
+    def create_instance(self, cls_or_collection,attributes,lazy = False):
 
-        obj = super(Backend,self).create_instance(collection_or_class,{},call_hook = False,lazy = lazy)
-        self.initialize_relations(obj,data = attributes.copy())
+        if not isinstance(cls_or_collection, six.string_types):
+            collection = self.get_collection_for_cls(cls_or_collection)
+        else:
+            collection = cls_or_collection
+
+        #first, we create an object without attributes
+        obj = super(Backend,self).create_instance(cls_or_collection, {}, call_hook=False, lazy=lazy, deserialize=False)
+        #then, we initialize it with the relationship data
+        self.initialize_relations(obj, attributes)
+        #then, we deserialize the attributes and assign them to the object
+        obj.attributes = self.deserialize(attributes)
+        #finally, we call the after_load hook
         self.call_hook('after_load',obj)
         
         return obj
