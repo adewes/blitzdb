@@ -1,5 +1,5 @@
 from sqlalchemy.sql import select,func,expression,delete
-from sqlalchemy.sql.expression import join,asc,desc,func,text,and_
+from sqlalchemy.sql.expression import join,asc,desc,text,and_
 from .queryset import QuerySet
 
 class ManyToManyProxy(object):
