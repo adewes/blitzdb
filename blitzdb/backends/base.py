@@ -27,27 +27,6 @@ class InTransaction(BaseException):
     gets called inside a transaction.
     """
 
-
-class DotEncoder(object):
-
-    DOT_MAGIC_VALUE = ":a5b8afc131:"
-
-    @classmethod
-    def encode(cls,obj,path):
-        def replace_key(key):
-            if isinstance(key,six.string_types):
-                return key.replace(".", cls.DOT_MAGIC_VALUE)
-            return key
-        if isinstance(obj,dict):
-            return dict([(replace_key(key),value) for key, value in obj.items()])
-        return obj
-
-    @classmethod
-    def decode(cls,obj):
-        if isinstance(obj,dict):
-            return {key.replace(cls.DOT_MAGIC_VALUE, "."): value for key, value in obj.items()}
-        return obj
-
 class ComplexEncoder(object):
 
     @classmethod
@@ -60,6 +39,14 @@ class ComplexEncoder(object):
     def decode(cls,obj):
         if isinstance(obj,dict) and obj.get('_type') == 'complex':
             return 1j*obj['i']+obj['r']
+        return obj
+
+class ComplexQueryEncoder(object):
+
+    @classmethod
+    def encode(cls,obj,path):
+        if isinstance(obj,complex):
+            raise ValueError("Currently complex values are not supported in queries! Please write your queries using the imaginary and real values instead.")
         return obj
 
 class Backend(object):
@@ -83,8 +70,8 @@ class Backend(object):
 
     __metaclass__ = abc.ABCMeta
 
-    standard_encoders = [ComplexEncoder,DotEncoder]
-    query_encoders = [ComplexEncoder]
+    standard_encoders = [ComplexEncoder]
+    query_encoders = [ComplexQueryEncoder]
 
     def __init__(self, autodiscover_classes=True, autoload_embedded=True, allow_documents_in_query=True):
         self.classes = {}

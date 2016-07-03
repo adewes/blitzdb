@@ -17,6 +17,26 @@ from blitzdb.helpers import get_value,set_value,delete_value
 
 logger = logging.getLogger(__name__)
 
+class DotEncoder(object):
+
+    DOT_MAGIC_VALUE = ":a5b8afc131:"
+
+    @classmethod
+    def encode(cls,obj,path):
+        def replace_key(key):
+            if isinstance(key,six.string_types):
+                return key.replace(".", cls.DOT_MAGIC_VALUE)
+            return key
+        if isinstance(obj,dict):
+            return dict([(replace_key(key),value) for key, value in obj.items()])
+        return obj
+
+    @classmethod
+    def decode(cls,obj):
+        if isinstance(obj,dict):
+            return {key.replace(cls.DOT_MAGIC_VALUE, "."): value for key, value in obj.items()}
+        return obj
+
 class Backend(BaseBackend):
 
     """
@@ -38,6 +58,7 @@ class Backend(BaseBackend):
         backend = MongoBackend(my_db)
     """
 
+    standard_encoders = BaseBackend.standard_encoders + [DotEncoder]
 
     def __init__(self, db, autocommit=False, use_pk_based_refs = True,**kwargs):
         super(Backend, self).__init__(**kwargs)

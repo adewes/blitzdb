@@ -19,10 +19,8 @@ if test_mongo:
         mongodb_backend.commit()
 
         assert mongodb_backend.get(Document,{'pk' : doc.pk}) == doc
-        assert mongodb_backend.get(Document,{'foo' : c}) == doc
-        assert len(mongodb_backend.filter(Document,{'foo' : c})) == 1
 
-        with pytest.raises(Document.DoesNotExist):
-            mongodb_backend.get(Document,{'foo' : 1j+5})
+        with pytest.raises(ValueError):
+            assert mongodb_backend.get(Document,{'foo' : c})
 
-        assert mongodb_backend.get(Document,{'foo' : c}).foo == c
+        assert mongodb_backend.get(Document,{'foo.r' : c.real,'foo.i' : c.imag}).foo == c
