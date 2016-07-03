@@ -62,6 +62,13 @@ def prepare_data(backend):
 
 def test_one_to_many_include(backend):
 
+    if str(backend.engine.url).startswith('sqlite://'):
+        import sqlite3
+        version = [int(s) for s in sqlite3.sqlite_version.split('.')]
+        if version[0] < 3 or (version[0] == 3 and version[1] < 8):
+            print("No support for common table expression in your SQLite version, skipping this test...")
+            return
+
     prepare_data(backend)
 
     al_pacino = backend.get(Actor,{'name' : 'Al Pacino'},include = ('best_movies',))
