@@ -3,7 +3,28 @@ import pprint
 
 from ..helpers.movie_data import Movie,Actor,Director
 
+from sqlalchemy.exc import IntegrityError
+
 from .fixtures import backend
+
+def test_circular_reference(backend):
+
+    backend.init_schema()
+    backend.create_schema()
+
+    apocalypse_now = Movie({'title' : 'Apocalypse Now'})
+    francis_coppola = Director({'name' : 'Francis Coppola',
+                                'best_movie' : apocalypse_now})
+    the_godfather = Movie({'title' : 'The Godfather',
+                           'director' : francis_coppola})
+    robert_de_niro = Actor({'name' : 'Robert de Niro','movies' : []})
+    robert_de_niro.movies.append(the_godfather)
+    francis_coppola.favorite_actor = robert_de_niro
+    #this will yield an exception as we have a circular foreign key relationship
+    with pytest.raises(IntegrityError):
+        backend.save(robert_de_niro)
+    del francis_coppola.favorite_actor
+    backend.save(robert_de_niro)
 
 def test_basics(backend):
 
@@ -33,7 +54,6 @@ def test_basics(backend):
     al_pacino.movies.append(the_godfather)
     al_pacino.movies.append(scarface)
     stanley_kubrick.favorite_actor = al_pacino
-    francis_coppola.best_movie = the_godfather
 
     apocalypse_now = Movie({'title' : 'Apocalypse Now'})
     star_wars_v = Movie({'title' : 'Star Wars V: The Empire Strikes Back'})
@@ -41,6 +61,8 @@ def test_basics(backend):
 
     backend.save(robert_de_niro)
     backend.save(al_pacino)
+
+    backend.update(francis_coppola,{'best_movie' : the_godfather})
 
     francis_coppola.favorite_actor = robert_de_niro
 

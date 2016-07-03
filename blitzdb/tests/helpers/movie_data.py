@@ -42,9 +42,16 @@ class Food(Document):
 
 class Director(Document):
 
+    """
+    Warning: There is a circular foreign key relationship between
+    Director and Movie, hence trying to save a pair of those objects
+    that point to each other will yield an exception for e.g.
+    the Postgres backend.
+    """
+
     name = CharField(indexed = True)
     favorite_actor = ForeignKeyField('Actor')
-    best_movie = ForeignKeyField('Movie',unique = True,backref = 'best_of_director')
+    best_movie = ForeignKeyField('Movie',unique=True,backref = 'best_of_director')
 
 class Role(Document):
 

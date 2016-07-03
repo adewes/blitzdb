@@ -685,7 +685,7 @@ class Backend(BaseBackend):
                 else:
                     d[index_params['column']] = null()
 
-    def _serialize_and_update_relations(self,obj,collection,d,deletes,inserts,autosave_dependent = True,for_update = False):
+    def _serialize_and_update_relations(self,obj,collection,d,deletes,inserts,autosave_dependent = True,for_update = False, save_cache=None):
 
         pk_type = self._index_fields[collection]['pk']['type']
 
@@ -708,11 +708,10 @@ class Backend(BaseBackend):
                     for element in value:
                         if not isinstance(element,Document):
                             raise AttributeError("ManyToMany field %s contains an invalid value!" % related_field)
+                        if autosave_dependent and element.pk is None:
+                            self.save(element, save_cache=save_cache)
                         if element.pk is None:
-                            if autosave_dependent:
-                                self.save(element)
-                            else:
-                                raise AttributeError("Related document in field %s has no primary key!" % related_field)
+                            raise AttributeError("Related document in field %s has no primary key!" % related_field)
                         ed = {
                             'pk_%s' % collection : obj['pk'],
                             'pk_%s' % relation_params['collection'] : element.pk,
@@ -726,11 +725,10 @@ class Backend(BaseBackend):
                     elif not isinstance(value,Document):
                         raise AttributeError("Field %s must be a document!" % related_field)
                     else:
+                        if autosave_dependent and value.pk is None:
+                            self.save(value, save_cache=save_cache)
                         if value.pk is None:
-                            if autosave_dependent:
-                                self.save(value)
-                            else:
-                                raise AttributeError("Related document in field %s has no primary key!" % related_field)
+                            raise AttributeError("Related document in field %s has no primary key!" % related_field)
                         d[relation_params['column']] = expression.cast(value.pk,relation_params['type'])
 
             except KeyError:
@@ -742,7 +740,10 @@ class Backend(BaseBackend):
                     d[relation_params['column']] = null()
 
 
-    def save(self,obj,autosave_dependent = True,call_hook = True):
+    def save(self,obj,autosave_dependent = True,call_hook = True, save_cache=None):
+
+        if save_cache is None:
+            save_cache = []
 
         if obj.lazy:
             raise AttributeError("Trying to save a lazy object!")
@@ -752,60 +753,56 @@ class Backend(BaseBackend):
 
         collection = self.get_collection_for_cls(obj.__class__)
         table = self._collection_tables[collection]
-
-        """
-        Document save strategy:
-
-        - Retrieve values for simple embedded index fields
-        - Store object data with index fields in DB
-        - Retrieve values for list index fields
-        - Store each list value in the index table
-        - Retrieve related objects
-        - Store related objects in the DB
-        """
-
         pk_type = self._index_fields[collection]['pk']['type']
 
         deletes = []
         inserts = []
 
-        with self.transaction(implicit = True):
+        try:
+            with self.transaction(implicit = True):
 
-            is_insert = False
-            if not obj.pk:
-                obj.pk = uuid.uuid4().hex
-                is_insert = True
+                save_cache.append((obj,obj.pk,obj.backend))
 
-            d = {'data' : expression.cast(self.serialize_json(self.serialize(obj.attributes,
-                    encoders = [ExcludedFieldsEncoder(self,collection)])),LargeBinary),
-                 'pk' : expression.cast(obj.pk,pk_type)}
+                is_insert = False
+                if not obj.pk:
+                    obj.pk = uuid.uuid4().hex
+                    is_insert = True
 
-            self._serialize_and_update_indexes(obj,collection,d)
-            self._serialize_and_update_relations(obj,collection,d,deletes,inserts,autosave_dependent = autosave_dependent)
+                d = {'data' : expression.cast(self.serialize_json(self.serialize(obj.attributes,
+                        encoders = [ExcludedFieldsEncoder(self,collection)])),LargeBinary),
+                     'pk' : expression.cast(obj.pk,pk_type)}
 
-            #if we got an object with a PK, we try to perform an UPDATE operation
+                self._serialize_and_update_indexes(obj,collection,d)
+                self._serialize_and_update_relations(obj,collection,d,deletes,inserts,autosave_dependent = autosave_dependent, save_cache=save_cache)
 
-            if not is_insert:
-                update = self._collection_tables[collection].update().values(**d).where(table.c.pk == obj.pk)
-                result = self.connection.execute(update)
+                #if we got an object with a PK, we try to perform an UPDATE operation
 
-            #if we did not get a PK the UPDATE did not match any rows, we perform an INSERT instead
-            if is_insert or not result.rowcount:
-                insert = self._collection_tables[collection].insert().values(**d)
-                result = self.connection.execute(insert)
-                is_insert = True
+                if not is_insert:
+                    update = self._collection_tables[collection].update().values(**d).where(table.c.pk == obj.pk)
+                    result = self.connection.execute(update)
 
-            for delete in deletes:
-                self.connection.execute(delete)
+                #if we did not get a PK the UPDATE did not match any rows, we perform an INSERT instead
+                if is_insert or not result.rowcount:
+                    insert = self._collection_tables[collection].insert().values(**d)
+                    result = self.connection.execute(insert)
+                    is_insert = True
 
-            for insert in inserts:
-                self.connection.execute(insert)
+                for delete in deletes:
+                    self.connection.execute(delete)
 
-            obj.backend = self
-            #after saving an object, we initialize the relations
-            self.initialize_relations(obj)
+                for insert in inserts:
+                    self.connection.execute(insert)
 
-            return obj
+                #after saving an object, we initialize the relations
+                obj.backend = self
+                self.initialize_relations(obj)
+                return obj
+        except:
+            #we restore all objects to the state they've been in before...
+            for saved_obj,pk,backend in save_cache:
+                saved_obj.pk = pk
+                saved_obj.backend = backend
+            raise
 
     def initialize_relations(self,obj,data = None):
 
