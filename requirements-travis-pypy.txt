@@ -1,0 +1,6 @@
+fake-factory>=0.3.2
+pytest>=2.5.0
+sqlalchemy
+psycopg2cffi
+alembic
+pymongo>=3.0.1
