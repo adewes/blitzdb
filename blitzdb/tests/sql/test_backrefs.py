@@ -81,10 +81,6 @@ def test_basics(backend):
     #we have a backreference from director to movies
 
     assert backend.get(Director,{'movies' : {'$all' : [the_godfather]}}) == francis_coppola
-
-    for director in backend.filter(Director,{'movies.title' : {'$in' : ['Apocalypse Now','The Godfather']}}):
-        print director.name,director.pk
-
     assert backend.get(Director,{'movies.title' : {'$in' : ['Apocalypse Now','The Godfather']}}) == francis_coppola
 
     result = backend.filter(Movie,{'$or' : [{'actors' : harrison_ford},

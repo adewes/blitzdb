@@ -1,7 +1,6 @@
 import pytest
-from .fixtures import *
-
 from .helpers.movie_data import Movie,Actor,Director
+from .fixtures import *
 from blitzdb.backends.file import Backend as FileBackend
 from blitzdb.backends.mongo import Backend as MongoBackend
     

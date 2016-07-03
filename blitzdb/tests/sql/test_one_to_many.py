@@ -76,7 +76,6 @@ def test_basics(backend):
 
     #we test with a movie without a best_of_director relation...
     the_godfather.revert(backend)
-
     #this should raise an exception
     with pytest.raises(Director.DoesNotExist):
-        assert the_godfather.best_of_director
+        assert the_godfather.best_of_director.eager

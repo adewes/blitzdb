@@ -1,6 +1,7 @@
 import time
 import copy
 import sqlalchemy
+import six
 
 from blitzdb.queryset import QuerySet as BaseQuerySet
 from functools import wraps
@@ -103,7 +104,9 @@ class QuerySet(BaseQuerySet):
     def next(self):
         if self._it is None:
             self._it = iter(self)
-        return self._it.next()
+        if six.PY2:
+            return self._it.next()
+        return self._it.__next__()
 
     __next__ = next
 
@@ -232,7 +235,7 @@ class QuerySet(BaseQuerySet):
 
 
         #we only select the columns that we actually need
-        my_columns = self.include_joins['fields'].values()+\
+        my_columns = list(self.include_joins['fields'].values())+\
                      [params['relation']['column'] for params in self.include_joins['joins'].values()
                       if isinstance(params['relation']['field'],ForeignKeyField)]
 

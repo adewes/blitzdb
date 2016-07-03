@@ -101,7 +101,9 @@ class Backend(object):
         works by reading the value of `blitzdb.document.document_classes`, which is updated by the meta-class
         of the :py:class:`blitzdb.document.Document` class upon creation of a new subclass.
         """
+        print("Autodiscovering classes...")
         for document_class in document_classes:
+            print(document_class)
             self.register(document_class)
 
     def unregister(self,cls):

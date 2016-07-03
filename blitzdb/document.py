@@ -74,9 +74,8 @@ class MetaDocument(type):
 
 document_classes = []
 
+@six.add_metaclass(MetaDocument)
 class Document(object):
-
-    __metaclass__ = MetaDocument
 
     """
     The Document object is the base class for all documents stored in the database.

@@ -38,14 +38,18 @@ except ImportError:
     print("MongoDB not found, skipping tests.")
 
 try:
-    from sqlalchemy import create_engine
+    from sqlalchemy import create_engine, event
     from sqlalchemy.schema import MetaData
     from sqlalchemy.types import Integer
     from blitzdb.backends.sql import Backend as SqlBackend
 
+    memory_url = 'sqlite:///:memory:'
+
     def get_sql_engine():
-        url = os.environ.get('BLITZDB_SQLALCHEMY_URL','sqlite:///:memory:')
-        return create_engine(url, echo=False)
+        url = os.environ.get('BLITZDB_SQLALCHEMY_URL',memory_url)
+        engine = create_engine(url, echo=False)
+        #we make sure foreign keys are enforced...
+        return engine
 
     engine = get_sql_engine()
 
@@ -54,6 +58,9 @@ try:
         meta = MetaData(engine)
         meta.reflect()
         meta.drop_all()
+        #we enable foreign key checks for SQLITE
+        if str(engine.url).startswith('sqlite://'):
+            engine.connect().execute('pragma foreign_keys=ON')
 
         backend = SqlBackend(engine = engine)
         backend.init_schema()
@@ -63,6 +70,9 @@ try:
             backend.rollback()
             del backend.connection
             print("Dropping schema...")
+            #we disable foreign key checks for SQLITE (as dropping tables with circular foreign keys won't work otherwise...)
+            if str(engine.url).startswith('sqlite://'):
+                engine.connect().execute('pragma foreign_keys=OFF')
             meta = MetaData(engine)
             meta.reflect()
             meta.drop_all()

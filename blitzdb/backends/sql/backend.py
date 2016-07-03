@@ -214,8 +214,7 @@ class Backend(BaseBackend):
             self.unregister(cls)
 
         self._relationship_classes = []
-
-        for collection,cls in self.collections.items():
+        for collection,cls in list(self.collections.items()):
             self.init_class_schema(cls,collection)
 
 
@@ -1089,7 +1088,7 @@ class Backend(BaseBackend):
                 #this is a special operator query
                 if len(query) > 1:
                     raise AttributeError('Currently not supported!')
-                operator = query.keys()[0][1:]
+                operator = list(query.keys())[0][1:]
                 if not operator in ('and','or','not'):
                     raise AttributeError("Non-supported logical operator: $%s" % operator)
                 if operator in ('and','or'):
@@ -1122,10 +1121,10 @@ class Backend(BaseBackend):
                     query = {'pk' : query.pk}
 
                 #to do: implement $size and $not: {$size} operators...
-                if isinstance(query,dict) and len(query) == 1 and query.keys()[0] in ('$all','$in','$elemMatch','$nin'):
+                if isinstance(query,dict) and len(query) == 1 and list(query.keys())[0] in ('$all','$in','$elemMatch','$nin'):
                     #this is an $in/$all/$nin query
-                    query_type = query.keys()[0][1:]
-                    subquery = query.values()[0]
+                    query_type = list(query.keys())[0][1:]
+                    subquery = list(query.values())[0]
 
                     if query_type == 'elemMatch':
                         queries = compile_query(params['collection'],
@@ -1160,7 +1159,7 @@ class Backend(BaseBackend):
                             return [getattr(related_table.c['pk'],op+'_')(qs.get_select(columns = ['pk']))]
                         elif isinstance(subquery,(list,tuple)):
                             if subquery and isinstance(subquery[0],dict) and len(subquery[0]) == 1 and \
-                            subquery[0].keys()[0] == '$elemMatch':
+                            list(subquery[0].keys())[0] == '$elemMatch':
                                 queries = [sq for v in subquery for sq in compile_query(params['collection'],
                                                                                         prepare_subquery(tail,v['$elemMatch']),
                                                                                         table = related_table,
@@ -1285,7 +1284,7 @@ class Backend(BaseBackend):
                                     #this is a ForeignKey query
                                     if isinstance(value,dict):
                                         if len(value) == 1:
-                                            key,query = value.items()[0]
+                                            key,query = list(value.items())[0]
                                             if key == '$exists':
                                                 if not isinstance(query,bool):
                                                     raise AttributeError("$exists operator requires a Boolean operator")
