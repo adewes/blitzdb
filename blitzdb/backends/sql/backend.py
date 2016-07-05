@@ -498,6 +498,12 @@ class Backend(BaseBackend):
         self._conn = None
         self._transactions = []
 
+    def replace_engine_getter(self,engine_getter):
+        self._engine_getter = engine_getter
+        self._engine = None
+        self._conn = None
+        self._transactions = []
+
     def create_schema(self,indexes = None):
         if not self._schema_initialized:
             self.init_schema()
