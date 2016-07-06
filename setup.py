@@ -3,7 +3,7 @@ from setuptools import find_packages
 
 setup(
     name='blitzdb',
-    version='0.2.12',
+    version='0.3.0',
     author='Andreas Dewes - 7scientists',
     author_email='andreas@7scientists.com',
     license='MIT',
@@ -45,6 +45,7 @@ If you should encounter any problems when using BlitzDB, please feel free to `su
 Changelog
 =========
 
+* 0.3.0: Fully functionaly SQL backend.
 * 0.2.12: Added support for proper attribute iteration to `Document`.
 * 0.2.11: Allow setting the `collection` parameter through a `Document.Meta` attribute.
 * 0.2.10: Bugfix-Release: Fix Python 3 compatibility issue.
