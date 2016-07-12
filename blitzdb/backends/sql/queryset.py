@@ -49,12 +49,9 @@ class QuerySet(BaseQuerySet):
         if self.objects:
             self.pop_objects = self.objects[:]
 
-        self.deserialized_objects = None
-        self.deserialized_pop_objects = None
-        self._it = None
         self.order_bys = order_bys
-        self.count = None
-        self.result = None
+
+        self.revert()
 
     def limit(self,limit):
         self._limit = limit
@@ -393,6 +390,13 @@ class QuerySet(BaseQuerySet):
         if self.deserialized_objects is None:
             self.get_deserialized_objects()
         return self.deserialized_objects[key]
+
+    def revert(self):
+        self.deserialized_objects = None
+        self.deserialized_pop_objects = None
+        self._it = None
+        self.count = None
+        self.result = None
 
     def pop(self,i = 0):
         if self.deserialized_objects is None:
