@@ -91,11 +91,12 @@ class Backend(BaseBackend):
     class Meta(BaseBackend.Meta):
         pass
 
-    def __init__(self, engine, table_postfix = '',create_schema = False,**kwargs):
+    def __init__(self, engine, table_postfix = '',ondelete=None, create_schema = False,**kwargs):
         super(Backend, self).__init__(**kwargs)
 
         self._engine_getter = engine
         self._engine = None
+        self._ondelete = ondelete
         self._schema_initialized = False
         self._relationship_classes = []
         self._transactions = []
@@ -266,7 +267,7 @@ class Backend(BaseBackend):
                 related_collection = self.get_collection_for_cls(field.related)
             related_class = self.get_cls_for_collection(related_collection)
             column = Column(column_name,self.get_field_type(related_class.Meta.PkType),
-                            ForeignKey('%s%s.pk' % (related_collection,self.table_postfix),name = '%s_%s_%s' % (collection,related_collection,column_name), ondelete = field.ondelete,use_alter = False),
+                            ForeignKey('%s%s.pk' % (related_collection,self.table_postfix),name = '%s_%s_%s' % (collection,related_collection,column_name), ondelete = field.ondelete if field.ondelete is not None else self._ondelete,use_alter = False),
                             index=True,nullable = True if field.nullable else False)
 
             params = {'field' : field,
@@ -339,8 +340,8 @@ class Backend(BaseBackend):
                     UniqueConstraint('pk_%s' % related_collection,'pk_%s' % collection,name = '%s_%s_unique' % (relationship_name,column_name))
                     ]
                 relationship_table = Table('%s%s' % (relationship_name,self.table_postfix),self._metadata,
-                        Column(related_pk_field_name,self.get_field_type(related_class.Meta.PkType),ForeignKey('%s%s.pk' % (related_collection,self.table_postfix),name = "%s_%s" % (relationship_name,related_pk_field_name), ondelete = 'CASCADE',use_alter = False),index = True),
-                        Column(pk_field_name,self.get_field_type(cls.Meta.PkType),ForeignKey('%s%s.pk' % (collection,self.table_postfix),name = "%s_%s" % (relationship_name,pk_field_name),ondelete = 'CASCADE',use_alter = False),index = True),
+                        Column(related_pk_field_name,self.get_field_type(related_class.Meta.PkType),ForeignKey('%s%s.pk' % (related_collection,self.table_postfix),name = "%s_%s" % (relationship_name,related_pk_field_name), ondelete = field.ondelete if field.ondelete is not None else self._ondelete,use_alter = False),index = True),
+                        Column(pk_field_name,self.get_field_type(cls.Meta.PkType),ForeignKey('%s%s.pk' % (collection,self.table_postfix),name = "%s_%s" % (relationship_name,pk_field_name),ondelete = field.ondelete if field.ondelete is not None else self._ondelete,use_alter = False),index = True),
                         *extra_columns
                     )
                 params['relationship_table'] = relationship_table
@@ -375,10 +376,10 @@ class Backend(BaseBackend):
                     backref_name_right += '_right'
                 RelationshipClass.fields[pk_field_name] = ForeignKeyField(cls,
                                                             backref = backref_name_left,
-                                                            ondelete = 'CASCADE')
+                                                            ondelete = self._ondelete)
                 RelationshipClass.fields[related_pk_field_name] =ForeignKeyField(related_class,
                                                             backref = backref_name_right,
-                                                            ondelete = 'CASCADE')
+                                                            ondelete = self._ondelete)
 
                 field.relationship_class = RelationshipClass
 

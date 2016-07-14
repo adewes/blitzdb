@@ -53,7 +53,7 @@ try:
 
     engine = get_sql_engine()
 
-    def _sql_backend(request,engine):
+    def _sql_backend(request,engine,**kwargs):
 
         meta = MetaData(engine)
         meta.reflect()
@@ -62,7 +62,9 @@ try:
         if str(engine.url).startswith('sqlite://'):
             engine.connect().execute('pragma foreign_keys=ON')
 
-        backend = SqlBackend(engine = engine)
+        if not 'ondelete' in kwargs:
+            kwargs['ondelete'] = 'CASCADE'
+        backend = SqlBackend(engine = engine,**kwargs)
         backend.init_schema()
         backend.create_schema()
 
