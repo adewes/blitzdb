@@ -3,7 +3,7 @@ from setuptools import find_packages
 
 setup(
     name='blitzdb',
-    version='0.3.2',
+    version='0.3.3',
     author='Andreas Dewes - 7scientists',
     author_email='andreas@7scientists.com',
     license='MIT',
@@ -45,6 +45,7 @@ If you should encounter any problems when using BlitzDB, please feel free to `su
 Changelog
 =========
 
+* 0.3.3: Be more robust against corrupted data for foreign key objects. Fix problem with intersection of query sets in SQL backend.
 * 0.3.2: Give the user more control over cascading deletes for foreign keys and M2M objects in the SQL backend.
 * 0.3.1: Made intersect statement more efficient (and avoid using CTEs for that).
 * 0.3.0: Fully functionaly SQL backend.

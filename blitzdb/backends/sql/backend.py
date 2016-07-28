@@ -91,7 +91,7 @@ class Backend(BaseBackend):
     class Meta(BaseBackend.Meta):
         pass
 
-    def __init__(self, engine, table_postfix = '',ondelete=None, create_schema = False,**kwargs):
+    def __init__(self, engine, table_postfix = '',ondelete='CASCADE', create_schema = False,**kwargs):
         super(Backend, self).__init__(**kwargs)
 
         self._engine_getter = engine
@@ -842,8 +842,12 @@ class Backend(BaseBackend):
                         foreign_key_data = {'pk' : foreign_key_data,
                                             '__lazy__' : True,
                                             '__collection__' : collection}
-                    d,lazy_foreign_obj = self.deserialize_db_data(foreign_key_data)
-                    foreign_obj = self.create_instance(params['class'],d,lazy = lazy_foreign_obj)
+                    try:
+                        d,lazy_foreign_obj = self.deserialize_db_data(foreign_key_data)
+                        foreign_obj = self.create_instance(params['class'],d,lazy = lazy_foreign_obj)
+                    except:
+                        logger.warning("Found corrupted data in related field data for key {}".format(key))
+                        continue
                 else:
                     foreign_obj = None
                 set_value(data,key,foreign_obj)
