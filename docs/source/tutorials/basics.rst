@@ -107,7 +107,7 @@ In addition, since Blitz is a **transactional database**, we have to call the :p
 
 .. note:: 
 
-    Use the :py:meth:`Backend.begin <blitzdb.backends.file.Backend.begin>` function to start a new database transaction and the :py:meth:`Backend.rollback <blitzdb.backends.file.Backend.rollback>` function to roll back the state of the database to the beginning of a transaction, if needed. By default, Blitz uses a **local isolation level** for transactions, so changes you make to the state of the database will be visible to parts of your program using the same backend, but will only be written to disk when :py:meth:`Backend.commit <blitzdb.backends.file.Backend.commit>` is invoked. 
+    Use the :py:meth:`Backend.begin <blitzdb.backends.file.Backend.begin>` function to start a new database transaction and the :py:meth:`Backend.rollback <blitzdb.backends.file.Backend.rollback>` function to roll back the state of the database to the beginning of a transaction, if needed. By default, Blitz uses a **local isolation level** for transactions, so changes you make to the state of the database will be visible to parts of your program using the same backend, but will only be written to disk when :py:meth:`Backend.commit <blitzdb.backends.file.Backend.commit>` is invoked. If you like autocommits set the :py:meth:`Backend.autocomit <blitzdb.backends.file.Backend.autocommit>` to True after instantiating the backend
 
 Retrieving Documents
 --------------------
@@ -156,6 +156,15 @@ This will return a :py:class:`QuerySet <blitzdb.queryset.QuerySet>`, which conta
     print "Found %d actors" % len(actors)
     for actor in actors:
         print actor.first_name+" "+actor.last_name
+
+Updating Documents
+--------------------
+We can update documents on the databe by changing or adding attributes on the object and then calling the :py:meth:`save() <blitzdb.backends.base.Backend.save>`
+
+.. code-block:: python
+
+    actor.death_year = 1977
+    actor.save()
 
 Deleting Documents
 ------------------
@@ -245,7 +254,7 @@ Using `$and` can be necessary if you want to reference the same document attribu
 
 .. code-block:: python
 
-    #Get all actors born beteen 1900 and 1940
+    #Get all actors born between 1900 and 1940
     backend.filter(Actor,{'$and' : [{'birth_year' : {'$gte' : 1900}},{'birth_year' : {'$lte' : 1940}}]})
 
 Where to Go from Here
