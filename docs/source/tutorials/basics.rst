@@ -237,6 +237,9 @@ Like MongoDB, Blitz supports advanced query operators, which you can include in 
 * **$ne** : Performs a **not equal** operation on the given expression
 * **$not** : Checks for non-equality between an attribute and the given value.
 
+* **$regex** : Provides regular expression capabilities for pattern matching.
+* **$exists** : Checks for field existing in all documents.
+
 The syntax and semantics of these operators is identical to MongoDB, so for further information have a look at `their documentation <http://docs.mongodb.org/manual/reference/operator/query/>`_.
 
 Example: Boolean AND
