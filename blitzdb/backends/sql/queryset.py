@@ -505,12 +505,12 @@ class QuerySet(BaseQuerySet):
             s = self.get_bare_select(columns = [self.table.c.pk])
             result = self.backend.connection.execute(s)
             return set([r[0] for r in result.fetchall()])
-        
+
     def __ne__(self, other):
         return not self.__eq__(other)
-    
+
     def __eq__(self, other):
-        if isinstance(other, QuerySet): 
+        if isinstance(other, QuerySet):
             if self.cls == other.cls and len(self) == len(other) \
               and self.distinct_pks() == other.distinct_pks():
                 return True
@@ -521,4 +521,3 @@ class QuerySet(BaseQuerySet):
             if other == objs:
                 return True
         return False
-

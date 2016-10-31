@@ -72,7 +72,7 @@ class Backend(BaseBackend):
     """
     A SQL backend.
 
-    :param db: An instance of a `sqlalchemy. 
+    :param db: An instance of a `sqlalchemy.
     <http://www.sqlalchemy.org>`_ class
 
     Example usage:
@@ -160,7 +160,7 @@ class Backend(BaseBackend):
             return self._table_columns[collection][key]['column']
         except KeyError:
             raise KeyError("Invalid key %s for collection %s" % (key,collection))
-    
+
     def get_relationship_table(self,cls_or_collection,field):
         if isinstance(cls_or_collection,six.string_types):
             collection = cls_or_collection
@@ -368,7 +368,7 @@ class Backend(BaseBackend):
                     to_class = related_class
 
                 RelationshipClass.__name__ = str("%s%s" % (collection.capitalize(),"".join([ "".join([kk.capitalize() for kk in k.split("_")]) for k in key.split(".")])))
-                
+
                 backref_name_left = '%s_%s_%s' % (collection,related_collection,column_name)
                 backref_name_right = '%s_%s_%s' % (related_collection,collection,column_name)
                 if backref_name_left == backref_name_right:
@@ -513,7 +513,7 @@ class Backend(BaseBackend):
 
         if obj.pk == None:
             raise obj.DoesNotExist
-        
+
         self.filter(obj.__class__,{'pk' : obj.pk}).delete()
 
     def update(self,obj,set_fields=None, unset_fields=None, update_obj=True):
@@ -864,8 +864,10 @@ class Backend(BaseBackend):
                             set_value(data,key,None)
                     else:
                         def db_loader(params = params,qs = qs):
-                            #warning: pass external parameters as default to 
+                            #warning: pass external parameters as default to
                             #make sure that the function sees the correct closure
+                            if not self._autoload_embedded:
+                                raise params['class'].DoesNotExist("Auto-loading of embedded documents is disabled, please load the document {} in field {} explicitly via `include`".format(params['class'].__name__, key))
                             try:
                                 obj = qs[0]
                             except IndexError:
@@ -918,6 +920,8 @@ class Backend(BaseBackend):
                             resolve_include(sub_include,params['collection'],d['joins'][key])
                     break
             else:
+                if sub_includes is not None:
+                    raise AttributeError("Included field '{}' is not a related object!".format(main_include))
                 #if we ask for github_data and github_data.full_name is an index field, we
                 #need to fetch both the `data` field and the github_data_full_name index field.
                 #by adding the . we make sure that we won't inlcude e.g. committer_date
@@ -1015,7 +1019,7 @@ class Backend(BaseBackend):
         obj.attributes = self.deserialize(attributes)
         #finally, we call the after_load hook
         self.call_hook('after_load',obj)
-        
+
         return obj
 
     def create_index(self, cls_or_collection, *args, **kwargs):
@@ -1076,7 +1080,7 @@ class Backend(BaseBackend):
                 path = []
 
             """
-            This function emits a list of WHERE statements that can be used to retrieve 
+            This function emits a list of WHERE statements that can be used to retrieve
             """
 
             if table is None:
@@ -1092,7 +1096,7 @@ class Backend(BaseBackend):
                 if not operator in ('and','or','not'):
                     raise AttributeError("Non-supported logical operator: $%s" % operator)
                 if operator in ('and','or'):
-                    where_statements = [sq for expr in query['$%s' % operator] 
+                    where_statements = [sq for expr in query['$%s' % operator]
                                         for sq in compile_query(collection,expr,path = path)]
                     if operator == 'and':
                         return [and_(*where_statements)]
@@ -1253,7 +1257,7 @@ class Backend(BaseBackend):
                     return [table.c[column_name].op('REGEXP')(expression.cast(query['$regex'],String))]
                 else:
                     raise AttributeError("Invalid query!")
-            
+
             #this is a normal, field-base query
             for key,value in query.items():
                 for field_name,params in self._index_fields[collection].items():
