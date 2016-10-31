@@ -49,12 +49,9 @@ class QuerySet(BaseQuerySet):
         if self.objects:
             self.pop_objects = self.objects[:]
 
-        self.deserialized_objects = None
-        self.deserialized_pop_objects = None
-        self._it = None
         self.order_bys = order_bys
-        self.count = None
-        self.result = None
+
+        self.revert()
 
     def limit(self,limit):
         self._limit = limit
@@ -394,6 +391,13 @@ class QuerySet(BaseQuerySet):
             self.get_deserialized_objects()
         return self.deserialized_objects[key]
 
+    def revert(self):
+        self.deserialized_objects = None
+        self.deserialized_pop_objects = None
+        self._it = None
+        self.count = None
+        self.result = None
+
     def pop(self,i = 0):
         if self.deserialized_objects is None:
             self.get_deserialized_objects()
@@ -407,9 +411,11 @@ class QuerySet(BaseQuerySet):
 
     def intersect(self,qs):
         #here the .self_group() is necessary to ensure the correct grouping within the INTERSECT...
-        my_s = self.get_bare_select(columns = [self.table.c.pk]).cte()
-        qs_s = qs.get_bare_select(columns = [self.table.c.pk]).cte()
-        condition = self.table.c.pk.in_(expression.intersect(select([my_s.c.pk]),select([qs_s.c.pk])))
+        my_s = self.get_bare_select(columns = [self.table.c.pk.label('pk')]).alias()
+        qs_s = qs.get_bare_select(columns = [qs.table.c.pk.label('pk')]).alias()
+        my_pk_s = select(['pk']).select_from(my_s)
+        qs_pk_s = select(['pk']).select_from(qs_s)
+        condition = self.table.c.pk.in_(expression.intersect(my_pk_s,qs_pk_s))
         new_qs = QuerySet(self.backend,
                           self.table,
                           self.cls,

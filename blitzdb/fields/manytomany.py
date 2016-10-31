@@ -10,7 +10,7 @@ class ManyToManyField(BaseField):
                  field = None,
                  related_field = None,
                  backref = None,
-                 ondelete = 'CASCADE',
+                 ondelete = None,
                  *args,**kwargs):
         super(ManyToManyField,self).__init__(*args,**kwargs)
         self.related = related

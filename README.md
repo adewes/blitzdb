@@ -1,7 +1,7 @@
 #Blitz-DB
 
 [![Build Status](https://travis-ci.org/adewes/blitzdb.svg?branch=master)](https://travis-ci.org/adewes/blitzdb)
-[![PyPI](https://img.shields.io/pypi/v/blitzdb.svg?maxAge=2592000)](https://pypi.python.org/pypi/blitzdb)
+[![PyPI](https://img.shields.io/pypi/v/blitzdb.svg?maxAge=1000)](https://pypi.python.org/pypi/blitzdb)
 [![Code Issues](http://www.quantifiedcode.com/api/v1/project/gh:adewes:blitzdb/badge.svg)](http://www.quantifiedcode.com/app/project/gh:adewes:blitzdb)
 [![Python 3](http://img.shields.io/badge/Python%203%20-compatible-brightgreen.svg)](https://www.python.org/download/releases/3.0/)
 
@@ -38,6 +38,7 @@ The detailed documentation for this project is hosted on [ReadTheDocs](http://bl
 
 ##Changelog
 
+* 0.3.0: Fully functional SQL backend.
 * 0.2.12: Added support for proper attribute iteration to `Document`.
 * 0.2.11: Allow setting the `collection` parameter through a `Document.Meta` attribute.
 * 0.2.10: Bugfix-Release: Fix Python 3 compatibility issue.
