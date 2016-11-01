@@ -16,12 +16,14 @@ if six.PY3:
 class DoesNotExist(BaseException):
 
     def __str__(self):
-        return "DoesNotExist(%s)" % self.__class__.__name__
+        message = BaseException.__str__(self)
+        return u"DoesNotExist({}): {}".format(self.__class__.__name__, message)
 
 class MultipleDocumentsReturned(BaseException):
 
     def __str__(self):
-        return "MultipleDocumentsReturned(%s)" % self.__class__.__name__
+        message = BaseException.__str__(self)
+        return u"MultipleDocumentsReturned({}): {}".format(self.__class__.__name__, message)
 
 class MetaDocument(type):
 
@@ -85,7 +87,7 @@ class Document(object):
     :param attributes: the attributes of the document instance. Expects a Python dictionary.
     :param lazy: if set to `True`, will lazily load the document from the backend when
                  an attribute is requested. This requires that `backend` has been
-                 specified and that the `pk` attribute is set. 
+                 specified and that the `pk` attribute is set.
 
     :param backend: the backend to be used for saving and loading the document.
 
@@ -141,16 +143,17 @@ class Document(object):
 
     def __init__(self, attributes=None, lazy=False, backend=None, autoload=True, db_loader = None):
         """
-        Initializes a document instance with the given attributes. If `lazy = True`, a *lazy* 
-        document will be created, which means that the attributes of the document will be loaded 
-        from the database only if they are requested. Lazy loading requires that the `backend` 
+        Initializes a document instance with the given attributes. If `lazy = True`, a *lazy*
+        document will be created, which means that the attributes of the document will be loaded
+        from the database only if they are requested. Lazy loading requires that the `backend`
         variable is set.
 
         :param attributes: the attributes of the document instance.
 
-        :param lazy: specifies if the document is *lazy*, i.e. if it should be loaded on demand 
+        :param lazy: specifies if the document is *lazy*, i.e. if it should be loaded on demand
                      when its attributes get accessed for the first time.
-
+        :param autoload: if True, will automatically fetch the document from the database if it is
+                         lazy and the user tries to access an attribute that does not yet exist.
         :param backend: the backend for use in the `save`, `delete` and `revert` functions.
 
         """
@@ -178,8 +181,7 @@ class Document(object):
         if lazy:
             if key in self.lazy_attributes:
                 return self.lazy_attributes[key]
-            elif self._autoload:
-                self.revert()
+            self.revert(implicit=True)
         return self.attributes[key]
 
     @property
@@ -196,8 +198,8 @@ class Document(object):
 
     @property
     def attributes(self):
-        if self._lazy and self._autoload:
-            self.revert()
+        if self._lazy:
+            self.revert(implicit=True)
         return self._attributes
 
     @attributes.setter
@@ -248,10 +250,12 @@ class Document(object):
         except AttributeError:
             pass
         try:
-            if self._lazy and self._autoload:
-                self.revert()
             if key in self._properties:
                 return self._properties[key]
+            if key in self._attributes:
+                return self._attributes[key]
+            if self._lazy:
+                self.revert(implicit=True)
             return self._attributes[key]
         except KeyError:
             raise AttributeError(key)
@@ -283,7 +287,7 @@ class Document(object):
         return d
 
     def __deepcopy__(self, memo):
-        d = self.__class__(copy.deepcopy(self.attributes, memo), 
+        d = self.__class__(copy.deepcopy(self.attributes, memo),
                            lazy=self._lazy,
                            backend =self._backend)
         return d
@@ -352,17 +356,17 @@ class Document(object):
 
     def initialize(self):
         """
-        Gets called when **after** the object attributes get loaded from the database. 
+        Gets called when **after** the object attributes get loaded from the database.
         Redefine it in your document class to perform object initialization tasks.
 
         .. admonition:: Keep in Mind
 
-            The function also get called after invoking the `revert` function, which 
+            The function also get called after invoking the `revert` function, which
             resets the object attributes to those in the database, so do not assume that
             the function will get called only once during the lifetime of the object.
 
-            Likewise, you should **not** perform any initialization in the `__init__` 
-            function to initialize your object, since this can possibly break lazy loading 
+            Likewise, you should **not** perform any initialization in the `__init__`
+            function to initialize your object, since this can possibly break lazy loading
             and `revert` operations.
         """
         pass
@@ -371,12 +375,12 @@ class Document(object):
         """
         Autogenerates a primary key for this document. This function gets called by the backend
         if you save a document without a primary key field. By default, it uses `uuid.uuid4().hex`
-        to generate a (statistically) unique primary key for the object (`more about UUIDs 
-        <http://docs.python.org/2/library/uuid.html/>`_). 
+        to generate a (statistically) unique primary key for the object (`more about UUIDs
+        <http://docs.python.org/2/library/uuid.html/>`_).
         If you want to define your own primary key generation mechanism, just redefine this function
         in your document class.
         """
-        self.pk = uuid.uuid4().hex 
+        self.pk = uuid.uuid4().hex
 
     @classmethod
     def get_pk_name(cls):
@@ -386,9 +390,9 @@ class Document(object):
     def pk(self):
         """
         Returns (or sets) the primary key of the document, which is stored in the `attributes` dict
-        along with all other attributes. The name of the primary key defaults to `pk` and 
+        along with all other attributes. The name of the primary key defaults to `pk` and
         can be redefine in the `Meta` class. This function provides a standardized way to
-        retrieve and set the primary key of a document and is used by the backend and a 
+        retrieve and set the primary key of a document and is used by the backend and a
         few other classes. If possible, always use this function to access the
         primary key of a document.
 
@@ -406,7 +410,7 @@ class Document(object):
 
         #if there is no pk value but a _db_loader, we load the object lazily to retrieve the pk
         if self._lazy and self._db_loader:
-            self.revert()
+            self.revert(implicit=True)
             return self.pk
 
         return None
@@ -433,8 +437,8 @@ class Document(object):
 
     def save(self, backend=None):
         """
-        Saves a document to the database. If the `backend` argument is not specified, 
-        the function resorts to the *default backend* as defined during object instantiation. 
+        Saves a document to the database. If the `backend` argument is not specified,
+        the function resorts to the *default backend* as defined during object instantiation.
         If no such backend is defined, an `AttributeError` exception will be thrown.
 
         :param backend: the backend in which to store the document.
@@ -462,14 +466,15 @@ class Document(object):
             return self._backend.delete(self)
         backend.delete(self)
 
-    def revert(self, backend=None):
+    def revert(self, backend=None, implicit=False):
         """
-        Reverts the state of the document to that contained in the database. 
-        If the `backend` argument is not specified, the function resorts to the *default backend* 
-        as defined during object instantiation. If no such backend is defined, an `AttributeError` 
+        Reverts the state of the document to that contained in the database.
+        If the `backend` argument is not specified, the function resorts to the *default backend*
+        as defined during object instantiation. If no such backend is defined, an `AttributeError`
         exception will be thrown.
 
         :param backend: the backend from which to delete the document.
+        :param implicit: whether the loading was triggered implicitly (e.g. by accessing attributes)
 
         .. admonition:: Keep in Mind
 
@@ -477,6 +482,9 @@ class Document(object):
             allows you to perform document-specific initialization tasks if needed.
 
         """
+        if implicit and not self._autoload:
+            logger.debug("Autoloading is disabled, not reverting the document implicitly...")
+            return
         self._lazy = False
         logger.debug("Reverting to database state (%s, %s)" % (self.__class__.__name__, str(self.pk)))
         if self._db_loader:
@@ -491,7 +499,7 @@ class Document(object):
         self._attributes = obj.attributes
         self.initialize()
 
-    def load_if_lazy(self):
+    def load_if_lazy(self, implicit=False):
         if self._lazy:
-            self.revert()
+            self.revert(implicit=implicit)
         return self

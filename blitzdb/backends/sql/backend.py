@@ -856,8 +856,12 @@ class Backend(BaseBackend):
                     objects = get_value(data,key)
                 except KeyError:
                     objects = None
-                if isinstance(objects,(QuerySet,Document)):
+                if isinstance(objects,(Document, QuerySet)):
                     continue #already initialized
+                #if we don't have the primary key of the object we can't initialize the relation
+                if not 'pk' in data:
+                    set_value(data, key, None)
+                    continue
                 table = self._collection_tables[params['collection']]
                 related_table = self._collection_tables[params['backref']['collection']]
                 qs = QuerySet(backend = self,
@@ -868,17 +872,15 @@ class Backend(BaseBackend):
                         raw = False,
                         )
                 if params['field'].unique:
+                    #objects will be None if no relationship data was fetched from the DB
+                    #if data was fetched but no object was found, objects will be []
                     if objects is not None:
                         try:
-                            set_value(data,key,qs[0])
+                            set_value(data, key, qs[0])
                         except IndexError:
-                            set_value(data,key,None)
+                            set_value(data, key, None)
                     else:
                         def db_loader(params = params,qs = qs):
-                            #warning: pass external parameters as default to
-                            #make sure that the function sees the correct closure
-                            if not self._autoload_embedded:
-                                raise params['class'].DoesNotExist("Auto-loading of embedded documents is disabled, please load the document {} in field {} explicitly via `include`".format(params['class'].__name__, key))
                             try:
                                 obj = qs[0]
                             except IndexError:
@@ -886,14 +888,14 @@ class Backend(BaseBackend):
                             if len(qs) > 1:
                                 raise params['class'].MultipleDocumentsReturned
                             return obj
-
-                        set_value(data,key,params['class']({},lazy = True,db_loader = db_loader))
+                        set_value(data,key,self.create_instance(params['class'],{},lazy = True,db_loader = db_loader))
                 else:
                     set_value(data,key,qs)
 
         obj.attributes = data
 
     def get_include_joins(self,cls,includes,excludes = None,order_by_keys = None):
+
         collection = self.get_collection_for_cls(cls)
 
         include_params = {'joins' : {},
@@ -904,6 +906,19 @@ class Backend(BaseBackend):
                           }
 
         include_list = [include_params]
+
+        def include_related_field(d, key, params):
+            if not key in d['joins']:
+                d['joins'][key] = {'relation' : params,
+                                   'table' : self._collection_tables[params['collection']],
+                                   'collection' : params['collection'],
+                                   'joins' : {},
+                                   'fields' : {}}
+                include_list.append(d['joins'][key])
+
+        def include_indexed_field(d, key, params):
+            d['fields'][key] = params['column']
+
 
         def resolve_include(include,collection,d,path = None):
             if path is None:
@@ -917,34 +932,37 @@ class Backend(BaseBackend):
             else:
                 main_include = include
                 sub_includes = None
-            for key,params in self._related_fields[collection].items():
-                if main_include == key:
-                    if not key in d['joins']:
-                        d['joins'][key] = {'relation' : params,
-                                           'table' : self._collection_tables[params['collection']],
-                                           'collection' : params['collection'],
-                                           'joins' : {},
-                                           'fields' : {}}
-                        include_list.append(d['joins'][key])
-                    if sub_includes:
-                        for sub_include in sub_includes:
-                            resolve_include(sub_include,params['collection'],d['joins'][key])
-                    break
-            else:
+            if main_include == "*":
                 if sub_includes is not None:
-                    raise AttributeError("Included field '{}' is not a related object!".format(main_include))
-                #if we ask for github_data and github_data.full_name is an index field, we
-                #need to fetch both the `data` field and the github_data_full_name index field.
-                #by adding the . we make sure that we won't inlcude e.g. committer_date
-                #if committer_date_ts is asked for.
-                for key,params in self._index_fields[collection].items():
-                    if key == main_include:
-                        d['fields'][key] = params['column']
+                    raise AttributeError("Wildcard (*) include cannot be specified together with sub-includes!")
+                for key, params in self._related_fields[collection].items():
+                    include_related_field(d, key, params)
+                for key, params in self._index_fields[collection].items():
+                    include_indexed_field(d, key, params)
+                d['fields']['__data__'] = 'data'
+            else:
+                for key,params in self._related_fields[collection].items():
+                    if main_include == key:
+                        include_related_field(d, key, params)
+                        if sub_includes:
+                            for sub_include in sub_includes:
+                                resolve_include(sub_include,params['collection'],d['joins'][key])
                         break
-                    elif key.startswith(main_include+'.'):
-                        d['fields'][key] = params['column']
                 else:
-                    d['fields']['__data__'] = 'data'
+                    if sub_includes is not None:
+                        raise AttributeError("Included field '{}' is not a related object!".format(main_include))
+                    #if we ask for github_data and github_data.full_name is an index field, we
+                    #need to fetch both the `data` field and the github_data_full_name index field.
+                    #by adding the . we make sure that we won't inlcude e.g. committer_date
+                    #if committer_date_ts is asked for.
+                    for key,params in self._index_fields[collection].items():
+                        if key == main_include:
+                            include_indexed_field(d, key, params)
+                            break
+                        elif key.startswith(main_include+'.'):
+                            include_indexed_field(d, key, params)
+                    else:
+                        d['fields']['__data__'] = 'data'
 
         for include in includes:
             resolve_include(include,collection,include_params)
@@ -1015,7 +1033,7 @@ class Backend(BaseBackend):
             set_value(d,key,value)
         return d,lazy
 
-    def create_instance(self, cls_or_collection,attributes,lazy = False):
+    def create_instance(self, cls_or_collection, attributes, lazy = False, db_loader=None):
 
         if not isinstance(cls_or_collection, six.string_types):
             collection = self.get_collection_for_cls(cls_or_collection)
@@ -1023,7 +1041,7 @@ class Backend(BaseBackend):
             collection = cls_or_collection
 
         #first, we create an object without attributes
-        obj = super(Backend,self).create_instance(cls_or_collection, {}, call_hook=False, lazy=lazy, deserialize=False)
+        obj = super(Backend,self).create_instance(cls_or_collection, {}, call_hook=False, lazy=lazy, deserialize=False, db_loader=db_loader)
         #then, we initialize it with the relationship data
         self.initialize_relations(obj, attributes)
         #then, we deserialize the attributes and assign them to the object
