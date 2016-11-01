@@ -827,13 +827,15 @@ class Backend(BaseBackend):
                 if isinstance(objects,ManyToManyProxy):
                     continue #already initialized
                 #check if we have data for this ManyToMany proxy. If yes, pass it along!
-                set_value(data,key,ManyToManyProxy(obj,key,params,objects = objects))
+                set_value(data,key,ManyToManyProxy(obj,key,params, objects=objects))
             elif isinstance(params['field'],ForeignKeyField):
                 #check if we have data for this ForeignKey object. If yes, pass it along!
                 try:
                     foreign_key_data = get_value(data,key)
                 except KeyError:
-                    set_value(data,key,None)
+                    #we will leave the field unassigned to indicate that there was no data to
+                    #initialize it with (to distinguish this from the case that no foreign
+                    #object exists for the given object).
                     continue
                 if isinstance(foreign_key_data,Document):
                     continue #already initialized
@@ -848,7 +850,7 @@ class Backend(BaseBackend):
                     except:
                         logger.warning("Found corrupted data in related field data for key {}".format(key))
                         continue
-                else:
+                else:#the data is empty, so there is no foreign object...
                     foreign_obj = None
                 set_value(data,key,foreign_obj)
             elif isinstance(params['field'],OneToManyField):
@@ -932,6 +934,8 @@ class Backend(BaseBackend):
             else:
                 main_include = include
                 sub_includes = None
+            if not isinstance(main_include, six.string_types):
+                raise AttributeError("Invalid `include` argument: {}".format(str(main_include)))
             if main_include == "*":
                 if sub_includes is not None:
                     raise AttributeError("Wildcard (*) include cannot be specified together with sub-includes!")
