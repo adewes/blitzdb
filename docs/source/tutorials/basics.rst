@@ -159,7 +159,7 @@ This will return a :py:class:`QuerySet <blitzdb.queryset.QuerySet>`, which conta
 
 Updating Documents
 --------------------
-We can update documents on the databe by changing or adding attributes on the object and then calling the :py:meth:`save() <blitzdb.backends.base.Backend.save>`
+We can update documents on the database by changing or adding attributes on the object and then calling the :py:meth:`save() <blitzdb.backends.base.Backend.save>`
 
 .. code-block:: python
 
