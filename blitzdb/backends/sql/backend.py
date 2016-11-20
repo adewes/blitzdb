@@ -335,7 +335,6 @@ class Backend(BaseBackend):
             if backref:
                 relationship_table = backref['relationship_table']
             else:
-                relationship_name = "%s_%s" % (collection,related_collection)
                 extra_columns = [
                     UniqueConstraint('pk_%s' % related_collection,'pk_%s' % collection,name = '%s_%s_unique' % (relationship_name,column_name))
                     ]
