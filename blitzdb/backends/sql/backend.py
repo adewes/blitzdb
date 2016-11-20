@@ -316,8 +316,8 @@ class Backend(BaseBackend):
                 related_collection = self.get_collection_for_cls(field.related)
             related_class = self.get_cls_for_collection(related_collection)
 
-            pk_field_name = field.field or 'pk_%s' % collection
-            related_pk_field_name = field.related_field or 'pk_%s' % related_collection
+            pk_field_name = field.field or '%s' % collection
+            related_pk_field_name = field.related_field or '%s' % related_collection
             if related_pk_field_name == pk_field_name:#this can happen if we connect a given table with itself
                 related_pk_field_name = related_pk_field_name+'_right'
 
@@ -329,14 +329,16 @@ class Backend(BaseBackend):
                       'class' : related_class,
                       'type' : self.get_field_type(related_class.Meta.PkType),
                       'is_backref' : True if backref is not None else False,
-                      'backref' : backref
+                      'backref' : backref,
+                      'pk_field_name' : pk_field_name,
+                      'related_pk_field_name' : related_pk_field_name,
                      }
 
             if backref:
                 relationship_table = backref['relationship_table']
             else:
                 extra_columns = [
-                    UniqueConstraint('pk_%s' % related_collection,'pk_%s' % collection,name = '%s_%s_unique' % (relationship_name,column_name))
+                    UniqueConstraint(pk_field_name,related_pk_field_name,name = '%s_%s_unique' % (relationship_name,column_name))
                     ]
                 relationship_table = Table('%s%s' % (relationship_name,self.table_postfix),self._metadata,
                         Column(related_pk_field_name,self.get_field_type(related_class.Meta.PkType),ForeignKey('%s%s.pk' % (related_collection,self.table_postfix),name = "%s_%s" % (relationship_name,related_pk_field_name), ondelete = field.ondelete if field.ondelete is not None else self._ondelete,use_alter = False),index = True),
@@ -709,7 +711,7 @@ class Backend(BaseBackend):
                     if isinstance(value,ManyToManyProxy):
                         continue
                     relationship_table = self._relationship_tables[collection][related_field]
-                    deletes.append(relationship_table.delete().where(relationship_table.c['pk_%s' % collection] == expression.cast(obj['pk'],pk_type)))
+                    deletes.append(relationship_table.delete().where(relationship_table.c[relation_params['pk_field_name']] == expression.cast(obj['pk'],pk_type)))
                     for element in value:
                         if not isinstance(element,Document):
                             raise AttributeError("ManyToMany field %s contains an invalid value!" % related_field)
@@ -718,8 +720,8 @@ class Backend(BaseBackend):
                         if element.pk is None:
                             raise AttributeError("Related document in field %s has no primary key!" % related_field)
                         ed = {
-                            'pk_%s' % collection : obj['pk'],
-                            'pk_%s' % relation_params['collection'] : element.pk,
+                            relation_params['pk_field_name'] : obj['pk'],
+                            relation_params['related_pk_field_name'] : element.pk,
                         }
                         inserts.append(relationship_table.insert().values(**ed))
                 elif isinstance(relation_params['field'],ForeignKeyField):
@@ -1222,8 +1224,9 @@ class Backend(BaseBackend):
                                     table = related_table,
                                     path = path)
 
-            def compile_many_to_many_query(key,value,field_name,related_collection,relationship_table,path):
+            def compile_many_to_many_query(key,value,field_name,params,relationship_table,path):
 
+                related_collection = params['collection']
                 related_table = self._collection_tables[related_collection]
 
                 path_str = ".".join(path)
@@ -1234,16 +1237,16 @@ class Backend(BaseBackend):
                     relationship_table_alias = relationship_table.alias()
                     joins[relationship_table][path_str] = relationship_table_alias
                     joins_list.append((relationship_table_alias,
-                                       relationship_table_alias.c['pk_%s' % collection] == table.c['pk']))
+                                       relationship_table_alias.c[params['pk_field_name']] == table.c['pk']))
 
                 if path_str in joins[related_table]:
                     related_table_alias = joins[related_table][path_str]
                 else:
                     related_table_alias = related_table.alias()
                     joins[related_table][path_str] = related_table_alias
-                    joins_list.append((related_table_alias,relationship_table_alias.c['pk_%s' % related_collection] == related_table_alias.c['pk']))
+                    joins_list.append((related_table_alias,relationship_table_alias.c[params['related_pk_field_name']] == related_table_alias.c['pk']))
 
-                return compile_one_to_many_query(key,value,field_name,related_table_alias,relationship_table_alias.c['pk_%s' % collection],new_path)
+                return compile_one_to_many_query(key,value,field_name,related_table_alias,relationship_table_alias.c[params['pk_field_name']],new_path)
 
             def prepare_special_query(field_name,params,query):
                 def sanitize(value):
@@ -1314,7 +1317,7 @@ class Backend(BaseBackend):
                             #ManyToManyField
                             if isinstance(params['field'],ManyToManyField):
                                 relationship_table = self._relationship_tables[collection][field_name]
-                                where_statements.extend(compile_many_to_many_query(key,value,field_name,params['collection'],relationship_table,path = new_path))
+                                where_statements.extend(compile_many_to_many_query(key,value,field_name,params,relationship_table,path = new_path))
                             elif isinstance(params['field'],ForeignKeyField):#this is a normal ForeignKey relation
                                 if key == field_name:
                                     #this is a ForeignKey query

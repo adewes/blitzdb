@@ -69,7 +69,7 @@ class ManyToManyProxy(object):
         if self._queryset is None:
             relationship_table = self.params['relationship_table']
             foreign_table = self.obj.backend.get_collection_table(self.params['collection'])
-            condition = relationship_table.c['pk_%s' % self.collection] \
+            condition = relationship_table.c[self.params['pk_field_name']] \
                 == expression.cast(self.obj.pk,self.params['type'])
             self._queryset = QuerySet(backend = self.obj.backend,
                                       table = foreign_table,
@@ -84,16 +84,16 @@ class ManyToManyProxy(object):
     def append(self,obj):
         with self.obj.backend.transaction(implicit = True):
             relationship_table = self.params['relationship_table']
-            condition = and_(relationship_table.c['pk_%s' % self.params['collection']] == obj.pk,
-                             relationship_table.c['pk_%s' % self.collection] == self.obj.pk)
+            condition = and_(relationship_table.c[self.params['related_pk_field_name']] == obj.pk,
+                             relationship_table.c[self.params['pk_field_name']] == self.obj.pk)
             s = select([func.count(text('*'))]).where(condition)
             result = self.obj.backend.connection.execute(s)
             cnt = result.first()[0]
             if cnt:
                 return #the object is already inside
             values = {
-                'pk_%s' % self.collection : self.obj.pk,
-                'pk_%s' % self.params['collection'] : obj.pk
+                self.params['pk_field_name'] : self.obj.pk,
+                self.params['related_pk_field_name'] : obj.pk
             }
             insert = relationship_table.insert().values(**values)
             self.obj.backend.connection.execute(insert)
@@ -108,7 +108,7 @@ class ManyToManyProxy(object):
 
     def delete(self):
         with self.obj.backend.transaction(implicit = True):
-            condition = relationship_table.c['pk_%s' % self.collection] == self.obj.pk
+            condition = relationship_table.c[self.params['pk_field_name']] == self.obj.pk
             self.obj.bckend.connection.execute(delete(relationship_table).where(condition))
 
     def remove(self,obj):
@@ -117,8 +117,8 @@ class ManyToManyProxy(object):
         """
         with self.obj.backend.transaction(implicit = True):
             relationship_table = self.params['relationship_table']
-            condition = and_(relationship_table.c['pk_%s' % self.params['collection']] == obj.pk,
-                             relationship_table.c['pk_%s' % self.collection] == self.obj.pk)
+            condition = and_(relationship_table.c[self.params['related_pk_field_name']] == obj.pk,
+                             relationship_table.c[self.params['pk_field_name']] == self.obj.pk)
             self.obj.backend.connection.execute(delete(relationship_table).where(condition))
             self._queryset = None
 
