@@ -216,6 +216,10 @@ class Backend(BaseBackend):
 
         self._relationship_classes = []
         for collection,cls in list(self.collections.items()):
+            if cls.__dict__.get('__abstract__'):
+                #we skip abstract base classes...
+                logger.debug("Skipping initialization of abstract class {} for collection {}".format(cls.__name__, collection))
+                continue
             self.init_class_schema(cls,collection)
 
 
