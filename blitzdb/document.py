@@ -411,7 +411,8 @@ class Document(object):
         #if there is no pk value but a _db_loader, we load the object lazily to retrieve the pk
         if self._lazy and self._db_loader:
             self.revert(implicit=True)
-            return self.pk
+            if primary_key in self._attributes:
+                return self._attributes[primary_key]
 
         return None
 

@@ -816,7 +816,6 @@ class Backend(BaseBackend):
             data = obj.attributes
 
         collection = self.get_collection_for_cls(obj.__class__)
-
         for key,params in self._related_fields[collection].items():
             if isinstance(params['field'],ManyToManyField):
                 try:
