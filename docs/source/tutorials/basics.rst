@@ -159,7 +159,7 @@ This will return a :py:class:`QuerySet <blitzdb.queryset.QuerySet>`, which conta
 
 Updating Documents
 --------------------
-We can update documents on the databe by changing or adding attributes on the object and then calling the :py:meth:`save() <blitzdb.backends.base.Backend.save>`
+We can update documents on the database by changing or adding attributes on the object and then calling the :py:meth:`save() <blitzdb.backends.base.Backend.save>`
 
 .. code-block:: python
 
@@ -236,6 +236,9 @@ Like MongoDB, Blitz supports advanced query operators, which you can include in 
 * **$in** : Returns documents matching at least one of the values in the argument list.
 * **$ne** : Performs a **not equal** operation on the given expression
 * **$not** : Checks for non-equality between an attribute and the given value.
+
+* **$regex** : Provides regular expression capabilities for pattern matching.
+* **$exists** : Checks for field existing in all documents.
 
 The syntax and semantics of these operators is identical to MongoDB, so for further information have a look at `their documentation <http://docs.mongodb.org/manual/reference/operator/query/>`_.
 

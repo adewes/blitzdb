@@ -189,8 +189,8 @@ class QuerySet(BaseQuerySet):
             relationship_table = params['relation']['relationship_table'].alias()
             related_collection = params['relation']['collection']
             related_table = self.backend.get_collection_table(related_collection).alias()
-            left_condition = relationship_table.c['pk_%s' % collection] == table.c.pk
-            right_condition = relationship_table.c['pk_%s' % related_collection] == related_table.c.pk
+            left_condition = relationship_table.c[params['relation']['pk_field_name']] == table.c.pk
+            right_condition = relationship_table.c[params['relation']['related_pk_field_name']] == related_table.c.pk
             joins.append((relationship_table,left_condition))
             joins.append((related_table,right_condition))
             process_fields_and_subkeys(related_collection,related_table,params,key_path)
