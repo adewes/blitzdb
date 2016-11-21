@@ -267,7 +267,6 @@ class QuerySet(BaseQuerySet):
                     except KeyError:
                         v = d[name] = OrderedDict()
                     if pk_value is None:
-                        d[name] = None
                         return None
                     if not pk_value in v:
                         v[pk_value] = {}
