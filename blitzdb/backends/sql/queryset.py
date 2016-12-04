@@ -283,6 +283,7 @@ class QuerySet(BaseQuerySet):
                 def f(d,obj):
                     pk_value = obj[join_params['table_fields']['pk']]
                     if pk_value is None:
+                        d[key] = None #we set the key value to "None", to indicate that the FK is None
                         return None
                     if not key in d:
                         d[key] = {}
@@ -323,7 +324,6 @@ class QuerySet(BaseQuerySet):
             return d
 
         s = self.get_select()
-
         field_map = build_field_map(self.include_joins)
 
         with self.backend.transaction():
@@ -355,7 +355,7 @@ class QuerySet(BaseQuerySet):
                         if d is None:
                             break
                     else:
-                        d = get_value(d,element,create = True)
+                        d = get_value(d,element,create=True)
                 else:
                     d[path[-1]] = obj[key]
 
