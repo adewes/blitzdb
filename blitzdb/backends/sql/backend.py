@@ -349,8 +349,8 @@ class Backend(BaseBackend):
                         Column(pk_field_name,self.get_field_type(cls.Meta.PkType),ForeignKey('%s%s.pk' % (collection,self.table_postfix),name = "%s_%s" % (relationship_name,pk_field_name),ondelete = field.ondelete if field.ondelete is not None else self._ondelete,use_alter = False),index = True),
                         *extra_columns
                     )
-                params['relationship_table'] = relationship_table
 
+            params['relationship_table'] = relationship_table
 
             self._relationship_tables[collection][field_name] = relationship_table
             self._related_fields[collection][field_name] = params
