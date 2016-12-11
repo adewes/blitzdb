@@ -83,6 +83,12 @@ class ManyToManyProxy(object):
 
     def append(self,obj):
         with self.obj.backend.transaction(implicit = True):
+
+            #if the object is not yet in a DB, we save it first.
+            
+            if obj.pk is None:
+                self.obj.backend.save(obj)
+
             relationship_table = self.params['relationship_table']
             condition = and_(relationship_table.c[self.params['related_pk_field_name']] == obj.pk,
                              relationship_table.c[self.params['pk_field_name']] == self.obj.pk)
@@ -107,6 +113,7 @@ class ManyToManyProxy(object):
         raise NotImplementedError
 
     def delete(self):
+        relationship_table = self.params['relationship_table']
         with self.obj.backend.transaction(implicit = True):
             condition = relationship_table.c[self.params['pk_field_name']] == self.obj.pk
             self.obj.bckend.connection.execute(delete(relationship_table).where(condition))
@@ -115,8 +122,8 @@ class ManyToManyProxy(object):
         """
         Remove an object from the relation
         """
+        relationship_table = self.params['relationship_table']
         with self.obj.backend.transaction(implicit = True):
-            relationship_table = self.params['relationship_table']
             condition = and_(relationship_table.c[self.params['related_pk_field_name']] == obj.pk,
                              relationship_table.c[self.params['pk_field_name']] == self.obj.pk)
             self.obj.backend.connection.execute(delete(relationship_table).where(condition))
