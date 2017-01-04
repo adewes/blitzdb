@@ -116,7 +116,7 @@ class ManyToManyProxy(object):
         relationship_table = self.params['relationship_table']
         with self.obj.backend.transaction(implicit = True):
             condition = relationship_table.c[self.params['pk_field_name']] == self.obj.pk
-            self.obj.bckend.connection.execute(delete(relationship_table).where(condition))
+            self.obj.backend.connection.execute(delete(relationship_table).where(condition))
 
     def remove(self,obj):
         """
