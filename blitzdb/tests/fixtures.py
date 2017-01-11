@@ -21,21 +21,26 @@ test_mongo = False
 
 try:
     if not os.environ.get('NO_MONGO'):
+
         import pymongo
         from blitzdb.backends.mongo import Backend as MongoBackend
-        test_mongo = True
 
-        @pytest.fixture(scope="function")
-        def mongodb_backend(request):
-            return _mongodb_backend(request, {})
-
-        @pytest.fixture(scope="function")
-        def small_mongodb_test_data(request, mongodb_backend):
-            return generate_test_data(request, mongodb_backend, 20)
-
-        print("Testing with MongoDB")
+        try:
+            backend = _mongodb_backend()
+            test_mongo = True
+            print("Testing with MongoDB")
+        except:
+            print("Unable to connect to MongoDB, skipping tests...")
 except ImportError:
     print("MongoDB not found, skipping tests.")
+
+@pytest.fixture(scope="function")
+def mongodb_backend(request):
+    return _mongodb_backend({})
+
+@pytest.fixture(scope="function")
+def small_mongodb_test_data(request, mongodb_backend):
+    return generate_test_data(request, mongodb_backend, 20)
 
 try:
     from sqlalchemy import create_engine, event
@@ -183,8 +188,8 @@ def file_backend(request,temporary_path):
     return _file_backend(request, temporary_path,{})
 
 
-def _mongodb_backend(request, config, autoload_embedded=True):
-    con = pymongo.MongoClient()
+def _mongodb_backend(config, autoload_embedded=True):
+    con = pymongo.MongoClient(connectTimeoutMS=1000)
     con.drop_database("blitzdb_test_3243213121435312431")
     db = pymongo.MongoClient()['blitzdb_test_3243213121435312431']
     backend = MongoBackend(db, autoload_embedded=autoload_embedded)

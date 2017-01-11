@@ -1,6 +1,6 @@
  # -*- coding: utf-8 -*-
 import math
-import faker  # https://github.com/joke2k/faker
+from faker import Factory# https://github.com/joke2k/faker
 import random
 import uuid
 
@@ -61,7 +61,7 @@ class Role(Document):
 
 def generate_test_data(request, backend, n):
 
-    fake = faker.Faker()
+    fake = Factory.create()
 
     actors = []
     movies = []
