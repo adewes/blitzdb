@@ -414,7 +414,12 @@ class Backend(BaseBackend):
                 column_args['default'] = expression.cast(field.default,index_params['type'])
 
             if field.server_default is not None:
-                column_args['server_default'] = expression.cast(field.default,index_params['type'])
+                default_value = field.server_default
+                #if the value is not a string or a clause, we convert it to a literal value
+                #this will take care to e.g. represent booleans correctly for the underlying database engine
+                if not isinstance(default_value,six.string_types) and not isinstance(default_value,expression.ClauseElement):
+                    default_value = expression.literal(default_value)
+                column_args['server_default'] = expression.cast(default_value,index_params['type'])
 
             extra_columns.append(Column(column_name,index_params['type'],
                                         **column_args))
