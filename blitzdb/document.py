@@ -159,6 +159,7 @@ class Document(object):
         """
         if not attributes:
             attributes = {}
+
         self._attributes = attributes
         self._autoload = autoload
         self._backend = backend
