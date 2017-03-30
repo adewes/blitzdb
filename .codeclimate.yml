@@ -1,4 +1,4 @@
 engines:
   cody:
     enabled: true
-
+    channel: beta
