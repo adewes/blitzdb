@@ -52,3 +52,27 @@ def test_transactional_store_save(transactional_store):
     store.delete_blob("key2")
 
     assert store.get_blob("key3") == blob3
+
+
+from blitzdb.backends.file.btree import *
+
+def test_btree_basics():
+    tree = BTree(2)
+    assert tree.size() == 0
+    tree.insert(1)
+    assert tree.has(1) == True
+    tree.insert(2)
+    tree.insert(3)
+    assert tree.has(4) == False
+    assert tree.size() == 3
+    assert tree.has(3) == True
+    tree.remove(3)
+    assert tree.has(3) == False
+    tree.insert("apple")
+    tree.insert({"three":3})
+    assert tree.has("apple") == True
+
+    tree = BTree()
+    tree.load_list(["b", "l", "i", "t", "z", "d", "b"])
+    assert tree.has("b") == True
+    assert tree.size() == 7
