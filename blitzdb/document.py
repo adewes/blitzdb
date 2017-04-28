@@ -377,7 +377,7 @@ class Document(object):
         Autogenerates a primary key for this document. This function gets called by the backend
         if you save a document without a primary key field. By default, it uses `uuid.uuid4().hex`
         to generate a (statistically) unique primary key for the object (`more about UUIDs
-        <http://docs.python.org/2/library/uuid.html/>`_).
+        <https://docs.python.org/2/library/uuid.html>`_).
         If you want to define your own primary key generation mechanism, just redefine this function
         in your document class.
         """
