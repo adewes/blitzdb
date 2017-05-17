@@ -125,7 +125,7 @@ al_pacino.save(backend)
 
 ```python
 the_godfather = backend.get(Movie,{'pk':1L})
-#or...
+# or...
 the_godfather = backend.get(Movie,{'name' : 'The Godfather'})
 ```
     
@@ -149,7 +149,7 @@ backend.rollback() #undo the changes...
 ```python
 the_godfather.cast = {'Don Vito Corleone' : marlon_brando, 'Michael Corleone' : al_pacino}
 
-#Documents stored within other objects will be automatically converted to database references.
+# Documents stored within other objects will be automatically converted to database references.
 
 marlon_brando.performances = [the_godfather]
 al_pacino.performances = [the_godfather]
@@ -157,17 +157,17 @@ al_pacino.performances = [the_godfather]
 marlon_brando.save(backend)
 al_pacino.save(backend)
 the_godfather.save(backend)
-#Will store references to the movies within the documents in the DB
+# Will store references to the movies within the documents in the DB
 ```
 
 ### Creation of database indexes and advanced querying
 
 ```python
 backend.create_index(Actor,'performances')
-#Will create an index on the 'performances' field, for fast querying
+# Will create an index on the 'performances' field, for fast querying
 
 godfather_cast = backend.filter(Actor,{'movies' : the_godfather})
-#Will return 'Al Pacino' and 'Marlon Brando'
+# Will return 'Al Pacino' and 'Marlon Brando'
 ```
 
 ### Arbitrary filter expressions
@@ -177,5 +177,5 @@ star_wars_iv = Movie({'name' : 'Star Wars - Episode IV: A New Hope','year': 1977
 star_wars_iv.save()
 
 movies_from_the_seventies = backend.filter(Movie,{'year': lambda year : year >= 1970 and year < 1980})
-#Will return Star Wars & The Godfather (man, what a decade!)
+# Will return Star Wars & The Godfather (man, what a decade!)
 ```
