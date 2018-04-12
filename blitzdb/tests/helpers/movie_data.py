@@ -59,6 +59,7 @@ class Role(Document):
     actor = ForeignKeyField('Actor', nullable = False)
     movie = ForeignKeyField('Movie', nullable = False)
 
+
 def generate_test_data(request, backend, n):
 
     fake = Factory.create()

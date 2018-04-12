@@ -38,7 +38,7 @@ try:
         from blitzdb.backends.mongo import Backend as MongoBackend
 
         try:
-            backend = _mongodb_backend()
+            backend = _mongodb_backend({})
             test_mongo = True
             print("Testing with MongoDB")
         except:

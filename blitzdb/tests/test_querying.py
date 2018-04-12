@@ -179,7 +179,7 @@ def test_list_query_multiple_items(backend, small_test_data):
 def test_invalid_query(backend, small_test_data):
 
     with pytest.raises(BaseException):
-        backend.filter(Actor, {'$in' : movie.cast})
+        backend.filter(Actor, {'$in' : Movie.cast})
 
 
 def test_non_indexed_delete(backend, small_test_data):
