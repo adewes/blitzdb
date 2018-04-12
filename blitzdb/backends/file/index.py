@@ -23,8 +23,8 @@ class Index(object):
     :param params: Index parameters such as id and primary key
     :type params: dict
     :param serializer: Used to encode data before storing it.
-    :type serialize: object
-    :param dserializer: Used to decode date after retrieving it.
+    :type serializer: object
+    :param deserializer: Used to decode date after retrieving it.
     :type deserializer: object
     :param store: Where the blobs are stored
     :type store: object
