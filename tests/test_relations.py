@@ -2,7 +2,7 @@ from __future__ import absolute_import
 
 import pytest
 
-from blitzdb.tests.helpers.movie_data import Actor, Movie
+from .helpers.movie_data import Actor, Movie
 
 
 def test_basic_delete(backend, small_test_data):

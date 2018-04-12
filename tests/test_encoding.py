@@ -1,7 +1,7 @@
 # -*- coding: utf-8
 from __future__ import absolute_import
 
-from blitzdb.tests.helpers.movie_data import Actor
+from .helpers.movie_data import Actor
 
 
 def test_delete(backend):

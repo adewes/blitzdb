@@ -1,5 +1,5 @@
 from blitzdb.backends.file import Backend as FileBackend
-from blitzdb.tests.helpers.movie_data import Actor, Food
+from .helpers.movie_data import Actor, Food
 
 
 def test_in(backend):

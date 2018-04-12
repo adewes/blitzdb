@@ -36,9 +36,11 @@ class Actor(Document):
     is_funny = BooleanField(indexed = True)
     movies = ManyToManyField('Movie',backref = 'actors')
 
+
 class Food(Document):
 
     name = CharField(indexed = True)
+
 
 class Director(Document):
 
@@ -52,6 +54,7 @@ class Director(Document):
     name = CharField(indexed = True)
     favorite_actor = ForeignKeyField('Actor')
     best_movie = ForeignKeyField('Movie',unique=True,backref = 'best_of_director')
+
 
 class Role(Document):
 

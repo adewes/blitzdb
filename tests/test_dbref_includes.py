@@ -1,6 +1,6 @@
 from __future__ import absolute_import
 
-from blitzdb.tests.helpers.movie_data import Actor, Movie
+from .helpers.movie_data import Actor, Movie
 
 
 def test_nested_value(backend):

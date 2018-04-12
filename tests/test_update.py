@@ -3,7 +3,7 @@ from __future__ import absolute_import
 import pytest
 
 from blitzdb.backends.file import Backend as FileBackend
-from blitzdb.tests.helpers.movie_data import Actor
+from .helpers.movie_data import Actor
 
 
 def test_update_by_list(backend):

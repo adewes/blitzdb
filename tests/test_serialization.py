@@ -1,6 +1,6 @@
 from __future__ import absolute_import
 
-from blitzdb.tests.helpers.movie_data import Movie
+from .helpers.movie_data import Movie
 
 
 def test_basic_storage(backend):

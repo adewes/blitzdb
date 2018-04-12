@@ -2,8 +2,8 @@ from __future__ import absolute_import
 
 import pytest
 
-from blitzdb.tests.helpers.movie_data import Actor
-from ...backends.file import NonUnique
+from ..helpers.movie_data import Actor
+from blitzdb.backends.file import NonUnique
 
 
 def test_nonunique_file_backend_index(file_backend):

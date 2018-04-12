@@ -7,7 +7,8 @@ import tempfile
 import pytest
 
 from blitzdb.backends.file import Backend as FileBackend
-from blitzdb.tests.helpers.movie_data import Actor, Movie, generate_test_data
+
+from .helpers.movie_data import Actor, Movie, generate_test_data
 
 
 def _mongodb_backend(config, autoload_embedded=True):

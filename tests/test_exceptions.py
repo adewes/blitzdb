@@ -1,6 +1,6 @@
 import pytest
 
-from blitzdb.tests.helpers.movie_data import Actor, Director
+from .helpers.movie_data import Actor, Director
 
 
 def test_basic_exceptions():
