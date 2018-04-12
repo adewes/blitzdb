@@ -1,2 +1,2 @@
-from blitzdb.backends.mongo.backend import Backend
-from blitzdb.backends.mongo.queryset import QuerySet
+from .backend import Backend
+from .queryset import QuerySet
