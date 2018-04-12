@@ -6,7 +6,7 @@ import six
 from blitzdb import Document
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture
 def mockup_backend():
 
     class Backend(object):

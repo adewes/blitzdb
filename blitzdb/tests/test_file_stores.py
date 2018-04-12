@@ -6,7 +6,7 @@ import pytest
 from blitzdb.backends.file import TransactionalStore
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture
 def transactional_store(request):
 
     tmpdir = tempfile.mkdtemp()

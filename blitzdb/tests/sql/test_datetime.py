@@ -15,9 +15,9 @@ class Actor(Document):
 
     created_at = DateTimeField(auto_now_add = True,indexed = True)
 
-@pytest.fixture(scope="function")
-def backend():
 
+@pytest.fixture
+def backend():
     engine = create_engine('sqlite:///:memory:', echo=True)
     backend = Backend(engine = engine,autodiscover_classes = False)
     backend.register(Actor)
@@ -25,8 +25,8 @@ def backend():
     backend.create_schema()
     return backend
 
-def test_basics(backend):
 
+def test_basics(backend):
     actor = Actor({'created_at' : datetime.datetime.now()})
 
     backend.save(actor)
