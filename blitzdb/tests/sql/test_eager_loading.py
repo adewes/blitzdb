@@ -126,7 +126,7 @@ def test_include_with_only_raw(backend):
     actors = backend.filter(Actor,{},include = (('movies',('director',),'title'),('movies','year')),only = ('gross_income_m',),raw = True)
 
     assert isinstance(actors[0],dict)
-    assert set(actors[0].keys()) == set(('movies','gross_income_m','pk'))
+    assert set(actors[0].keys()) == {'movies', 'gross_income_m', 'pk'}
     assert isinstance(actors[0]['movies'],list)
 
 def test_include_with_only(backend):
@@ -137,7 +137,10 @@ def test_include_with_only(backend):
 
     assert isinstance(actors[0],Actor)
     assert actors[0].lazy
-    assert set(actors[0].lazy_attributes.keys()) == set(('related_role_actor','actor_movie_movies','actor_movie_cast','actor_food_favorite_food','favorite_food','best_movies','related_director_favorite_actor','movies','gross_income_m','pk','related_movie_cast'))
+    assert set(actors[0].lazy_attributes.keys()) == {'related_role_actor', 'actor_movie_movies', 'actor_movie_cast',
+                                                     'actor_food_favorite_food', 'favorite_food', 'best_movies',
+                                                     'related_director_favorite_actor', 'movies', 'gross_income_m',
+                                                     'pk', 'related_movie_cast'}
     assert isinstance(actors[0]['movies'],ManyToManyProxy)
     assert actors[0]['movies']._objects is not None
 
@@ -150,6 +153,9 @@ def test_only(backend):
 
     assert isinstance(actors[0],Actor)
     assert actors[0].lazy
-    assert set(actors[0].lazy_attributes.keys()) == set(('related_role_actor','actor_movie_movies','actor_movie_cast','actor_food_favorite_food','favorite_food','related_director_favorite_actor','best_movies','movies','gross_income_m','pk','related_movie_cast'))
+    assert set(actors[0].lazy_attributes.keys()) == {'related_role_actor', 'actor_movie_movies', 'actor_movie_cast',
+                                                     'actor_food_favorite_food', 'favorite_food',
+                                                     'related_director_favorite_actor', 'best_movies', 'movies',
+                                                     'gross_income_m', 'pk', 'related_movie_cast'}
     assert isinstance(actors[0]['movies'],ManyToManyProxy)
     assert actors[0]['movies']._objects is None

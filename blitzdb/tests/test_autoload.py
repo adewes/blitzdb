@@ -1,5 +1,7 @@
 from __future__ import absolute_import
 
+import pytest
+
 from .helpers.movie_data import Actor, Movie
 
 

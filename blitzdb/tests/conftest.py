@@ -10,6 +10,15 @@ from blitzdb.backends.file import Backend as FileBackend
 from blitzdb.tests.helpers.movie_data import Actor, Movie, generate_test_data
 
 
+def _mongodb_backend(config, autoload_embedded=True):
+    con = pymongo.MongoClient(connectTimeoutMS=1000)
+    con.drop_database("blitzdb_test_3243213121435312431")
+    db = pymongo.MongoClient()['blitzdb_test_3243213121435312431']
+    backend = MongoBackend(db, autoload_embedded=autoload_embedded)
+    _init_indexes(backend)
+    return backend
+
+
 @pytest.fixture(scope="function")
 def temporary_path(request):
     d = tempfile.mkdtemp()
@@ -191,10 +200,3 @@ def file_backend(request,temporary_path):
     return _file_backend(request, temporary_path,{})
 
 
-def _mongodb_backend(config, autoload_embedded=True):
-    con = pymongo.MongoClient(connectTimeoutMS=1000)
-    con.drop_database("blitzdb_test_3243213121435312431")
-    db = pymongo.MongoClient()['blitzdb_test_3243213121435312431']
-    backend = MongoBackend(db, autoload_embedded=autoload_embedded)
-    _init_indexes(backend)
-    return backend
