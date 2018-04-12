@@ -1,7 +1,7 @@
 import pytest
 from sqlalchemy.exc import IntegrityError
 
-from ..helpers.movie_data import Movie, Actor, Director
+from ..helpers.movie_data import Actor, Director, Movie
 
 
 def test_circular_reference(backend):

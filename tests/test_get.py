@@ -22,4 +22,3 @@ def test_delete(backend):
 
     with pytest.raises(Actor.MultipleDocumentsReturned):
         actor = backend.get(Actor,{})
-

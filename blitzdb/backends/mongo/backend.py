@@ -10,7 +10,7 @@ from blitzdb.backends.base import Backend as BaseBackend
 from blitzdb.backends.base import NotInTransaction
 from blitzdb.backends.mongo.queryset import QuerySet
 from blitzdb.document import Document
-from blitzdb.helpers import get_value, set_value, delete_value
+from blitzdb.helpers import delete_value, get_value, set_value
 
 logger = logging.getLogger(__name__)
 

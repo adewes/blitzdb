@@ -1,6 +1,6 @@
 import pytest
 
-from ..helpers.movie_data import Movie, Actor, Director
+from ..helpers.movie_data import Actor, Director, Movie
 
 
 def test_multiple_joins(backend):

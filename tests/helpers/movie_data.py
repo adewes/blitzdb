@@ -1,16 +1,14 @@
  # -*- coding: utf-8 -*-
 import math
-from faker import Factory  # https://github.com/joke2k/faker
 import random
 import uuid
 
+from faker import Factory  # https://github.com/joke2k/faker
+
 from blitzdb import Document
-from blitzdb.fields import (ForeignKeyField,
-                            ManyToManyField,
-                            CharField,
-                            FloatField,
-                            IntegerField,
-                            BooleanField)
+from blitzdb.fields import BooleanField, CharField, FloatField, \
+    ForeignKeyField, IntegerField, ManyToManyField
+
 
 class Movie(Document):
 

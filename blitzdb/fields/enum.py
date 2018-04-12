@@ -1,5 +1,6 @@
 from .base import BaseField
 
+
 class EnumField(BaseField):
     
     def __init__(self,enums,native_enum = False,*args,**kwargs):

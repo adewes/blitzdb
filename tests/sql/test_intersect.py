@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from ..helpers.movie_data import Movie,Actor,Director
+from ..helpers.movie_data import Actor, Director, Movie
 
 
 def prepare_data(backend):

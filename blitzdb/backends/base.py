@@ -5,9 +5,10 @@ import logging
 
 import six
 
+from blitzdb.document import Document, document_classes
+
 logger = logging.getLogger(__name__)
 
-from blitzdb.document import Document, document_classes
 
 class DoNotSerialize(BaseException):
     """

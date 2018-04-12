@@ -1,11 +1,21 @@
+import logging
 import re
 import uuid
-import logging
+from collections import defaultdict
+from types import LambdaType
 
 import six
+from sqlalchemy.ext.compiler import compiles
+from sqlalchemy.schema import Column, ForeignKey, MetaData, Table, \
+    UniqueConstraint
+from sqlalchemy.sql import and_, expression, func, not_, null, or_, select
+from sqlalchemy.types import Boolean, Date, DateTime, Enum, Float, Integer, \
+    LargeBinary, String, Text
 
-from types import LambdaType
-from collections import defaultdict
+from blitzdb.fields import BaseField, BinaryField, BooleanField, CharField, \
+    DateField, DateTimeField, EnumField, FloatField, ForeignKeyField, \
+    IntegerField, ManyToManyField, OneToManyField, TextField
+from blitzdb.helpers import delete_value, get_value, set_value
 
 from ...document import Document
 from ..base import Backend as BaseBackend
@@ -13,35 +23,6 @@ from ..base import DoNotSerialize
 from ..file.serializers import JsonSerializer
 from .queryset import QuerySet
 from .relations import ManyToManyProxy
-
-from blitzdb.fields import (ForeignKeyField,
-                            ManyToManyField,
-                            OneToManyField,
-                            CharField,
-                            EnumField,
-                            IntegerField,
-                            TextField,
-                            FloatField,
-                            BooleanField,
-                            BinaryField,
-                            DateField,
-                            DateTimeField,
-                            BaseField
-                            )
-
-from sqlalchemy.schema import MetaData,Table,Column,ForeignKey,UniqueConstraint
-from sqlalchemy.types import (Integer,
-                              String,
-                              Float,
-                              Enum,
-                              Boolean,
-                              Date,
-                              DateTime,
-                              Text,
-                              LargeBinary)
-from sqlalchemy.sql import select, func,and_,or_,not_,expression,null
-from sqlalchemy.ext.compiler import compiles
-from blitzdb.helpers import get_value, set_value, delete_value
 
 logger = logging.getLogger(__name__)
 

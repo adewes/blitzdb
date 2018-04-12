@@ -1,5 +1,5 @@
-from sqlalchemy.sql import select, func, expression, delete
-from sqlalchemy.sql.expression import text, and_
+from sqlalchemy.sql import delete, expression, func, select
+from sqlalchemy.sql.expression import and_, text
 
 from .queryset import QuerySet
 

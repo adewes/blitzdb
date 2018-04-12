@@ -1,16 +1,15 @@
-
-def get_value(obj,key,create = False):
+def get_value(obj, key, create=False):
     key_fragments = key.split(".")
     current_dict = obj
     last_dict = None
     last_key = None
     for key_fragment in key_fragments:
         try:
-            if create and not key_fragment in current_dict:
+            if create and key_fragment not in current_dict:
                 current_dict[key_fragment] = {}
         except TypeError:
             if last_dict:
-                last_dict[last_key] = {key_fragment : {}}
+                last_dict[last_key] = {key_fragment: {}}
                 current_dict = last_dict[last_key]
             else:
                 raise KeyError
@@ -22,18 +21,19 @@ def get_value(obj,key,create = False):
             raise KeyError
     return current_dict
 
-def set_value(obj,key,value,overwrite = True):
+
+def set_value(obj, key, value, overwrite=True):
     key_fragments = key.split('.')
     current_dict = obj
     last_dict = None
     last_key = None
     for key_fragment in key_fragments:
         try:
-            if not key_fragment in current_dict:
+            if key_fragment not in current_dict:
                 current_dict[key_fragment] = {}
         except TypeError:
             if last_dict:
-                last_dict[last_key] = {key_fragment : {}}
+                last_dict[last_key] = {key_fragment: {}}
                 current_dict = last_dict[last_key]
             else:
                 raise
@@ -47,13 +47,14 @@ def set_value(obj,key,value,overwrite = True):
     last_dict[key_fragments[-1]] = value
     return last_dict[key_fragments[-1]]
 
-def delete_value(obj,key):
+
+def delete_value(obj, key):
     key_fragments = key.split('.')
     current_dict = obj
     last_dict = None
     for key_fragment in key_fragments:
         try:
-            if not key_fragment in current_dict:
+            if key_fragment not in current_dict:
                 return
         except TypeError:
             return

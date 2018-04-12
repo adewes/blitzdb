@@ -2,6 +2,7 @@ import pytest
 from sqlalchemy.exc import IntegrityError
 
 from blitzdb.fields import EnumField
+
 from ..helpers.movie_data import Document
 
 

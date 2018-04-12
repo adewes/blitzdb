@@ -1,7 +1,8 @@
 import pytest
 
 from blitzdb.backends.sql.queryset import QuerySet
-from ..helpers.movie_data import Movie, Actor, Director
+
+from ..helpers.movie_data import Actor, Director, Movie
 
 
 def test_basics(backend):

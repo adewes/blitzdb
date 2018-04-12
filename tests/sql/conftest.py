@@ -1,7 +1,7 @@
 import pytest
 
-from ..helpers.movie_data import Movie, Actor, Director, Food
 from ..conftest import _sql_backend, get_sql_engine
+from ..helpers.movie_data import Actor, Director, Food, Movie
 
 
 @pytest.fixture

@@ -44,4 +44,3 @@ def test_delete(backend):
 
     with pytest.raises(AttributeError):
         backend.get(Actor,{'pk' : actor.pk}).foo
-

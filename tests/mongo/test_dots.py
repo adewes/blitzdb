@@ -1,6 +1,7 @@
 import pytest
 
 from blitzdb import Document
+
 from ..conftest import test_mongo
 
 if test_mongo:

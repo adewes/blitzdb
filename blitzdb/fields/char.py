@@ -1,5 +1,6 @@
 from .base import BaseField
 
+
 class CharField(BaseField):
     
     def __init__(self,length = None,*args,**kwargs):

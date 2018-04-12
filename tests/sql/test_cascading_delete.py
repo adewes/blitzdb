@@ -3,6 +3,7 @@ from sqlalchemy.exc import IntegrityError
 
 from blitzdb import Document
 from blitzdb.fields import CharField, ForeignKeyField, ManyToManyField
+
 from ..conftest import _sql_backend, get_sql_engine
 
 

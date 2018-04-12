@@ -1,5 +1,6 @@
 from blitzdb.backends.sql.relations import ManyToManyProxy
-from ..helpers.movie_data import Movie, Actor, Director, Document
+
+from ..helpers.movie_data import Actor, Director, Document, Movie
 
 
 def test_basics(backend):

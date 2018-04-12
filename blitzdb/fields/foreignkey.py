@@ -1,5 +1,6 @@
 from blitzdb.fields import BaseField
 
+
 class ForeignKeyField(BaseField):
 
     """

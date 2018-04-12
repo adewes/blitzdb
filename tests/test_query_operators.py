@@ -1,4 +1,5 @@
 from blitzdb.backends.file import Backend as FileBackend
+
 from .helpers.movie_data import Actor, Food
 
 
@@ -23,6 +24,7 @@ def test_in(backend):
     # Test with empty list
     query = {'name': {'$not': {'$in': []}}}
     assert len(backend.filter(Actor, query)) == len([david_hasselhoff, charlie_chaplin, marlon_brando, leonardo_di_caprio])
+
     query = {'name': {'$in': []}}
     assert len(backend.filter(Actor, query)) == len([])
     # Test with empty list
@@ -410,5 +412,3 @@ def test_or(backend):
     query = {'$or': [{'name': charlie_chaplin.name}, {'name': charlie_chaplin.name}, {'name': charlie_chaplin.name}, {'name': charlie_chaplin.name}]}
     assert len(backend.filter(Actor, query)) == len([charlie_chaplin])
     # Test repeating request
-
-

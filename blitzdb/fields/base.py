@@ -15,4 +15,3 @@ class BaseField(object):
         self.default = default
         self.server_default = server_default
         self.unique = unique
-

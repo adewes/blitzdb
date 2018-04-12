@@ -1,15 +1,15 @@
 import copy
-import copy
 from collections import OrderedDict
 
 import six
 import sqlalchemy
-from sqlalchemy.sql import select, func, expression
-from sqlalchemy.sql.expression import asc, desc, outerjoin, nullsfirst, nullslast
+from sqlalchemy.sql import expression, func, select
+from sqlalchemy.sql.expression import asc, desc, nullsfirst, nullslast, \
+    outerjoin
 from sqlalchemy.sql.functions import Function as SqlFunction
 
 from blitzdb.document import Document
-from blitzdb.fields import ManyToManyField, ForeignKeyField, OneToManyField
+from blitzdb.fields import ForeignKeyField, ManyToManyField, OneToManyField
 from blitzdb.helpers import get_value
 from blitzdb.queryset import QuerySet as BaseQuerySet
 

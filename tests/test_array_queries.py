@@ -1,6 +1,7 @@
 
 from blitzdb.backends.file import Backend as FileBackend
-from .helpers.movie_data import Director, Movie, Actor
+
+from .helpers.movie_data import Actor, Director, Movie
 
 
 def test_array_queries(backend):

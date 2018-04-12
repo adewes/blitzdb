@@ -15,4 +15,3 @@ def test_delete(backend):
 
     assert backend.get(Actor,{'name' : stallone.name}) == stallone
     assert backend.get(Actor,{'name' : arnie.name}) == arnie
-
