@@ -342,7 +342,7 @@ class Document(object):
 
             if isinstance(d, dict):
                 out = {}
-                return dict([(key, truncate_dict(value, n - 1)) for key, value in d.items()])
+                return {key: truncate_dict(value, n - 1) for key, value in d.items()}
             elif isinstance(d, list) or isinstance(d, set):
                 return [truncate_dict(v, n - 1) for v in d]
             elif isinstance(d, Document):

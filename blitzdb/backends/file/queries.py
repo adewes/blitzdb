@@ -125,7 +125,7 @@ def all_query(expression):
             raise AttributeError('$all argument must be an iterable!')
 
         hashed_ev = [index.get_hash_for(v) for v in ev]
-        store_keys = set([])
+        store_keys = set()
 
         if len(hashed_ev) == 0:
             return []
@@ -173,7 +173,7 @@ def compile_query(query):
         for key, value in query.items():
             if key.startswith('$'):
                 if key not in query_funcs:
-                    raise AttributeError('Invalid operator: {0}'.format(key))
+                    raise AttributeError('Invalid operator: {}'.format(key))
                 expressions.append(query_funcs[key](value))
             else:
                 expressions.append(filter_query(key, value))

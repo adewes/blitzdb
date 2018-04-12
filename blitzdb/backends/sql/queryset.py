@@ -510,7 +510,7 @@ class QuerySet(BaseQuerySet):
         with self.backend.transaction():
             s = self.get_bare_select(columns = [self.table.c.pk])
             result = self.backend.connection.execute(s)
-            return set([r[0] for r in result.fetchall()])
+            return {r[0] for r in result.fetchall()}
 
     def __ne__(self, other):
         return not self.__eq__(other)

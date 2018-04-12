@@ -25,7 +25,7 @@ class DotEncoder(object):
                 return key.replace(".", cls.DOT_MAGIC_VALUE)
             return key
         if isinstance(obj,dict):
-            return dict([(replace_key(key),value) for key, value in obj.items()])
+            return {replace_key(key):value for key, value in obj.items()}
         return obj
 
     @classmethod
@@ -89,7 +89,7 @@ class Backend(BaseBackend):
                     try:
                         self.db[collection].save(attributes)
                     except:
-                        logger.error("Error when saving the document with pk {0} in collection {1}".format(attributes['pk'], collection))
+                        logger.error("Error when saving the document with pk {} in collection {}".format(attributes['pk'], collection))
                         logger.error("Attributes (excerpt):" + str(dict(attributes.items()[:100])))
                         raise
 
@@ -129,7 +129,7 @@ class Backend(BaseBackend):
             for pk in pks:
                 self.db[collection].remove({'_id': pk})
         else:
-            self._delete_cache[collection].update(dict([(pk, True) for pk in pks]))
+            self._delete_cache[collection].update({pk: True for pk in pks})
 
     def delete(self, obj):
 
