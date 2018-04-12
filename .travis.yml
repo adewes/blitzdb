@@ -2,26 +2,35 @@ language: python
 addons:
   postgresql: "9.3"
 sudo: false
+
 services:
   - mongodb
+
 before_script:
   - psql -c 'create database blitzdb_test;' -U postgres
   - sleep 3
+
 env:
   - BLITZDB_SQLALCHEMY_URL: "postgres://postgres@localhost/blitzdb_test"
   - BLITZDB_SQLALCHEMY_URL: "sqlite:///:memory:"
+
 python:
   - "2.7"
   - "3.3"
+  - "3.4"
+  - "3.5"
+  - "3.6"
   # does not have headers provided, please ask https://launchpad.net/~pypy/+archive/ppa
   # maintainers to fix their pypy-dev package.
   # pypy tests are disabled until I can figure out a way to install the correct packages for this...
   #- "pypy"
+ 
 # command to install dependencies
 install:
   - pip install .
   - pip install -r requirements.txt
   - pip install -r requirements-travis.txt
   - echo $BLITZDB_SQLALCHEMY_URL
+  
 # command to run tests
-script: py.test
+script: pytest
