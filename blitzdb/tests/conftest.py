@@ -23,11 +23,9 @@ def _mongodb_backend(config, autoload_embedded=True):
 def temporary_path(request):
     d = tempfile.mkdtemp()
 
-    def finalizer():
-        subprocess.call(["rm", "-rf", d])
+    yield str(d)
 
-    request.addfinalizer(finalizer)
-    return str(d)
+    subprocess.call(["rm", "-rf", d])
 
 
 test_mongo = False
@@ -66,16 +64,13 @@ try:
 
     memory_url = 'sqlite:///:memory:'
 
-
     def get_sql_engine():
         url = os.environ.get('BLITZDB_SQLALCHEMY_URL', memory_url)
         engine = create_engine(url, echo=False)
         # we make sure foreign keys are enforced...
         return engine
 
-
     engine = get_sql_engine()
-
 
     def _sql_backend(request, engine, **kwargs):
 

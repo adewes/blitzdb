@@ -7,19 +7,15 @@ from blitzdb.backends.file import TransactionalStore
 
 
 @pytest.fixture
-def transactional_store(request):
-
+def transactional_store():
     tmpdir = tempfile.mkdtemp()
 
-    def finalizer():
-        subprocess.call(["rm", "-rf", tmpdir])
+    yield TransactionalStore({'path': tmpdir})
 
-    request.addfinalizer(finalizer)
-    return TransactionalStore({'path': tmpdir})
+    subprocess.call(["rm", "-rf", tmpdir])
 
 
 def test_transactional_store_save(transactional_store):
-
     store = transactional_store
     store.autocommit = True
 
@@ -38,8 +34,8 @@ def test_transactional_store_save(transactional_store):
     store.store_blob(blob2, "key1")
     store.delete_blob("key2")
     assert store.get_blob("key1") == blob2
-    store.store_blob(blob2, "key2")
 
+    store.store_blob(blob2, "key2")
     store.delete_blob("key1")
 
     with pytest.raises(KeyError):
