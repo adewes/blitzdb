@@ -1,10 +1,9 @@
 import copy
+import logging
 import uuid
 
-from blitzdb.fields.base import BaseField
 from blitzdb.fields import CharField
-
-import logging
+from blitzdb.fields.base import BaseField
 
 logger = logging.getLogger(__name__)
 

@@ -1,8 +1,10 @@
-import pytest
 import copy
 
-from blitzdb import Document
+import pytest
 import six
+
+from blitzdb import Document
+
 
 @pytest.fixture(scope="function")
 def mockup_backend():

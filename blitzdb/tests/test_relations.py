@@ -1,8 +1,8 @@
 from __future__ import absolute_import
 
-from .fixtures import *
+import pytest
 
-from blitzdb.tests.helpers.movie_data import Actor, Director, Movie
+from blitzdb.tests.helpers.movie_data import Actor, Movie
 
 
 def test_basic_delete(backend, small_test_data):

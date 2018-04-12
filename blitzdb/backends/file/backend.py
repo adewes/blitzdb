@@ -1,12 +1,11 @@
 import os
 import os.path
 import uuid
-
 from collections import defaultdict
 
-import blitzdb
+import six
 
-from blitzdb.document import Document
+import blitzdb
 from blitzdb.backends.base import (
     Backend as BaseBackend,
     NotInTransaction,
@@ -25,10 +24,8 @@ from blitzdb.backends.file.store import (
     Store,
     TransactionalStore,
 )
-from blitzdb.helpers import get_value,set_value,delete_value
-
-import six
-
+from blitzdb.document import Document
+from blitzdb.helpers import get_value, set_value, delete_value
 
 store_classes = {
     'transactional': TransactionalStore,

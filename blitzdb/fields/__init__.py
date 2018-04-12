@@ -5,10 +5,10 @@ from .char import CharField
 from .date import DateField
 from .datetime import DateTimeField
 from .email import EmailField
+from .enum import EnumField
 from .float import FloatField
 from .foreignkey import ForeignKeyField
 from .integer import IntegerField
 from .manytomany import ManyToManyField
 from .onetomany import OneToManyField
 from .text import TextField
-from .enum import EnumField

@@ -1,10 +1,7 @@
- # -*- coding: utf-8 -*-
-import pytest
+# -*- coding: utf-8 -*-
 
 from ..helpers.movie_data import Movie,Actor,Director
 
-from .fixtures import backend
-from blitzdb.backends.sql.relations import ManyToManyProxy
 
 def prepare_data(backend):
 

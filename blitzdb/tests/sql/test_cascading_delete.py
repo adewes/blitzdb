@@ -1,14 +1,10 @@
 import pytest
-import pprint
-import datetime
-
-from blitzdb.backends.sql import Backend
-from blitzdb.fields import CharField, ForeignKeyField, ManyToManyField
-from blitzdb import Document
-from sqlalchemy import create_engine
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.types import String
-from ..fixtures import _sql_backend, get_sql_engine
+
+from blitzdb import Document
+from blitzdb.fields import CharField, ForeignKeyField, ManyToManyField
+from ..conftest import _sql_backend, get_sql_engine
+
 
 class DirectorAward(Document):
 

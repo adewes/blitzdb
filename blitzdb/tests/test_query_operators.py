@@ -1,4 +1,5 @@
-from .fixtures import *
+from blitzdb.backends.file import Backend as FileBackend
+from blitzdb.tests.helpers.movie_data import Actor, Food
 
 
 def test_in(backend):
@@ -231,6 +232,7 @@ def test_all(backend):
     #currently those queries are not supported by the file backend.
     if isinstance(backend,FileBackend):
         return
+
     backend.filter(Actor, {}).delete()
 
     pizza = Food({'name' : 'Pizza'})

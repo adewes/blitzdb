@@ -1,9 +1,8 @@
 # -*- coding: utf-8
 from __future__ import absolute_import
 
-from .fixtures import *
+from blitzdb.tests.helpers.movie_data import Actor
 
-from blitzdb.tests.helpers.movie_data import Actor, Director, Movie
 
 def test_delete(backend):
 

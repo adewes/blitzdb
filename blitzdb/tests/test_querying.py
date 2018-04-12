@@ -1,6 +1,6 @@
 from __future__ import absolute_import
 
-from .fixtures import *
+import pytest
 
 from blitzdb.tests.helpers.movie_data import Actor, Director, Movie
 

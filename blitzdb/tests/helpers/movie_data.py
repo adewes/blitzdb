@@ -1,6 +1,6 @@
  # -*- coding: utf-8 -*-
 import math
-from faker import Factory# https://github.com/joke2k/faker
+from faker import Factory  # https://github.com/joke2k/faker
 import random
 import uuid
 
@@ -116,7 +116,7 @@ def generate_test_data(request, backend, n):
             movie.director = director
             movie.save(backend)
         directors.append(director)
-    
+
     backend.commit()
 
     return (movies, actors, directors)

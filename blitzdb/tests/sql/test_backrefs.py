@@ -1,11 +1,8 @@
 import pytest
-import pprint
-
-from ..helpers.movie_data import Movie,Actor,Director
-
 from sqlalchemy.exc import IntegrityError
 
-from .fixtures import backend
+from ..helpers.movie_data import Movie, Actor, Director
+
 
 def test_circular_reference(backend):
 
@@ -96,7 +93,7 @@ def test_basics(backend):
     assert len(result) == 1
     assert result[0] == the_godfather
 
-    result = backend.filter(Director,{'movies.title' : 'The Godfather'}) 
+    result = backend.filter(Director,{'movies.title' : 'The Godfather'})
 
     al_pacino_movies = backend.filter(Movie,{'actors' : al_pacino})
     assert len(al_pacino_movies) == 2

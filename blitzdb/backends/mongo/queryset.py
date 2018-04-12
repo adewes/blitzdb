@@ -1,5 +1,4 @@
 from blitzdb.queryset import QuerySet as BaseQuerySet
-from functools import wraps
 
 
 class QuerySet(BaseQuerySet):
@@ -12,7 +11,7 @@ class QuerySet(BaseQuerySet):
         self._cursor = cursor
         self._raw = raw
         self._only = only
-        
+
     def __iter__(self):
         return self
 
@@ -91,9 +90,9 @@ class QuerySet(BaseQuerySet):
 
     def __ne__(self, other):
         return not self.__eq__(other)
-    
+
     def __eq__(self, other):
-        if isinstance(other, QuerySet): 
+        if isinstance(other, QuerySet):
             if self.cls == other.cls and set(self._cursor.distinct('_id')) == set(other._cursor.distinct('_id')):
                 return True
         elif isinstance(other, list):

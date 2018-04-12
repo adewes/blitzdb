@@ -1,11 +1,9 @@
 import pytest
 
-from ..fixtures import test_mongo
 from blitzdb import Document
+from ..conftest import test_mongo
 
 if test_mongo:
-    from ..fixtures import mongodb_backend
-
     def test_non_existing_key(mongodb_backend):
 
         attributes = {'foo': 'bar', 'baz': 1243, 'd': {1: 3, 4: 5}, 'l': [1, 2, 3, 4]}

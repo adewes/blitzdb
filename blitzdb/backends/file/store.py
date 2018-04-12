@@ -1,14 +1,6 @@
+import copy
 import os
 import os.path
-
-import gzip
-import hashlib
-import datetime
-import uuid
-import copy
-
-from collections import defaultdict
-from blitzdb.backends.file.serializers import PickleSerializer as Serializer
 
 """
 """

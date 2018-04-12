@@ -1,11 +1,9 @@
 from __future__ import absolute_import
 
-
-from .fixtures import *
+import datetime
 
 from blitzdb import Document
 
-import datetime
 
 class MyDocument(Document):
 

@@ -1,9 +1,9 @@
 from __future__ import absolute_import
 
-from .fixtures import *
+import pytest
 
-from blitzdb.tests.helpers.movie_data import Actor
 from blitzdb.backends.file import Backend as FileBackend
+from blitzdb.tests.helpers.movie_data import Actor
 
 
 def test_update_by_list(backend):
@@ -102,7 +102,7 @@ def test_update_on_deleted_document_fails(backend):
 
     with pytest.raises(actor.DoesNotExist):
         backend.update(actor, ('name',))
-     
+
 
 def test_update_with_dict(backend):
 
@@ -123,7 +123,7 @@ def test_update_with_dict(backend):
     assert len(backend.filter(Actor, {'name': 'Ian McKellan'})) == 1
 
     assert actor.name == 'Ian McKellan'
-     
+
     backend.update(actor, {'name': 'Roger Moore'}, update_obj=False)
 
     backend.commit()

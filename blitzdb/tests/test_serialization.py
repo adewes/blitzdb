@@ -1,8 +1,6 @@
 from __future__ import absolute_import
 
-from .fixtures import * #noqa
-
-from blitzdb.tests.helpers.movie_data import Actor, Director, Movie
+from blitzdb.tests.helpers.movie_data import Movie
 
 
 def test_basic_storage(backend):

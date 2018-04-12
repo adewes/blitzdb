@@ -1,12 +1,12 @@
-import pytest
-import pprint
 import datetime
 
+import pytest
+from sqlalchemy import create_engine
+
+from blitzdb import Document
 from blitzdb.backends.sql import Backend
 from blitzdb.fields import DateTimeField
-from blitzdb import Document
-from sqlalchemy import create_engine
-from sqlalchemy.types import String
+
 
 class Actor(Document):
 

@@ -1,11 +1,5 @@
-import pytest
-import pprint
+from ..helpers.movie_data import Actor
 
-from ..helpers.movie_data import Movie,Actor,Director,Document
-
-from .fixtures import backend
-from sqlalchemy.exc import IntegrityError
-from blitzdb.fields import EnumField
 
 def test_implicit_transaction(backend):
 

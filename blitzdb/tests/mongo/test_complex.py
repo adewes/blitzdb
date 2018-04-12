@@ -1,11 +1,9 @@
 import pytest
 
-from ..fixtures import test_mongo
 from blitzdb import Document
+from ..conftest import test_mongo
 
 if test_mongo:
-
-    from ..fixtures import mongodb_backend
 
     def test_complex(mongodb_backend):
 

@@ -1,7 +1,5 @@
 from __future__ import absolute_import
 
-from .fixtures import *
-
 from .helpers.movie_data import Actor, Movie
 
 

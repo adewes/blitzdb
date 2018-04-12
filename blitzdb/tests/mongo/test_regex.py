@@ -1,11 +1,7 @@
-from ..fixtures import test_mongo
-from ..helpers.movie_data import Actor,Movie
-
-from blitzdb import Document
+from ..conftest import test_mongo
+from ..helpers.movie_data import Actor
 
 if test_mongo:
-
-    from ..fixtures import mongodb_backend
 
     def test_regex(mongodb_backend):
         # DB setup

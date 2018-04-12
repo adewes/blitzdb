@@ -1,10 +1,7 @@
- # -*- coding: utf-8 -*-
-import pytest
+# -*- coding: utf-8 -*-
 
 from ..helpers.movie_data import Movie,Actor,Director
 
-from .fixtures import backend
-from blitzdb.backends.sql.relations import ManyToManyProxy
 
 def prepare_data(backend):
 
@@ -63,7 +60,6 @@ def prepare_data(backend):
 def test_queryset(backend):
 
     prepare_data(backend)
-
 
     al_pacino = backend.get(Actor,{'name' : 'Al Pacino'})
     robert_de_niro = backend.get(Actor,{'name' : 'Robert de Niro'})

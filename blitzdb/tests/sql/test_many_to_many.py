@@ -1,10 +1,6 @@
-import pytest
-import pprint
-
-from ..helpers.movie_data import Movie,Actor,Director,Document
 from blitzdb.backends.sql.relations import ManyToManyProxy
+from ..helpers.movie_data import Movie, Actor, Director, Document
 
-from .fixtures import backend
 
 def test_basics(backend):
 

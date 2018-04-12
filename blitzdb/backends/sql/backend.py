@@ -1,18 +1,16 @@
-import abc
 import six
-import uuid
 import re
-import traceback
+import uuid
 import logging
 
-logger = logging.getLogger(__name__)
+import six
 
 from types import LambdaType
 from collections import defaultdict
 
 from ...document import Document
 from ..base import Backend as BaseBackend
-from ..base import NotInTransaction,DoNotSerialize
+from ..base import DoNotSerialize
 from ..file.serializers import JsonSerializer
 from .queryset import QuerySet
 from .relations import ManyToManyProxy
@@ -32,10 +30,8 @@ from blitzdb.fields import (ForeignKeyField,
                             BaseField
                             )
 
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.schema import MetaData,Table,Column,ForeignKey,UniqueConstraint
 from sqlalchemy.types import (Integer,
-                              VARCHAR,
                               String,
                               Float,
                               Enum,
@@ -43,11 +39,13 @@ from sqlalchemy.types import (Integer,
                               Date,
                               DateTime,
                               Text,
-                              LargeBinary,
-                              Unicode)
-from sqlalchemy.sql import select,insert,update,func,and_,or_,not_,expression,null
+                              LargeBinary)
+from sqlalchemy.sql import select, func,and_,or_,not_,expression,null
 from sqlalchemy.ext.compiler import compiles
 from blitzdb.helpers import get_value, set_value, delete_value
+
+logger = logging.getLogger(__name__)
+
 
 @compiles(DateTime, "sqlite")
 def compile_binary_sqlite(type_, compiler, **kw):
@@ -59,7 +57,7 @@ class ExcludedFieldsEncoder(object):
         self.collection = collection
         self.backend = backend
 
-    def encode(self,obj,path = []):
+    def encode(self,obj,path = ()):
         if not path:
             return obj
         key = ".".join([str(p) for p in path])

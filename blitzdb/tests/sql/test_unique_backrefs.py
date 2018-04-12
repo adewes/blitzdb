@@ -1,19 +1,12 @@
-import pytest
-import pprint
-
-from ..helpers.movie_data import Movie,Actor,Director
-
-from .fixtures import empty_backend
-from blitzdb.backends.sql.relations import ManyToManyProxy
-from blitzdb.backends.sql.queryset import QuerySet
-from blitzdb.fields import ForeignKeyField
 from blitzdb import Document
+from blitzdb.fields import ForeignKeyField
+
 
 class User(Document):
     pass
 
 class Subscription(Document):
-    
+
     user = ForeignKeyField(User,unique = True,backref = 'subscription')
 
 class Stripe(Document):
@@ -21,7 +14,7 @@ class Stripe(Document):
     user = ForeignKeyField(User,unique = True,backref = 'stripe')
 
 def test_unique_backrefs(empty_backend):
-    
+
     empty_backend.register(User)
     empty_backend.register(Subscription)
     empty_backend.register(Stripe)
@@ -50,7 +43,7 @@ def test_unique_backrefs(empty_backend):
     assert recovered_user.subscription.user == user
 
 def test_non_existing_unique_backrefs(empty_backend):
-    
+
     empty_backend.register(User)
     empty_backend.register(Subscription)
     empty_backend.register(Stripe)

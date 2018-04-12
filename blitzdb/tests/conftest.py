@@ -1,11 +1,14 @@
 from __future__ import print_function
-import pytest
-import tempfile
-import subprocess
+
 import os
+import subprocess
+import tempfile
+
+import pytest
 
 from blitzdb.backends.file import Backend as FileBackend
-from blitzdb.tests.helpers.movie_data import Actor, Director, Movie, Food, generate_test_data
+from blitzdb.tests.helpers.movie_data import Actor, Movie, generate_test_data
+
 
 @pytest.fixture(scope="function")
 def temporary_path(request):

@@ -1,11 +1,11 @@
 import pytest
 
-from ..fixtures import test_mongo
 from blitzdb import Document
+from ..conftest import test_mongo
 
 if test_mongo:
     from blitzdb.backends.mongo.backend import DotEncoder
-    from ..fixtures import mongodb_backend
+
 
     def test_dots(mongodb_backend):
 

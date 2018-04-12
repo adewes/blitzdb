@@ -1,6 +1,7 @@
-import pytest
-import tempfile
 import subprocess
+import tempfile
+
+import pytest
 
 from blitzdb.backends.file import TransactionalStore
 

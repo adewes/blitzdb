@@ -1,9 +1,8 @@
 from __future__ import absolute_import
 
-from .fixtures import *
-
-from blitzdb.tests.helpers.movie_data import Actor
 from blitzdb.backends.sql import Backend as SqlBackend
+from blitzdb.tests.helpers.movie_data import Actor
+
 
 def test_basic_sorting(backend):
 

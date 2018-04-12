@@ -1,6 +1,6 @@
-from blitzdb.queryset import QuerySet as BaseQuerySet
-import time
 import copy
+
+from blitzdb.queryset import QuerySet as BaseQuerySet
 
 
 class QuerySet(BaseQuerySet):
@@ -86,7 +86,7 @@ class QuerySet(BaseQuerySet):
         return True
 
     def __eq__(self, other):
-        if isinstance(other, QuerySet): 
+        if isinstance(other, QuerySet):
             if self.cls == other.cls and set(self.keys) == set(other.keys):
                 return True
         elif isinstance(other, list):
