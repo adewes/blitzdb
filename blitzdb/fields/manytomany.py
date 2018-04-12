@@ -6,14 +6,17 @@ class ManyToManyField(BaseField):
     """
     """
 
-    def __init__(self,
-                 related,
-                 field = None,
-                 related_field = None,
-                 backref = None,
-                 ondelete = None,
-                 *args,**kwargs):
-        super(ManyToManyField,self).__init__(*args,**kwargs)
+    def __init__(
+        self,
+        related,
+        field=None,
+        related_field=None,
+        backref=None,
+        ondelete=None,
+        *args,
+        **kwargs
+    ):
+        super(ManyToManyField, self).__init__(*args, **kwargs)
         self.related = related
         self.backref = backref
         self.field = field
