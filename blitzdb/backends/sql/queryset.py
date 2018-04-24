@@ -1,18 +1,18 @@
-import time
 import copy
-import sqlalchemy
-import six
-
-from blitzdb.queryset import QuerySet as BaseQuerySet
-from functools import wraps
-from sqlalchemy.sql.functions import Function as SqlFunction
-from sqlalchemy.sql import select,func,expression,delete,distinct,and_,union,intersect
-from sqlalchemy.sql.expression import join,asc,desc,outerjoin,nullsfirst,nullslast
-from ..file.serializers import JsonSerializer
-from blitzdb.helpers import get_value
-from blitzdb.document import Document
 from collections import OrderedDict
-from blitzdb.fields import ManyToManyField,ForeignKeyField,OneToManyField
+
+import six
+import sqlalchemy
+from sqlalchemy.sql import expression, func, select
+from sqlalchemy.sql.expression import asc, desc, nullsfirst, nullslast, \
+    outerjoin
+from sqlalchemy.sql.functions import Function as SqlFunction
+
+from blitzdb.document import Document
+from blitzdb.fields import ForeignKeyField, ManyToManyField, OneToManyField
+from blitzdb.helpers import get_value
+from blitzdb.queryset import QuerySet as BaseQuerySet
+
 
 class QuerySet(BaseQuerySet):
 
@@ -510,7 +510,7 @@ class QuerySet(BaseQuerySet):
         with self.backend.transaction():
             s = self.get_bare_select(columns = [self.table.c.pk])
             result = self.backend.connection.execute(s)
-            return set([r[0] for r in result.fetchall()])
+            return {r[0] for r in result.fetchall()}
 
     def __ne__(self, other):
         return not self.__eq__(other)

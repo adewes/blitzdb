@@ -1,12 +1,11 @@
 """File backend index."""
 import copy
-
 from collections import defaultdict
 
 from blitzdb.backends.base import NotInTransaction
-from blitzdb.backends.file.serializers import PickleSerializer as Serializer
-from blitzdb.backends.file.utils import JsonEncoder
 from blitzdb.backends.file.queryset import QuerySet
+from blitzdb.backends.file.serializers import PickleSerializer as Serializer
+
 
 class NonUnique(BaseException):
     """Index uniqueness constraint violated"""
@@ -23,8 +22,8 @@ class Index(object):
     :param params: Index parameters such as id and primary key
     :type params: dict
     :param serializer: Used to encode data before storing it.
-    :type serialize: object
-    :param dserializer: Used to decode date after retrieving it.
+    :type serializer: object
+    :param deserializer: Used to decode date after retrieving it.
     :type deserializer: object
     :param store: Where the blobs are stored
     :type store: object
@@ -189,7 +188,7 @@ class Index(object):
         elif order == QuerySet.DESCENDING:
             return sorted_keys + missing_keys
         else:
-            raise ValueError('Unexpected order value: {0:d}'.format(order))
+            raise ValueError('Unexpected order value: {:d}'.format(order))
 
     def save_to_data(self, in_place=False):
         """Save index to data structure.
@@ -292,7 +291,7 @@ class Index(object):
 
         """
         if self._unique and hash_value in self._index:
-            raise NonUnique('Hash value {0} already in index'.format(hash_value))
+            raise NonUnique('Hash value {} already in index'.format(hash_value))
         if store_key not in self._index[hash_value]:
             self._index[hash_value].append(store_key)
         if hash_value not in self._reverse_index[store_key]:

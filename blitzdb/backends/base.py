@@ -1,13 +1,14 @@
 import abc
-import inspect
 import copy
+import inspect
+import logging
+
 import six
 
-import logging
+from blitzdb.document import Document, document_classes
 
 logger = logging.getLogger(__name__)
 
-from blitzdb.document import Document, document_classes
 
 class DoNotSerialize(BaseException):
     """

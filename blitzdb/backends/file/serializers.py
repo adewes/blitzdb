@@ -1,7 +1,8 @@
-from blitzdb.backends.file.utils import JsonEncoder
 import json
-import sys
+
 import six
+
+from blitzdb.backends.file.utils import JsonEncoder
 
 if six.PY3:
     import pickle as cPickle

@@ -1,5 +1,6 @@
 from blitzdb.fields import BaseField
 
+
 class ForeignKeyField(BaseField):
 
     """
@@ -10,8 +11,8 @@ class ForeignKeyField(BaseField):
     - Remove documents from the relation
     """
 
-    def __init__(self,related,backref = None,ondelete = None,*args,**kwargs):
-        super(ForeignKeyField,self).__init__(*args,**kwargs)
+    def __init__(self, related, backref=None, ondelete=None, *args, **kwargs):
+        super(ForeignKeyField, self).__init__(*args, **kwargs)
         self.related = related
         self.backref = backref
         self.ondelete = ondelete

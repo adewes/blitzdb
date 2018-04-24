@@ -1,6 +1,8 @@
-from sqlalchemy.sql import select,func,expression,delete
-from sqlalchemy.sql.expression import join,asc,desc,text,and_
+from sqlalchemy.sql import delete, expression, func, select
+from sqlalchemy.sql.expression import and_, text
+
 from .queryset import QuerySet
+
 
 class ManyToManyProxy(object):
 
@@ -85,7 +87,7 @@ class ManyToManyProxy(object):
         with self.obj.backend.transaction(implicit = True):
 
             #if the object is not yet in a DB, we save it first.
-            
+
             if obj.pk is None:
                 self.obj.backend.save(obj)
 

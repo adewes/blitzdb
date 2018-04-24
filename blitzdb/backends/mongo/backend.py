@@ -1,19 +1,16 @@
-import abc
-import six
-
+import logging
+import traceback
+import uuid
 from collections import defaultdict
 
-from blitzdb.document import Document
+import pymongo
+import six
+
 from blitzdb.backends.base import Backend as BaseBackend
 from blitzdb.backends.base import NotInTransaction
 from blitzdb.backends.mongo.queryset import QuerySet
-import uuid
-import pymongo
-
-import logging
-import traceback
-
-from blitzdb.helpers import get_value,set_value,delete_value
+from blitzdb.document import Document
+from blitzdb.helpers import delete_value, get_value, set_value
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +25,7 @@ class DotEncoder(object):
                 return key.replace(".", cls.DOT_MAGIC_VALUE)
             return key
         if isinstance(obj,dict):
-            return dict([(replace_key(key),value) for key, value in obj.items()])
+            return {replace_key(key):value for key, value in obj.items()}
         return obj
 
     @classmethod
@@ -78,11 +75,11 @@ class Backend(BaseBackend):
     def rollback(self,transaction = None):
         if not self.in_transaction:
             raise NotInTransaction("Not in a transaction!")
-        
+
         self._save_cache = defaultdict(lambda: {})
         self._delete_cache = defaultdict(lambda: {})
         self._update_cache = defaultdict(lambda: {})
-        
+
         self.in_transaction = False
 
     def commit(self,transaction = None):
@@ -92,7 +89,7 @@ class Backend(BaseBackend):
                     try:
                         self.db[collection].save(attributes)
                     except:
-                        logger.error("Error when saving the document with pk {0} in collection {1}".format(attributes['pk'], collection))
+                        logger.error("Error when saving the document with pk {} in collection {}".format(attributes['pk'], collection))
                         logger.error("Attributes (excerpt):" + str(dict(attributes.items()[:100])))
                         raise
 
@@ -132,7 +129,7 @@ class Backend(BaseBackend):
             for pk in pks:
                 self.db[collection].remove({'_id': pk})
         else:
-            self._delete_cache[collection].update(dict([(pk, True) for pk in pks]))
+            self._delete_cache[collection].update({pk: True for pk in pks})
 
     def delete(self, obj):
 
@@ -254,10 +251,10 @@ class Backend(BaseBackend):
     def serialize(self, obj, convert_keys_to_str=True, embed_level=0,
                   encoders=None, autosave=True, for_query=False,path = None):
 
-        return super(Backend, self).serialize(obj, 
-                                              convert_keys_to_str=convert_keys_to_str, 
-                                              embed_level=embed_level, 
-                                              encoders=encoders, 
+        return super(Backend, self).serialize(obj,
+                                              convert_keys_to_str=convert_keys_to_str,
+                                              embed_level=embed_level,
+                                              encoders=encoders,
                                               autosave=autosave,
                                               path=path,
                                               for_query=for_query)
@@ -357,7 +354,7 @@ class Backend(BaseBackend):
 
         .. note::
 
-            This function supports most query operators that are available in MongoDB and returns 
+            This function supports most query operators that are available in MongoDB and returns
             a query set that is based on a MongoDB cursor.
 
         """

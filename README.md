@@ -38,6 +38,8 @@ The detailed documentation for this project is hosted on [ReadTheDocs](http://bl
 
 ## Changelog
 
+* 0.4.4: SQL backend: Do not coerce server_default values via a CAST, as this can cause incompatibilities.
+* 0.4.3: Many small improvements to the SQL backend.
 * 0.3.0: Fully functional SQL backend.
 * 0.2.12: Added support for proper attribute iteration to `Document`.
 * 0.2.11: Allow setting the `collection` parameter through a `Document.Meta` attribute.
@@ -63,7 +65,7 @@ The detailed documentation for this project is hosted on [ReadTheDocs](http://bl
 
 ## Contributors (in alphabetical order)
 
-*  @bwiessneth 
+*  @bwiessneth
 *  Florian Lehmann - @cashaddy
 *  Karskrin - @cBrauge
 *  Chris Mutel - @cmutel
@@ -99,7 +101,7 @@ from blitzdb import Document
 
 class Movie(Document):
     pass
-    
+
 class Actor(Document):
     pass
 
@@ -120,7 +122,7 @@ the_godfather.save(backend)
 marlon_brando.save(backend)
 al_pacino.save(backend)
 ```
-    
+
 ### Retrieving objects from the database:
 
 ```python
@@ -128,7 +130,7 @@ the_godfather = backend.get(Movie,{'pk':1L})
 #or...
 the_godfather = backend.get(Movie,{'name' : 'The Godfather'})
 ```
-    
+
 ### Filtering objects
 
 ```python
@@ -145,7 +147,7 @@ backend.rollback() #undo the changes...
 ```
 
 ### Creating nested object references
-   
+
 ```python
 the_godfather.cast = {'Don Vito Corleone' : marlon_brando, 'Michael Corleone' : al_pacino}
 
