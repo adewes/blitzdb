@@ -19,6 +19,7 @@ python:
   - "3.4"
   - "3.5"
   - "3.6"
+  - "3.7"
   # does not have headers provided, please ask https://launchpad.net/~pypy/+archive/ppa
   # maintainers to fix their pypy-dev package.
   # pypy tests are disabled until I can figure out a way to install the correct packages for this...

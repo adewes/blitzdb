@@ -112,7 +112,6 @@ class QuerySet(BaseQuerySet):
             self.get_deserialized_objects()
         for obj in self.deserialized_objects:
             yield obj
-        raise StopIteration
 
     def __contains__(self, obj):
         #todo: optimize this so we don't go to the database
