@@ -3,7 +3,7 @@ from collections import OrderedDict
 
 import six
 import sqlalchemy
-from sqlalchemy.sql import expression, func, select
+from sqlalchemy.sql import column, expression, func, select
 from sqlalchemy.sql.expression import asc, desc, nullsfirst, nullslast, \
     outerjoin
 from sqlalchemy.sql.functions import Function as SqlFunction
@@ -412,8 +412,8 @@ class QuerySet(BaseQuerySet):
         #here the .self_group() is necessary to ensure the correct grouping within the INTERSECT...
         my_s = self.get_bare_select(columns = [self.table.c.pk.label('pk')]).alias()
         qs_s = qs.get_bare_select(columns = [qs.table.c.pk.label('pk')]).alias()
-        my_pk_s = select(['pk']).select_from(my_s)
-        qs_pk_s = select(['pk']).select_from(qs_s)
+        my_pk_s = select([column('pk')]).select_from(my_s)
+        qs_pk_s = select([column('pk')]).select_from(qs_s)
         condition = self.table.c.pk.in_(expression.intersect(my_pk_s,qs_pk_s))
         new_qs = QuerySet(self.backend,
                           self.table,
