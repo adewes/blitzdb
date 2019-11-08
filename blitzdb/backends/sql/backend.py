@@ -2,6 +2,7 @@ import logging
 import re
 import uuid
 from collections import defaultdict
+import sys
 from types import LambdaType
 
 import six
@@ -25,6 +26,8 @@ from .queryset import QuerySet
 from .relations import ManyToManyProxy
 
 logger = logging.getLogger(__name__)
+
+PatternType = re.Pattern if sys.version_info >= (3,7) else re._pattern_type
 
 
 @compiles(DateTime, "sqlite")
@@ -1282,7 +1285,7 @@ class Backend(BaseBackend):
             for key,value in query.items():
                 for field_name,params in self._index_fields[collection].items():
                     if key == field_name:
-                        if isinstance(value,re._pattern_type):
+                        if isinstance(value,PatternType):
                             value = {'$regex' : value.pattern}
                         if isinstance(value,dict):
                             #this is a special query
