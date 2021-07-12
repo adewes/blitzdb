@@ -946,7 +946,7 @@ class Backend(BaseBackend):
                         raise AttributeError("Included field '{}' is not a related object!".format(main_include))
                     #if we ask for github_data and github_data.full_name is an index field, we
                     #need to fetch both the `data` field and the github_data_full_name index field.
-                    #by adding the . we make sure that we won't inlcude e.g. committer_date
+                    #by adding the . we make sure that we won't include e.g. committer_date
                     #if committer_date_ts is asked for.
                     for key,params in self._index_fields[collection].items():
                         if key == main_include:
@@ -977,7 +977,7 @@ class Backend(BaseBackend):
                 else:
                     include['lazy'] = False
 
-        #we add the order_by_keys seperately
+        #we add the order_by_keys separately
         #(these should not influence whether a document is fetched lazily or not)
         for order_by_key in order_by_keys:
             resolve_include(order_by_key,collection,include_params)

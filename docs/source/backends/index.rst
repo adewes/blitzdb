@@ -17,7 +17,7 @@ Currently, Blitz comes with two preinstalled backends:
     MongoDB <mongo>
 
 
-* :doc:`Native Backend <file>` The **native backend**, which we sometimes refer to as the **file-based backend** uses a file-based index and flat files to store objects in a local directory. It has not any external dependencies and is usually sufficent for most low- to mid-end applications.
+* :doc:`Native Backend <file>` The **native backend**, which we sometimes refer to as the **file-based backend** uses a file-based index and flat files to store objects in a local directory. It has not any external dependencies and is usually sufficient for most low- to mid-end applications.
 
 * :doc:`MongoDB Backend <mongo>` The **MongoDB backend** uses `PyMongo <http://api.mongodb.org/python/2.7rc0/>`_ to store and retrieve documents from a MongoDB database. It can be used in high-end applications, where use of a professional database engine is advocated.
 

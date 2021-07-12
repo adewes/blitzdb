@@ -57,7 +57,7 @@ class Backend(BaseBackend):
     Uses flat files to store objects on the hard disk and file-based indexes to
     optimize querying.
 
-    :param path: The path to the database. If non-existant it will be created
+    :param path: The path to the database. If non-existent it will be created
     :param config:
         The configuration dictionary. If not specified, Blitz will try to load
         it from disk.  If this fails, the default configuration will be used

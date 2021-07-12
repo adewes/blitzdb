@@ -107,7 +107,7 @@ In addition, since Blitz is a **transactional database**, we have to call the :p
 
 .. note:: 
 
-    Use the :py:meth:`Backend.begin <blitzdb.backends.file.Backend.begin>` function to start a new database transaction and the :py:meth:`Backend.rollback <blitzdb.backends.file.Backend.rollback>` function to roll back the state of the database to the beginning of a transaction, if needed. By default, Blitz uses a **local isolation level** for transactions, so changes you make to the state of the database will be visible to parts of your program using the same backend, but will only be written to disk when :py:meth:`Backend.commit <blitzdb.backends.file.Backend.commit>` is invoked. If you like autocommits set the :py:meth:`Backend.autocomit <blitzdb.backends.file.Backend.autocommit>` to True after instantiating the backend
+    Use the :py:meth:`Backend.begin <blitzdb.backends.file.Backend.begin>` function to start a new database transaction and the :py:meth:`Backend.rollback <blitzdb.backends.file.Backend.rollback>` function to roll back the state of the database to the beginning of a transaction, if needed. By default, Blitz uses a **local isolation level** for transactions, so changes you make to the state of the database will be visible to parts of your program using the same backend, but will only be written to disk when :py:meth:`Backend.commit <blitzdb.backends.file.Backend.commit>` is invoked. If you like autocommits set the :py:meth:`Backend.autocommit <blitzdb.backends.file.Backend.autocommit>` to True after instantiating the backend
 
 Retrieving Documents
 --------------------
@@ -228,10 +228,10 @@ Like MongoDB, Blitz supports advanced query operators, which you can include in 
 
 * **$and** : Performs a boolean **AND** on two or more expressions
 * **$or** : Performs a boolean **OR** on two or more expressions
-* **$gt** : Performs a **>** comparision between an attribute and a specified value
-* **$gte** : Performs a **>=** comparision between an attribute and a specified value
-* **$lt** : Performs a **<** comparision between an attribute and a specified value
-* **$lte** : Performs a **<=** comparision between an attribute and a specified value
+* **$gt** : Performs a **>** comparison between an attribute and a specified value
+* **$gte** : Performs a **>=** comparison between an attribute and a specified value
+* **$lt** : Performs a **<** comparison between an attribute and a specified value
+* **$lte** : Performs a **<=** comparison between an attribute and a specified value
 * **$all** : Returns documents containing all values in the argument list.
 * **$in** : Returns documents matching at least one of the values in the argument list.
 * **$ne** : Performs a **not equal** operation on the given expression
