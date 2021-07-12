@@ -158,7 +158,7 @@ class Index(object):
 
         :param keys: Keys to be sorted
         :type keys: list(str)
-        :param order: Order criteri (asending or descending)
+        :param order: Order criteri (ascending or descending)
         :type order: int
         :return: Sorted keys
         :rtype: list(str)
